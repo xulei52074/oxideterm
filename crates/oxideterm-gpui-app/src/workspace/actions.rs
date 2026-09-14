@@ -1695,6 +1695,25 @@ impl WorkspaceApp {
         // protected connection credentials are never read into this path.
         let pane_entity = self.tab_host.read(cx).panes().get(&pane_id).cloned()?;
         let pane = pane_entity.read(cx);
+
+        // A RayOps session is not a quick-command target, and the check belongs here rather
+        // than in the protocol match below.
+        //
+        // Quick commands are local-side automation: the user writes them for their own
+        // shells. A RayOps session is a remote session on a managed asset, and its commands
+        // are governed server-side. Offering a local-flavoured command against it would both
+        // misrepresent the target and put the command on the asset through RayOps.
+        //
+        // Returning early rather than mapping to an existing `QuickCommandTargetProtocol` is
+        // what keeps this out of the persisted enum: `protocol` is empty-list-permissive
+        // (`editing.rs:261`), so *any* existing value would match commands the user never
+        // intended for a remote host. Rejecting the context covers the empty list and every
+        // explicit list at once, and it avoids the broadcast-entry and saved-connection reads
+        // below, which have nothing to contribute here.
+        if !Self::session_kind_can_host_quick_commands(pane.session_kind()) {
+            return None;
+        }
+
         let entry = self
             .terminal_broadcast_entries(cx)
             .into_iter()
@@ -1726,18 +1745,16 @@ impl WorkspaceApp {
             TerminalSessionKind::Telnet => QuickCommandTargetProtocol::Telnet,
             TerminalSessionKind::Mosh => QuickCommandTargetProtocol::Mosh,
             TerminalSessionKind::Serial => QuickCommandTargetProtocol::Serial,
-            // A RayOps session deliberately does not get its own protocol here.
+            // Unreachable: the guard above returns before this match. Kept as an arm rather
+            // than a wildcard so adding another session kind keeps failing the build until
+            // someone decides whether it can host a quick-command target.
             //
-            // `QuickCommandTargetProtocol` is serialized into the quick-command store and
-            // mirrored into the public MCP surface, so adding a variant is a persisted-format
-            // and public-API change — exactly the cost `docs/adr/0002-session-integration.md`
-            // decided to defer. `Local` is used as a value no stored command names, so a
-            // command scoped to SSH or Telnet never offers itself on a RayOps session.
-            //
-            // The consequence to be aware of: a command with no protocol restriction is
-            // offered here, which is why the Phase 2 work must decide separately whether
-            // quick commands should run against RayOps sessions at all.
-            TerminalSessionKind::RayOps => QuickCommandTargetProtocol::Local,
+            // `unreachable!()` rather than a placeholder protocol: if a future edit removes
+            // the guard, a placeholder would silently resume offering local commands against
+            // a remote session, which is the exact defect this code replaced.
+            TerminalSessionKind::RayOps => unreachable!(
+                "RayOps sessions are rejected before this match; see the guard above"
+            ),
         };
         if pane.is_tmux_control_mode() {
             protocol = QuickCommandTargetProtocol::Tmux;
@@ -1757,6 +1774,32 @@ impl WorkspaceApp {
             values,
         })
     }
+
+/// Whether a session of `kind` can be a quick-command target.
+///
+/// An associated function rather than a free one so it sits next to the caller it guards.
+///
+/// The rule lives separately because the alternative — testing it through
+/// `quick_command_context_for_pane` — needs a fully constructed workspace and pane tree, so
+/// nothing would assert it. As a pure predicate it is testable directly, and adding a
+/// session kind leaves one place to decide.
+///
+/// RayOps is excluded for a reason specific to it: its sessions run on managed assets and
+/// their commands are governed server-side, whereas quick commands are local-side automation
+/// the user wrote for their own shells. `QuickCommandTargetProtocol` cannot express the
+/// distinction either, because an empty protocol list matches every target
+/// (`oxideterm-quick-commands/src/editing.rs:261`), so any existing value would let a
+/// locally intended command reach a remote host through RayOps.
+fn session_kind_can_host_quick_commands(kind: TerminalSessionKind) -> bool {
+    match kind {
+        TerminalSessionKind::LocalPty
+        | TerminalSessionKind::SshPty
+        | TerminalSessionKind::Telnet
+        | TerminalSessionKind::Mosh
+        | TerminalSessionKind::Serial => true,
+        TerminalSessionKind::RayOps => false,
+    }
+}
 
     fn apply_saved_quick_command_context(
         &self,
@@ -3055,6 +3098,50 @@ mod keybinding_update_tests {
                 assert_eq!(target.input, expected_input, "{label}");
                 assert_eq!(target.actions, expected_actions, "{label}");
             });
+        }
+    }
+}
+
+#[cfg(test)]
+mod quick_command_target_tests {
+    use super::*;
+
+    /// A RayOps session must never be offered as a quick-command target.
+    ///
+    /// This is the regression guard for a real defect: the first version of the RayOps
+    /// session kind mapped to `QuickCommandTargetProtocol::Local`, and because an empty
+    /// protocol list matches every target, a command the user wrote for their own shell
+    /// became applicable to a managed remote asset. The test asserts the rule directly,
+    /// because testing it through `quick_command_context_for_pane` needs a full workspace
+    /// and pane tree.
+    #[test]
+    fn rayops_sessions_cannot_host_quick_commands() {
+        assert!(
+            !WorkspaceApp::session_kind_can_host_quick_commands(TerminalSessionKind::RayOps),
+            "a RayOps session runs on a managed asset with server-side command governance; \
+             offering it as a quick-command target would put locally intended commands on \
+             that asset"
+        );
+    }
+
+    /// Every other session kind keeps its existing behaviour.
+    ///
+    /// Stated as an exhaustive list rather than a spot check so that adding a session kind
+    /// fails to compile here until someone decides whether it can host quick commands —
+    /// which is the same decision the guard's `match` forces at the call site.
+    #[test]
+    fn every_other_session_kind_still_hosts_quick_commands() {
+        for kind in [
+            TerminalSessionKind::LocalPty,
+            TerminalSessionKind::SshPty,
+            TerminalSessionKind::Telnet,
+            TerminalSessionKind::Mosh,
+            TerminalSessionKind::Serial,
+        ] {
+            assert!(
+                WorkspaceApp::session_kind_can_host_quick_commands(kind),
+                "{kind:?} lost its quick-command target, which is a behaviour change"
+            );
         }
     }
 }
