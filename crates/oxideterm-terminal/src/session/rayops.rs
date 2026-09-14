@@ -40,8 +40,8 @@ enum RayOpsCommand {
     Input(Vec<u8>),
     /// A geometry change.
     Resize { cols: u16, rows: u16 },
-    /// End the session.
-    Close,
+    /// End the session and let the pump drop the socket.
+    Shutdown,
 }
 
 pub struct RayOpsSession {
@@ -126,6 +126,10 @@ impl RayOpsSession {
                     config.socket,
                     worker_tx,
                     command_rx,
+                    (
+                        resize.cols.min(u16::MAX as usize) as u16,
+                        resize.rows.min(u16::MAX as usize) as u16,
+                    ),
                 ));
             }
             None => {
@@ -275,6 +279,10 @@ impl RayOpsSession {
                 RayOpsWorkerEvent::Output(bytes) => {
                     self.output_frames += 1;
                     self.feed_plain_transport_output(&bytes);
+                    // The terminal model changed, so the render loop has to be woken. Other
+                    // backends push this from their event listener; the socket task cannot,
+                    // because the model is owned here.
+                    self.pending_events.push(TerminalEvent::Wakeup);
                     report.mark_changed();
                 }
                 RayOpsWorkerEvent::Established { terminal_id } => {
@@ -340,10 +348,12 @@ async fn rayops_socket_task(
     mut socket: Box<dyn oxideterm_rayops::Socket>,
     worker_tx: crate::backpressure::ByteBoundedSender<RayOpsWorkerEvent>,
     mut commands: tokio::sync::mpsc::Receiver<RayOpsCommand>,
+    geometry: (u16, u16),
 ) {
     use oxideterm_rayops::SessionState;
 
     let mut state = SessionState::new();
+    let mut geometry_sent = false;
 
     loop {
         tokio::select! {
@@ -353,6 +363,21 @@ async fn rayops_socket_task(
                     return;
                 };
                 let (events, outbound) = state.handle(event);
+
+                // The handshake carried the geometry, but the gateway's own `TERMINAL_INIT` is
+                // what sets the PTY size authoritatively. Sending it once, right after the
+                // session is established, keeps the remote shell's width in step with the pane;
+                // skipping it leaves output wrapped for whatever the shell defaulted to.
+                let mut outbound = outbound;
+                if !geometry_sent
+                    && state.phase() == oxideterm_rayops::Phase::Established
+                    && let Some(size) = oxideterm_rayops::TerminalSize::new(geometry.0, geometry.1)
+                {
+                    outbound.push(oxideterm_rayops::OutboundEvent::Frame(
+                        oxideterm_rayops::ClientFrame::terminal_init(size).to_json(),
+                    ));
+                    geometry_sent = true;
+                }
                 for event in events {
                     let forwarded = match event {
                         oxideterm_rayops::SessionEvent::Output(bytes) => {
@@ -395,7 +420,7 @@ async fn rayops_socket_task(
                         .await;
                     return;
                 };
-                let closing = matches!(command, RayOpsCommand::Close);
+                let closing = matches!(command, RayOpsCommand::Shutdown);
                 let frame = match command {
                     RayOpsCommand::Input(bytes) => match String::from_utf8(bytes) {
                         Ok(text) => state.input(text),
@@ -410,7 +435,7 @@ async fn rayops_socket_task(
                         }
                     },
                     RayOpsCommand::Resize { cols, rows } => state.resize(cols, rows),
-                    RayOpsCommand::Close => {
+                    RayOpsCommand::Shutdown => {
                         Some(state.close(oxideterm_rayops::CLOSE_NORMAL, "closed"))
                     }
                 };
@@ -545,11 +570,17 @@ impl TerminalSessionBackend for RayOpsSession {
         // without a reply, so the failure would otherwise be invisible. `SessionState::resize`
         // additionally de-duplicates, because the gateway forwards every accepted resize to
         // the PTY.
-        if grid_changed && resize.cols > 0 && resize.rows > 0 {
-            self.send_command(RayOpsCommand::Resize {
-                cols: resize.cols.min(u16::MAX as usize) as u16,
-                rows: resize.rows.min(u16::MAX as usize) as u16,
-            })?;
+        if grid_changed {
+            // Converted rather than clamped: a geometry wider than the protocol can express
+            // is an error the caller can see, whereas clamping would silently send a size the
+            // user did not ask for and the PTY would reflow to it.
+            let cols = u16::try_from(resize.cols)
+                .map_err(|_| anyhow::anyhow!("terminal width {} exceeds the protocol", resize.cols))?;
+            let rows = u16::try_from(resize.rows)
+                .map_err(|_| anyhow::anyhow!("terminal height {} exceeds the protocol", resize.rows))?;
+            if cols > 0 && rows > 0 {
+                self.send_command(RayOpsCommand::Resize { cols, rows })?;
+            }
         }
         Ok(())
     }
@@ -634,7 +665,7 @@ impl TerminalSessionBackend for RayOpsSession {
         if matches!(self.lifecycle, TerminalLifecycle::Closed) {
             return;
         }
-        let _ = self.send_command(RayOpsCommand::Close);
+        let _ = self.send_command(RayOpsCommand::Shutdown);
         // Dropping the runtime cancels the socket task, which owns the transport. It is
         // dropped rather than kept so a shut-down session cannot leave a task holding a live
         // gateway connection.
