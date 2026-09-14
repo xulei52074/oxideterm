@@ -242,9 +242,10 @@ fn main() {
                 .unwrap_or_default(),
         ) {
             eprintln!(
-                "OxideTerm could not reopen a native GPUI window: {error:#}\n\
+                "{} could not reopen a native GPUI window: {error:#}\n\
                  Try updating GPU drivers, disabling incompatible graphics layers, \
-                 or relaunching with OXIDETERM_RENDER_PROFILE=compatibility."
+                 or relaunching with OXIDETERM_RENDER_PROFILE=compatibility.",
+                oxideterm_settings::PRODUCT_NAME
             );
         }
     });
@@ -285,10 +286,11 @@ fn main() {
             Ok(workspace_opened) => workspace_opened,
             Err(err) => {
                 eprintln!(
-                    "OxideTerm could not open a native GPUI window: {err:#}\n\
+                    "{} could not open a native GPUI window: {err:#}\n\
                      GPUI 0.2.2 does not expose a CPU renderer fallback. \
                      Try updating GPU drivers, disabling incompatible graphics layers, \
-                     or relaunching with OXIDETERM_RENDER_PROFILE=compatibility."
+                     or relaunching with OXIDETERM_RENDER_PROFILE=compatibility.",
+                    oxideterm_settings::PRODUCT_NAME
                 );
                 cx.quit();
                 return;

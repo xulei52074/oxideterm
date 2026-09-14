@@ -1,6 +1,24 @@
 // Copyright (C) 2026 AnalyseDeCircuit
 // SPDX-License-Identifier: GPL-3.0-only
 
+/// The product name shown to users: window titles, dialogs, notifications.
+///
+/// One constant because the name was previously hard-coded in each place that needed it, which
+/// is how a rename left the macOS menu bar, a detached window title and a start-up dialog still
+/// saying the old name while the menus said the new one. Anything user-visible should read this
+/// rather than repeat a literal.
+///
+/// Not for the bundle identifier, the data directory, or the shell-integration path: those are
+/// compatibility contracts with existing installations and remote hosts, and changing them
+/// would lose settings or break integration that is already deployed.
+pub const PRODUCT_NAME: &str = "RayTerm";
+
+/// The executable name, used wherever the binary name is needed as a string.
+///
+/// Kept beside the product name because the two must agree: on macOS a binary run outside a
+/// bundle takes its menu-bar title from the executable name, so a mismatch is visible.
+pub const EXECUTABLE_NAME: &str = "rayterm";
+
 mod background_images;
 mod model;
 mod normalize;

@@ -82,7 +82,8 @@ fn ensure_versioned_snapshot(
     }
     if !data_dir.is_dir() {
         return Err(anyhow!(
-            "OxideTerm data path is not a directory: {}",
+            "{} data path is not a directory: {}",
+            oxideterm_settings::PRODUCT_NAME,
             data_dir.display()
         ));
     }
@@ -148,11 +149,11 @@ impl SnapshotPaths {
         let parent = data_dir
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
-            .ok_or_else(|| anyhow!("OxideTerm data directory has no parent"))?;
+            .ok_or_else(|| anyhow!("{} data directory has no parent", oxideterm_settings::PRODUCT_NAME))?;
         let data_name = data_dir
             .file_name()
             .filter(|name| !name.is_empty())
-            .ok_or_else(|| anyhow!("OxideTerm data directory has no name"))?;
+            .ok_or_else(|| anyhow!("{} data directory has no name", oxideterm_settings::PRODUCT_NAME))?;
         let safe_version = safe_path_component(source_version)?;
 
         let mut snapshot_name = OsString::from(data_name);

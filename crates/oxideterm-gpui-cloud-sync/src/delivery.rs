@@ -878,13 +878,14 @@ async fn write_google_oauth_callback_response(
     stream: &mut tokio::net::TcpStream,
     success: bool,
 ) -> anyhow::Result<()> {
+    let product = oxideterm_settings::PRODUCT_NAME;
     let title = if success {
-        "OxideTerm Google Drive login finished"
+        format!("{product} Google Drive login finished")
     } else {
-        "OxideTerm Google Drive login failed"
+        format!("{product} Google Drive login failed")
     };
     let body = format!(
-        "<!doctype html><meta charset=\"utf-8\"><title>{title}</title><body><h1>{title}</h1><p>You can return to OxideTerm now.</p></body>"
+        "<!doctype html><meta charset=\"utf-8\"><title>{title}</title><body><h1>{title}</h1><p>You can return to {product} now.</p></body>"
     );
     let response = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",

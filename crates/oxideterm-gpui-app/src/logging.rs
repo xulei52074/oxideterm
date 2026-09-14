@@ -144,7 +144,8 @@ pub(crate) fn init_file_logging(
         log_path = %log_path.display(),
         max_log_file_bytes = MAX_LOG_FILE_BYTES,
         debug_logging = settings.diagnostics.debug_logging,
-        "OxideTerm native file logging initialized"
+        "{} native file logging initialized",
+        oxideterm_settings::PRODUCT_NAME
     );
     Ok(Some(guard))
 }
