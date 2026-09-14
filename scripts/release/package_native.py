@@ -37,8 +37,14 @@ MACOS_DMG_FORCE_DETACH_MAX_ATTEMPTS = 15
 MACOS_DMG_DETACH_RETRY_DELAY_SECONDS = 2
 MACOS_RESOURCE_BUSY_EXIT_CODE = 16
 DIST_DIR = ROOT_DIR / "dist"
-BASE_APP_NAME = "OxideTerm"
-STABLE_APP_IDENTIFIER = "com.oxideterm.app"
+# The name users see: the macOS bundle name and therefore the menu-bar title, the Windows
+# install directory, the Linux .desktop entry. Kept here rather than derived from the crate
+# name so that renaming the product does not require touching upstream source.
+BASE_APP_NAME = "RayTerm"
+STABLE_APP_IDENTIFIER = "com.rayterm.app"
+# Deliberately unchanged. The executable name doubles as the ACP adapter command that AI
+# presets invoke and is stored in existing settings, so renaming it here would silently break
+# those. On macOS the visible title comes from CFBundleName above, not from this.
 APP_BIN = "oxideterm-native"
 CLI_BIN = "oxideterm"
 CONNECTION_URI_SCHEMES = ("ssh", "telnet", "mosh", "rdp", "vnc")

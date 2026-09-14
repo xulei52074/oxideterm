@@ -6,7 +6,7 @@ use std::path::PathBuf;
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 const APP_NAME: &str = "RayTerm";
 #[cfg(target_os = "linux")]
-const LINUX_DESKTOP_ID: &str = "com.oxideterm.app";
+const LINUX_DESKTOP_ID: &str = "com.rayterm.app";
 
 /// Returns whether the current user's startup registration points at this executable.
 pub fn is_enabled() -> io::Result<bool> {

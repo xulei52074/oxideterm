@@ -9,7 +9,14 @@ use gpui::{
 };
 use oxideterm_theme::UiMetrics;
 
-const OXIDETERM_APP_ID: &str = "com.oxideterm.app";
+/// The bundle / desktop-entry identifier this application registers under.
+///
+/// Renamed with the product. Unlike the data directory or the shell-integration path this is not
+/// a compatibility contract on macOS and Linux: nothing is stored under it, so an existing
+/// installation keeps its settings in `~/.oxideterm` and simply registers under the new id.
+/// Windows URL-protocol registrations move with it, which is why the packaging script and this
+/// constant must agree.
+const APP_ID: &str = "com.rayterm.app";
 
 /// Constructs the native GPUI application through the vendored platform boundary.
 pub fn application() -> gpui::Application {
@@ -57,7 +64,7 @@ pub fn window_options_with_bounds(window_bounds: WindowBounds) -> WindowOptions 
         )),
         // Linux compositors use app_id to associate runtime windows with the
         // desktop file and package icon generated from the bundle metadata.
-        app_id: Some(OXIDETERM_APP_ID.to_string()),
+        app_id: Some(APP_ID.to_string()),
         ..Default::default()
     }
 }

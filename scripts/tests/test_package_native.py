@@ -135,12 +135,14 @@ class WindowsInstallerScriptTests(unittest.TestCase):
         self.assertIn('StrCpy $IsOxideUpdate "1"', script)
         self.assertIn('StrCpy $IsLegacyUpgrade "1"', script)
         self.assertIn('SetSilent silent', script)
+        # Shortcuts are created under the current product name; the two assertions above stay on
+        # the old paths because they cover detecting a pre-existing legacy install.
         self.assertIn(
-            'CreateShortcut "$SMPROGRAMS\\OxideTerm\\OxideTerm.lnk" '
+            'CreateShortcut "$SMPROGRAMS\\RayTerm\\RayTerm.lnk" '
             '"$INSTDIR\\oxideterm-native.exe"',
             script,
         )
-        self.assertIn('IfFileExists "$DESKTOP\\OxideTerm.lnk"', script)
+        self.assertIn('CreateShortcut "$DESKTOP\\RayTerm.lnk"', script)
 
     def test_installer_registers_connection_uri_capabilities_without_embedding_credentials(self) -> None:
         identity = self.identity()
@@ -480,7 +482,7 @@ class LinuxDesktopEntryTests(unittest.TestCase):
             )
 
             desktop_entry = desktop_file.read_text(encoding="utf-8")
-            self.assertIn("StartupWMClass=com.oxideterm.app", desktop_entry)
+            self.assertIn("StartupWMClass=com.rayterm.app", desktop_entry)
             for scheme in package_native.CONNECTION_URI_SCHEMES:
                 self.assertIn(f"x-scheme-handler/{scheme}", desktop_entry)
 
