@@ -63,9 +63,9 @@
     },
     "chat": {
       "header": "聊天",
-      "get_started": "開始使用 OxideSens",
-      "title": "OxideSens",
-      "disabled_message": "在設定中啟用 AI 以開始與 OxideSens 對話。",
+      "get_started": "開始使用 RayTerm AI",
+      "title": "RayTerm AI",
+      "disabled_message": "在設定中啟用 AI 以開始與 RayTerm AI 對話。",
       "open_settings": "開啟設定",
       "new_chat": "新聊天",
       "new_chat_tooltip": "新聊天",
@@ -74,8 +74,8 @@
       "clear_all": "全部清除",
       "clear_all_confirm": "確定要刪除所有對話嗎？",
       "load_failed_title": "無法載入聊天記錄",
-      "load_failed_generic": "OxideSens 無法從本機資料庫載入聊天記錄。",
-      "database_locked": "另一個 OxideTerm 執行個體正在使用聊天資料庫。請先關閉另一個執行個體後再試一次。",
+      "load_failed_generic": "RayTerm AI 無法從本機資料庫載入聊天記錄。",
+      "database_locked": "另一個 RayTerm 執行個體正在使用聊天資料庫。請先關閉另一個執行個體後再試一次。",
       "database_upgrade_required": "此聊天資料庫需要較新的遷移路徑，因此無法安全開啟。",
       "conversations": "對話",
       "archive_conversation": "封存對話",
@@ -131,7 +131,7 @@
       "send_btn": "傳送",
       "send_key": "傳送",
       "newline_key": "換行",
-      "thinking": "OxideSens 思考中..."
+      "thinking": "RayTerm AI 思考中..."
     },
     "message": {
       "you": "您",
@@ -440,7 +440,7 @@
       }
     },
     "guardrail": {
-      "tool_disabled_hard_deny_retry": "此聊天已停用工具使用，但模型輸出了偽工具記錄。OxideSens 已要求改用自然語言重試。",
+      "tool_disabled_hard_deny_retry": "此聊天已停用工具使用，但模型輸出了偽工具記錄。RayTerm AI 已要求改用自然語言重試。",
       "tool_disabled_hard_deny_final": "此聊天已停用工具使用，但模型再次輸出了偽工具記錄。原始輸出預設隱藏。",
       "synthetic_tool_denial_reason": "工具執行已被使用者設定停用。",
       "synthetic_tool_denial_detail": "請以自然語言說明這項限制，不要輸出工具 JSON 或工具結果記錄。"
@@ -524,7 +524,7 @@
       "cwd_desc": "目前工作目錄"
     },
     "sidebar": {
-      "not_enabled_hint": "OxideSens 尚未啟用。請前往 設定 → OxideSens 開啟後使用。"
+      "not_enabled_hint": "RayTerm AI 尚未啟用。請前往 設定 → RayTerm AI 開啟後使用。"
     },
     "reasoning": {
       "title": "思考強度",

@@ -156,24 +156,24 @@ impl WorkspaceApp {
             prompt.push_str(safe_value.as_str());
         };
         if let Some(instructions) = task_system_prompt.filter(|value| !value.trim().is_empty()) {
-            append_prompt_section("OxideTerm Instructions", &instructions);
+            append_prompt_section("RayTerm Instructions", &instructions);
         }
         if let Some(memory) = config
             .memory_context
             .as_deref()
             .filter(|value| !value.trim().is_empty())
         {
-            append_prompt_section("OxideTerm Scoped Memory", memory);
+            append_prompt_section("RayTerm Scoped Memory", memory);
         }
         if let Some((skill_catalog, _catalog_hash)) = pending_skill_catalog.as_ref() {
-            append_prompt_section("OxideTerm Agent Skills", &skill_catalog);
+            append_prompt_section("RayTerm Agent Skills", &skill_catalog);
         }
         if let Some(context) = request_message
             .as_ref()
             .and_then(|message| message.context.as_deref())
             .filter(|value| !value.trim().is_empty())
         {
-            append_prompt_section("OxideTerm Current Context", context);
+            append_prompt_section("RayTerm Current Context", context);
         }
         append_prompt_section("User Request", &user_request);
         drop(append_prompt_section);

@@ -187,7 +187,7 @@
       "title_unknown": "Unbekannter Hostschlüssel",
       "title_changed": "Hostschlüssel geändert",
       "title_error": "Hostschlüsselfehler",
-      "unknown_message": "OxideTerm sieht diesen SSH-Hostschlüssel zum ersten Mal. Prüfen Sie den Fingerabdruck, bevor Sie fortfahren.",
+      "unknown_message": "RayTerm sieht diesen SSH-Hostschlüssel zum ersten Mal. Prüfen Sie den Fingerabdruck, bevor Sie fortfahren.",
       "changed_warning": "Der gespeicherte SSH-Hostschlüssel für diesen Host stimmt nicht mit dem Serverschlüssel überein. Dies kann auf einen Man-in-the-Middle-Angriff hinweisen.",
       "key_type_label": "Schlüsseltyp",
       "fingerprint_label": "Fingerabdruck",

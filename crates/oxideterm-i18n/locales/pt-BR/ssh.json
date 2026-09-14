@@ -187,7 +187,7 @@
       "title_unknown": "Chave de host desconhecida",
       "title_changed": "Chave de host alterada",
       "title_error": "Erro de chave de host",
-      "unknown_message": "Esta é a primeira vez que o OxideTerm vê esta chave de host SSH. Verifique a impressão digital antes de continuar.",
+      "unknown_message": "Esta é a primeira vez que o RayTerm vê esta chave de host SSH. Verifique a impressão digital antes de continuar.",
       "changed_warning": "A chave de host SSH salva para este host não corresponde à chave do servidor. Isso pode indicar um ataque man-in-the-middle.",
       "key_type_label": "Tipo de chave",
       "fingerprint_label": "Impressão digital",

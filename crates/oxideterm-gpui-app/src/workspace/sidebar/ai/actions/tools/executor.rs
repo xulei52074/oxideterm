@@ -144,7 +144,7 @@ impl AiModelBackendServices {
             _ => snapshot.fail(
                 "Unknown orchestrator tool.",
                 "unknown_tool",
-                format!("{tool_name} is not an OxideSens task tool."),
+                format!("{tool_name} is not an RayTerm AI task tool."),
                 "read",
             ),
         };
@@ -1193,7 +1193,7 @@ impl AiOrchestratorRuntimeSnapshot {
                     .and_then(serde_json::Value::as_u64)
                     .unwrap_or(0)
             ),
-            "health" => "Read OxideTerm health state.".to_string(),
+            "health" => "Read RayTerm health state.".to_string(),
             _ => unreachable!("scope was validated above"),
         };
         let result = self

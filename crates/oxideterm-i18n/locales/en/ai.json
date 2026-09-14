@@ -62,10 +62,10 @@
       "notification_body": "Finished after {{count}} runs."
     },
     "chat": {
-      "title": "OxideSens",
+      "title": "RayTerm AI",
       "header": "Chat",
-      "get_started": "Get Started with OxideSens",
-      "disabled_message": "Enable AI in Settings to start chatting with OxideSens.",
+      "get_started": "Get Started with RayTerm AI",
+      "disabled_message": "Enable AI in Settings to start chatting with RayTerm AI.",
       "open_settings": "Open Settings",
       "new_chat": "New Chat",
       "new_chat_tooltip": "New chat",
@@ -74,8 +74,8 @@
       "clear_all": "Clear all",
       "clear_all_confirm": "Are you sure you want to delete all conversations?",
       "load_failed_title": "Unable to load chat history",
-      "load_failed_generic": "OxideSens could not load chat history from the local database.",
-      "database_locked": "Another OxideTerm instance is using the chat database. Close the other instance, then retry.",
+      "load_failed_generic": "RayTerm AI could not load chat history from the local database.",
+      "database_locked": "Another RayTerm instance is using the chat database. Close the other instance, then retry.",
       "database_upgrade_required": "This chat database requires a newer migration path and could not be opened safely.",
       "conversations": "Conversations",
       "archive_conversation": "Archive conversation",
@@ -131,7 +131,7 @@
       "send_btn": "Send",
       "send_key": "Send",
       "newline_key": "New Line",
-      "thinking": "OxideSens is thinking..."
+      "thinking": "RayTerm AI is thinking..."
     },
     "message": {
       "you": "You",
@@ -440,7 +440,7 @@
       }
     },
     "guardrail": {
-      "tool_disabled_hard_deny_retry": "Tool use is disabled for this chat, and the model emitted a pseudo-tool transcript. OxideSens requested a plain-language retry.",
+      "tool_disabled_hard_deny_retry": "Tool use is disabled for this chat, and the model emitted a pseudo-tool transcript. RayTerm AI requested a plain-language retry.",
       "tool_disabled_hard_deny_final": "Tool use is disabled for this chat, and the model repeated a pseudo-tool transcript. The raw output is hidden by default.",
       "synthetic_tool_denial_reason": "Tool execution is disabled by user settings.",
       "synthetic_tool_denial_detail": "Explain the limitation in natural language instead of emitting tool JSON or tool result transcripts."
@@ -524,7 +524,7 @@
       "cwd_desc": "Current working directory"
     },
     "sidebar": {
-      "not_enabled_hint": "OxideSens is not enabled. Please enable it in Settings → OxideSens to get started."
+      "not_enabled_hint": "RayTerm AI is not enabled. Please enable it in Settings → RayTerm AI to get started."
     },
     "reasoning": {
       "title": "Thinking Effort",

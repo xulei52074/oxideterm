@@ -46,7 +46,7 @@ impl PublicMcpTerminalWindowEffect {
         };
         if let Some(request) = request {
             request.finish(ToolEnvelope::failed(
-                "A live OxideTerm window is required for terminal sessions",
+                "A live RayTerm window is required for terminal sessions",
             ));
         }
     }

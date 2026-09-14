@@ -203,7 +203,7 @@ fn builtin_provider_manifest_with_mode(
     RemoteDesktopProviderManifest {
         id: id.to_string(),
         name: name.to_string(),
-        description: "Bundled OxideTerm remote desktop helper.".to_string(),
+        description: "Bundled RayTerm remote desktop helper.".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         protocol,
         entry: RemoteDesktopProviderEntry {

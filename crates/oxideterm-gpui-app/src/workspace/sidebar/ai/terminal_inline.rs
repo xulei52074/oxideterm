@@ -899,7 +899,7 @@ pub(in crate::workspace) fn terminal_ai_inline_messages(
             id: "terminal-inline-system".to_string(),
             role: AiChatRole::System,
             content: format!(
-                "You are OxideSens, an expert terminal assistant. Environment: {os_context}. Respond ONLY with the command or code itself unless asked for explanation. If asked which AI model you are, answer truthfully."
+                "You are RayTerm AI, an expert terminal assistant. Environment: {os_context}. Respond ONLY with the command or code itself unless asked for explanation. If asked which AI model you are, answer truthfully."
             ),
             timestamp_ms: 0,
             model: None,

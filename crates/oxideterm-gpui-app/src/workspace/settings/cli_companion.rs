@@ -242,7 +242,7 @@ fn cli_companion_migrate_at_paths(
     // a failed bundle operation never leaves the user without either CLI.
     install_cli_at_path(bundle_path, install_path)?;
     if !installed_cli_matches_bundle(install_path, bundle_path)? {
-        return Err("installed CLI does not match the bundled OxideTerm CLI".to_string());
+        return Err("installed CLI does not match the bundled RayTerm CLI".to_string());
     }
     remove_managed_cli(legacy_path)
 }
@@ -392,7 +392,7 @@ fn cli_install_path_for_command(command_name: &str) -> std::path::PathBuf {
         let binary_name = format!("{command_name}.exe");
         if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
             return std::path::PathBuf::from(local_app_data)
-                .join("OxideTerm")
+                .join("RayTerm")
                 .join("bin")
                 .join(binary_name);
         }

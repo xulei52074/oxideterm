@@ -74,7 +74,7 @@ impl Drop for McpStdioRequestGuard {
                     "method": "notifications/cancelled",
                     "params": {
                         "requestId": request_id,
-                        "reason": "OxideTerm stopped waiting for the request"
+                        "reason": "RayTerm stopped waiting for the request"
                     }
                 });
                 let Ok(body) = serde_json::to_string(&notification) else {

@@ -187,7 +187,7 @@
       "title_unknown": "未知主机密钥",
       "title_changed": "主机密钥已变更",
       "title_error": "主机密钥错误",
-      "unknown_message": "这是 OxideTerm 第一次见到这个 SSH 主机密钥。继续前请确认指纹可信。",
+      "unknown_message": "这是 RayTerm 第一次见到这个 SSH 主机密钥。继续前请确认指纹可信。",
       "changed_warning": "这个主机保存过的 SSH 主机密钥和服务器当前密钥不一致，可能存在中间人攻击风险。",
       "key_type_label": "密钥类型",
       "fingerprint_label": "指纹",

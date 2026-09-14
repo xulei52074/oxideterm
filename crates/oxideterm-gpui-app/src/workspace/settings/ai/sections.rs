@@ -1098,7 +1098,7 @@ impl WorkspaceApp {
             let checked = record.enabled;
             let source = match record.origin {
                 oxideterm_skills::SkillOrigin::AgentStandard => ".agents",
-                oxideterm_skills::SkillOrigin::OxideTerm => "OxideTerm",
+                oxideterm_skills::SkillOrigin::OxideTerm => "RayTerm",
                 oxideterm_skills::SkillOrigin::ClaudeCompatible => ".claude",
                 oxideterm_skills::SkillOrigin::CopilotCompatible => ".github",
                 oxideterm_skills::SkillOrigin::OpenCodeCompatible => ".opencode",

@@ -187,7 +187,7 @@
       "title_unknown": "Khóa máy chủ không xác định",
       "title_changed": "Khóa máy chủ đã thay đổi",
       "title_error": "Lỗi khóa máy chủ",
-      "unknown_message": "Đây là lần đầu OxideTerm thấy khóa máy chủ SSH này. Hãy xác minh dấu vân tay trước khi tiếp tục.",
+      "unknown_message": "Đây là lần đầu RayTerm thấy khóa máy chủ SSH này. Hãy xác minh dấu vân tay trước khi tiếp tục.",
       "changed_warning": "Khóa máy chủ SSH đã lưu cho máy này không khớp với khóa máy chủ. Điều này có thể là tấn công trung gian.",
       "key_type_label": "Loại khóa",
       "fingerprint_label": "Dấu vân tay",

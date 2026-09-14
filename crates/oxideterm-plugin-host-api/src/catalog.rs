@@ -118,7 +118,7 @@ pub static HOST_API_CATALOG: &[HostApiDescriptor] = &[
         "getVersion",
         BaselineRead,
         None,
-        "Returns the OxideTerm version."
+        "Returns the RayTerm version."
     ),
     api!(
         "app",

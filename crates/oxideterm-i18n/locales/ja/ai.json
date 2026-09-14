@@ -63,9 +63,9 @@
     },
     "chat": {
       "header": "チャット",
-      "get_started": "OxideSens を始める",
-      "title": "OxideSens",
-      "disabled_message": "設定で AI を有効にして、OxideSens との会話を始めましょう。",
+      "get_started": "RayTerm AI を始める",
+      "title": "RayTerm AI",
+      "disabled_message": "設定で AI を有効にして、RayTerm AI との会話を始めましょう。",
       "open_settings": "設定を開く",
       "new_chat": "新規チャット",
       "new_chat_tooltip": "新しいチャット",
@@ -74,8 +74,8 @@
       "clear_all": "すべてクリア",
       "clear_all_confirm": "すべての会話を削除してもよろしいですか？",
       "load_failed_title": "チャット履歴を読み込めません",
-      "load_failed_generic": "OxideSens はローカルデータベースからチャット履歴を読み込めませんでした。",
-      "database_locked": "別の OxideTerm インスタンスがチャットデータベースを使用しています。別のインスタンスを閉じてから再試行してください。",
+      "load_failed_generic": "RayTerm AI はローカルデータベースからチャット履歴を読み込めませんでした。",
+      "database_locked": "別の RayTerm インスタンスがチャットデータベースを使用しています。別のインスタンスを閉じてから再試行してください。",
       "database_upgrade_required": "このチャットデータベースにはより新しい移行パスが必要なため、安全に開くことができませんでした。",
       "conversations": "会話",
       "archive_conversation": "会話をアーカイブ",
@@ -131,7 +131,7 @@
       "send_btn": "送信",
       "send_key": "送信",
       "newline_key": "改行",
-      "thinking": "OxideSens が考え中..."
+      "thinking": "RayTerm AI が考え中..."
     },
     "message": {
       "you": "あなた",
@@ -440,7 +440,7 @@
       }
     },
     "guardrail": {
-      "tool_disabled_hard_deny_retry": "このチャットではツール利用が無効で、モデルが疑似ツールの記録を出力しました。OxideSens は自然文での再試行を要求しました。",
+      "tool_disabled_hard_deny_retry": "このチャットではツール利用が無効で、モデルが疑似ツールの記録を出力しました。RayTerm AI は自然文での再試行を要求しました。",
       "tool_disabled_hard_deny_final": "このチャットではツール利用が無効で、モデルが疑似ツールの記録を繰り返し出力しました。生の出力は既定で非表示です。",
       "synthetic_tool_denial_reason": "ツール実行はユーザー設定により無効化されています。",
       "synthetic_tool_denial_detail": "ツール JSON やツール結果の記録を出力する代わりに、制約を自然な言葉で説明してください。"
@@ -524,7 +524,7 @@
       "cwd_desc": "現在の作業ディレクトリ"
     },
     "sidebar": {
-      "not_enabled_hint": "OxideSens が有効になっていません。設定 → OxideSens から有効にしてください。"
+      "not_enabled_hint": "RayTerm AI が有効になっていません。設定 → RayTerm AI から有効にしてください。"
     },
     "reasoning": {
       "title": "思考強度",

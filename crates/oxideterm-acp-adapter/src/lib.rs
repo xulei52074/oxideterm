@@ -419,8 +419,8 @@ impl AdapterProvider {
 
     fn agent_name(self) -> &'static str {
         match self {
-            Self::ClaudeCode => "OxideTerm Claude Code ACP Adapter",
-            Self::Codex => "OxideTerm Codex ACP Adapter",
+            Self::ClaudeCode => "RayTerm Claude Code ACP Adapter",
+            Self::Codex => "RayTerm Codex ACP Adapter",
         }
     }
 }

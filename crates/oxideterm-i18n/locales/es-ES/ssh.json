@@ -187,7 +187,7 @@
       "title_unknown": "Clave de host desconocida",
       "title_changed": "La clave de host cambió",
       "title_error": "Error de clave de host",
-      "unknown_message": "Es la primera vez que OxideTerm ve esta clave de host SSH. Verifica la huella antes de continuar.",
+      "unknown_message": "Es la primera vez que RayTerm ve esta clave de host SSH. Verifica la huella antes de continuar.",
       "changed_warning": "La clave de host SSH guardada para este host no coincide con la clave del servidor. Esto puede indicar un ataque de intermediario.",
       "key_type_label": "Tipo de clave",
       "fingerprint_label": "Huella",

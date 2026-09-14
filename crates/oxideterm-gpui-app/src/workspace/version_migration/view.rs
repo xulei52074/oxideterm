@@ -99,7 +99,7 @@ impl WorkspaceApp {
                             .text_size(px(self.tokens.metrics.ui_text_sm))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
                             .text_color(rgb(self.tokens.ui.text_heading))
-                            .child("OxideTerm"),
+                            .child("RayTerm"),
                     )
                     .child(
                         div()

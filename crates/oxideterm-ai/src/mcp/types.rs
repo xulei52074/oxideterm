@@ -24,7 +24,7 @@ use zeroize::Zeroizing;
 
 use crate::{AiProviderKeyStore, AiToolDefinition};
 
-const MCP_CLIENT_NAME: &str = "OxideTerm";
+const MCP_CLIENT_NAME: &str = "RayTerm";
 const MCP_CLIENT_VERSION: &str = "1.0.0";
 const MAX_MCP_MESSAGE_BYTES: usize = 10 * 1024 * 1024;
 const MCP_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);

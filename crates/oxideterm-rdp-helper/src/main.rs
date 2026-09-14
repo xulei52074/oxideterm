@@ -108,7 +108,7 @@ use event_writer::{SharedEventWriter, send_event};
 use frame::*;
 use input::*;
 
-const RDP_CLIENT_NAME: &str = "OxideTerm";
+const RDP_CLIENT_NAME: &str = "RayTerm";
 const RDP_CLIENT_LOOP_POLL_INTERVAL: Duration = Duration::from_millis(8);
 const RDP_CLIENT_REQUEST_DRAIN_LIMIT: usize = 128;
 const RDP_CLIENT_OUTPUT_DRAIN_LIMIT: usize = 32;

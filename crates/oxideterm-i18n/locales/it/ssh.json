@@ -187,7 +187,7 @@
       "title_unknown": "Chiave host sconosciuta",
       "title_changed": "Chiave host modificata",
       "title_error": "Errore chiave host",
-      "unknown_message": "Questa è la prima volta che OxideTerm vede questa chiave host SSH. Verifica l’impronta prima di continuare.",
+      "unknown_message": "Questa è la prima volta che RayTerm vede questa chiave host SSH. Verifica l’impronta prima di continuare.",
       "changed_warning": "La chiave host SSH salvata per questo host non corrisponde alla chiave del server. Potrebbe indicare un attacco man-in-the-middle.",
       "key_type_label": "Tipo chiave",
       "fingerprint_label": "Impronta",

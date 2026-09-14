@@ -1749,7 +1749,7 @@ impl PlatformWindow for X11Window {
                 Ok(WgpuRecoveryStatus::Recovered | WgpuRecoveryStatus::Deferred) => true,
                 Ok(WgpuRecoveryStatus::Failed) => {
                     // A terminal recovery result must not keep the X11 frame loop busy.
-                    log::error!("GPU recovery exhausted; restart OxideTerm to restore rendering");
+                    log::error!("GPU recovery exhausted; restart RayTerm to restore rendering");
                     false
                 }
                 Err(err) => {

@@ -1157,7 +1157,7 @@ impl WorkspaceApp {
             _ => current_snapshot.fail(
                 "Unknown orchestrator tool.",
                 "unknown_tool",
-                format!("{tool_name} is not an OxideSens task tool."),
+                format!("{tool_name} is not an RayTerm AI task tool."),
                 "read",
             ),
         };
@@ -1180,7 +1180,7 @@ impl WorkspaceApp {
             return snapshot.fail(
                 "Agent Skills are disabled.",
                 "skills_disabled",
-                "Enable Agent Skills in OxideSens settings before loading one.",
+                "Enable Agent Skills in RayTerm AI settings before loading one.",
                 "read",
             );
         }
@@ -1273,7 +1273,7 @@ impl WorkspaceApp {
             return snapshot.fail(
                 "Agent Skills are disabled.",
                 "skills_disabled",
-                "Enable Agent Skills in OxideSens settings before reading a resource.",
+                "Enable Agent Skills in RayTerm AI settings before reading a resource.",
                 "read",
             );
         }

@@ -2312,7 +2312,7 @@ impl WorkspaceApp {
                     .when_some(required_version, |details, version| {
                         details.child(self.render_native_plugin_detail_row(
                             self.i18n.t("plugin.detail_requires"),
-                            format!("OxideTerm {version}"),
+                            format!("RayTerm {version}"),
                         ))
                     }),
             )

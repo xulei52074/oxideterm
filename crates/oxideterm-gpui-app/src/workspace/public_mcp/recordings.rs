@@ -213,7 +213,7 @@ impl WorkspaceApp {
         self.make_public_mcp_recording_capacity(client_ref)?;
         let (_, pane) = self.public_mcp_terminal_pane(client_ref, &terminal_ref, cx)?;
         if pane.read(cx).recording_status().state != TerminalRecordingState::Idle {
-            return Err("The terminal is already being recorded by OxideTerm".to_owned());
+            return Err("The terminal is already being recorded by RayTerm".to_owned());
         }
         let snapshot = pane.read(cx).ai_screen_snapshot();
         pane.update(cx, |pane, cx| pane.start_recording(title, cx));

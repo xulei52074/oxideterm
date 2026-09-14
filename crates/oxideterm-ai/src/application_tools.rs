@@ -39,17 +39,17 @@ pub(crate) fn extended_application_tool_definitions() -> Vec<AiToolDefinition> {
         ),
         tool(
             "list_background_tasks",
-            "List background tasks owned by the current OxideSens conversation.",
+            "List background tasks owned by the current RayTerm AI conversation.",
             empty_object_schema(),
         ),
         tool(
             "get_background_task",
-            "Inspect one background task owned by the current OxideSens conversation.",
+            "Inspect one background task owned by the current RayTerm AI conversation.",
             id_schema("task_id"),
         ),
         tool(
             "cancel_background_task",
-            "Cancel one running or waiting background task owned by the current OxideSens conversation.",
+            "Cancel one running or waiting background task owned by the current RayTerm AI conversation.",
             id_schema("task_id"),
         ),
         tool(
@@ -322,7 +322,7 @@ pub(crate) fn extended_application_tool_definitions() -> Vec<AiToolDefinition> {
                 "type": "object",
                 "properties": {
                     "scope_kind": { "type": "string", "enum": ["user", "workspace", "project", "host"] },
-                    "scope_id": { "type": "string", "maxLength": MAX_IDENTIFIER_CHARS, "description": "Optional explicit scope identity. When omitted, OxideTerm resolves the current user, workspace, project, or host." },
+                    "scope_id": { "type": "string", "maxLength": MAX_IDENTIFIER_CHARS, "description": "Optional explicit scope identity. When omitted, RayTerm resolves the current user, workspace, project, or host." },
                     "memory_kind": { "type": "string", "enum": ["long_term", "temporary"] },
                     "include_expired": { "type": "boolean" }
                 },
@@ -339,7 +339,7 @@ pub(crate) fn extended_application_tool_definitions() -> Vec<AiToolDefinition> {
                     "id": { "type": "string", "maxLength": MAX_IDENTIFIER_CHARS },
                     "content": { "type": "string", "maxLength": 16000 },
                     "scope_kind": { "type": "string", "enum": ["user", "workspace", "project", "host"] },
-                    "scope_id": { "type": "string", "maxLength": MAX_IDENTIFIER_CHARS, "description": "Optional explicit scope identity. When omitted, OxideTerm resolves the current user, workspace, project, or host." },
+                    "scope_id": { "type": "string", "maxLength": MAX_IDENTIFIER_CHARS, "description": "Optional explicit scope identity. When omitted, RayTerm resolves the current user, workspace, project, or host." },
                     "memory_kind": { "type": "string", "enum": ["long_term", "temporary"] },
                     "expires_at_ms": { "type": "integer", "minimum": 1 },
                     "expected_revision": { "type": "integer", "minimum": 1 }

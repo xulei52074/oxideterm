@@ -63,9 +63,9 @@
     },
     "chat": {
       "header": "Chat",
-      "get_started": "Commencer avec OxideSens",
-      "title": "OxideSens",
-      "disabled_message": "Activez l'IA dans les paramètres pour commencer à discuter avec OxideSens.",
+      "get_started": "Commencer avec RayTerm AI",
+      "title": "RayTerm AI",
+      "disabled_message": "Activez l'IA dans les paramètres pour commencer à discuter avec RayTerm AI.",
       "open_settings": "Ouvrir les paramètres",
       "new_chat": "Nouvelle discussion",
       "new_chat_tooltip": "Nouvelle discussion",
@@ -74,8 +74,8 @@
       "clear_all": "Tout effacer",
       "clear_all_confirm": "Êtes-vous sûr de vouloir supprimer toutes les conversations ?",
       "load_failed_title": "Impossible de charger l'historique du chat",
-      "load_failed_generic": "OxideSens n'a pas pu charger l'historique du chat depuis la base de données locale.",
-      "database_locked": "Une autre instance d'OxideTerm utilise la base de données du chat. Fermez l'autre instance, puis réessayez.",
+      "load_failed_generic": "RayTerm AI n'a pas pu charger l'historique du chat depuis la base de données locale.",
+      "database_locked": "Une autre instance d'RayTerm utilise la base de données du chat. Fermez l'autre instance, puis réessayez.",
       "database_upgrade_required": "Cette base de données de chat nécessite un chemin de migration plus récent et n'a pas pu être ouverte en toute sécurité.",
       "conversations": "Conversations",
       "archive_conversation": "Archiver la conversation",
@@ -131,7 +131,7 @@
       "send_btn": "Envoyer",
       "send_key": "Envoyer",
       "newline_key": "Nouvelle ligne",
-      "thinking": "OxideSens réfléchit..."
+      "thinking": "RayTerm AI réfléchit..."
     },
     "message": {
       "you": "Vous",
@@ -440,7 +440,7 @@
       }
     },
     "guardrail": {
-      "tool_disabled_hard_deny_retry": "L'utilisation d'outils est désactivée pour ce chat et le modèle a émis une fausse transcription d'outil. OxideSens a demandé une nouvelle tentative en langage naturel.",
+      "tool_disabled_hard_deny_retry": "L'utilisation d'outils est désactivée pour ce chat et le modèle a émis une fausse transcription d'outil. RayTerm AI a demandé une nouvelle tentative en langage naturel.",
       "tool_disabled_hard_deny_final": "L'utilisation d'outils est désactivée pour ce chat et le modèle a répété une fausse transcription d'outil. La sortie brute est masquée par défaut.",
       "synthetic_tool_denial_reason": "L'exécution des outils est désactivée par les paramètres utilisateur.",
       "synthetic_tool_denial_detail": "Explique la limitation en langage naturel au lieu d'émettre du JSON d'outil ou des transcriptions de résultats d'outil."
@@ -524,7 +524,7 @@
       "cwd_desc": "Répertoire de travail actuel"
     },
     "sidebar": {
-      "not_enabled_hint": "OxideSens n'est pas activé. Veuillez l'activer dans Paramètres → OxideSens pour commencer."
+      "not_enabled_hint": "RayTerm AI n'est pas activé. Veuillez l'activer dans Paramètres → RayTerm AI pour commencer."
     },
     "reasoning": {
       "title": "Effort de raisonnement",

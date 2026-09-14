@@ -187,7 +187,7 @@
       "title_unknown": "不明なホストキー",
       "title_changed": "ホストキーが変更されました",
       "title_error": "ホストキーエラー",
-      "unknown_message": "OxideTermがこのSSHホストキーを見るのは初めてです。続行する前にフィンガープリントを確認してください。",
+      "unknown_message": "RayTermがこのSSHホストキーを見るのは初めてです。続行する前にフィンガープリントを確認してください。",
       "changed_warning": "このホストに保存されたSSHホストキーがサーバーキーと一致しません。中間者攻撃の可能性があります。",
       "key_type_label": "キータイプ",
       "fingerprint_label": "フィンガープリント",

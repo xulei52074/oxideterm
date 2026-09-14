@@ -95,11 +95,11 @@ impl DomainRequestReceiver {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum BrokerError {
-    #[error("the OxideTerm workspace is unavailable")]
+    #[error("the RayTerm workspace is unavailable")]
     WorkspaceUnavailable,
-    #[error("the OxideTerm workspace stopped before completing the request")]
+    #[error("the RayTerm workspace stopped before completing the request")]
     ResponseDropped,
-    #[error("the OxideTerm workspace did not complete the request in time")]
+    #[error("the RayTerm workspace did not complete the request in time")]
     TimedOut,
     #[error("the MCP client authorization changed before the request was delivered")]
     AuthorizationChanged,

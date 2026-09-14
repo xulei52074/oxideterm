@@ -35,10 +35,10 @@ impl BackgroundTaskExecutor for ApplicationBackgroundExecutor {
                 execution,
                 response,
             })
-            .map_err(|_| "The OxideSens background task owner has closed.".to_string())?;
+            .map_err(|_| "The RayTerm AI background task owner has closed.".to_string())?;
         receiver
             .await
-            .map_err(|_| "The OxideSens background task execution was cancelled.".to_string())?
+            .map_err(|_| "The RayTerm AI background task execution was cancelled.".to_string())?
     }
 }
 

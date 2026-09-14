@@ -430,7 +430,7 @@ impl McpRegistry {
                 McpResultEnvelope::InputRequired(input) => {
                     if !input.input_requests.is_empty() {
                         return Err(McpError::Message(
-                            "MCP server requested a client capability that OxideTerm did not advertise"
+                            "MCP server requested a client capability that RayTerm did not advertise"
                                 .to_string(),
                         ));
                     }

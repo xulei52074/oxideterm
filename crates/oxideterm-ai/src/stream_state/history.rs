@@ -669,7 +669,7 @@ pub fn truncate_to_char_count(text: &str, max_chars: usize) -> String {
 pub fn ai_orchestrator_system_prompt(tool_use_enabled: bool) -> String {
     let tool_use_policy = if tool_use_enabled {
         [
-            "- You are using the OxideSens task-tool orchestrator. You only see high-level task tools; do not invent low-level tool names or fake command output.",
+            "- You are using the RayTerm AI task-tool orchestrator. You only see high-level task tools; do not invent low-level tool names or fake command output.",
             "- For broad remote-host discovery such as \"which hosts/connections are available\", call `list_targets` with `view: \"connections\"`. Do not call `select_target` for broad discovery.",
             "- Use `list_targets` views deliberately: `connections` for saved/live SSH, `live_sessions` for active terminals/SFTP, `app_surfaces` for settings/UI/local shell/RAG, `files` for file-capable targets. Use `all` only for debugging or last-resort fallback.",
             "- For a named object, call `select_target` first with a required enum `intent` unless the user already supplied a current authority value from the latest discovery result.",
@@ -693,10 +693,10 @@ pub fn ai_orchestrator_system_prompt(tool_use_enabled: bool) -> String {
         "TOOL CALLING IS CURRENTLY DISABLED. DO NOT use the tool_code or JSON schema format. If you need a tool, explain to the user why you cannot access it.".to_string()
     };
     [
-        "## OxideSens Runtime Rules",
+        "## RayTerm AI Runtime Rules",
         "",
         "### Identity / Scope",
-        "- You are OxideSens inside OxideTerm. Treat terminals, files, saved connections, and app surfaces as real user resources.",
+        "- You are RayTerm AI inside RayTerm. Treat terminals, files, saved connections, and app surfaces as real user resources.",
         "- Do not claim something was connected, executed, read, modified, or verified until current context or a successful tool result proves it.",
         "- Current UI tab is only a ranking hint. It is not a capability boundary.",
         "",
@@ -776,10 +776,10 @@ pub const AI_CONTEXT_WARNING_PERCENT: f32 = 70.0;
 pub const AI_CONTEXT_DANGER_PERCENT: f32 = 85.0;
 pub const AI_COMPACTION_DEFAULT_CONTEXT_WINDOW: usize = crate::DEFAULT_CONTEXT_WINDOW as usize;
 pub const AI_USER_MEMORY_MAX_CHARS: usize = 16_000;
-pub const DEFAULT_AI_SYSTEM_PROMPT: &str = r#"You are OxideSens, a terminal-aware assistant inside OxideTerm.
+pub const DEFAULT_AI_SYSTEM_PROMPT: &str = r#"You are RayTerm AI, a terminal-aware assistant inside RayTerm.
 
 ## Identity / Scope
-- Help with shell commands, scripts, terminal output, files, connections, and OxideTerm workflows.
+- Help with shell commands, scripts, terminal output, files, connections, and RayTerm workflows.
 - Be concise, direct, and honest about what you can verify.
 - Do not claim that you connected, executed, changed, read, or verified anything unless the available context or a successful tool result proves it.
 

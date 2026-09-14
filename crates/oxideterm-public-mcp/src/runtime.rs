@@ -178,7 +178,7 @@ async fn handle_http_request(
     if !authorized {
         return Ok(Response::builder()
             .status(StatusCode::UNAUTHORIZED)
-            .header(header::WWW_AUTHENTICATE, "Bearer realm=\"OxideTerm\"")
+            .header(header::WWW_AUTHENTICATE, "Bearer realm=\"RayTerm\"")
             .body(Empty::new().boxed())
             .unwrap_or_else(|_| empty_response(StatusCode::UNAUTHORIZED)));
     }

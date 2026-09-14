@@ -42,7 +42,7 @@ pub(super) async fn discover_codex_models(
             json!({
                 "clientInfo": {
                     "name": "oxideterm",
-                    "title": "OxideTerm",
+                    "title": "RayTerm",
                     "version": env!("CARGO_PKG_VERSION"),
                 },
                 "capabilities": { "experimentalApi": true },
@@ -535,7 +535,7 @@ async fn run_codex_app_server_turn(
             json!({
                 "clientInfo": {
                     "name": "oxideterm",
-                    "title": "OxideTerm",
+                    "title": "RayTerm",
                     "version": env!("CARGO_PKG_VERSION"),
                 },
                 "capabilities": {
@@ -839,7 +839,7 @@ async fn respond_to_codex_server_request(
                         "success": false,
                         "contentItems": [{
                             "type": "inputText",
-                            "text": "OxideTerm Codex app-server bridge does not expose client dynamic tools yet.",
+                            "text": "RayTerm Codex app-server bridge does not expose client dynamic tools yet.",
                         }],
                     }),
                 )
@@ -1142,7 +1142,7 @@ mod tests {
         const MCP_URL: &str = "http://127.0.0.1:43127/mcp";
         const AUTHORIZATION: &str = "Bearer session-token";
         let server = McpServer::Http(
-            McpServerHttp::new("OxideTerm Application Tools", MCP_URL)
+            McpServerHttp::new("RayTerm Application Tools", MCP_URL)
                 .headers(vec![HttpHeader::new("Authorization", AUTHORIZATION)]),
         );
 

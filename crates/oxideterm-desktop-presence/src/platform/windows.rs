@@ -242,7 +242,7 @@ fn main_window_hwnd(window: &Window) -> anyhow::Result<HWND> {
     let handle = raw_window_handle::HasWindowHandle::window_handle(window)
         .map_err(|_| anyhow!("unable to read Windows window handle"))?;
     let RawWindowHandle::Win32(handle) = handle.as_raw() else {
-        return Err(anyhow!("OxideTerm main window is not a Win32 window"));
+        return Err(anyhow!("RayTerm main window is not a Win32 window"));
     };
     Ok(HWND(handle.hwnd.get() as _))
 }
@@ -256,7 +256,7 @@ fn start_tray_thread_once() -> anyhow::Result<()> {
         .name("oxideterm-windows-tray".to_string())
         .spawn(|| {
             if let Err(error) = run_tray_message_loop() {
-                eprintln!("failed to start OxideTerm Windows tray icon: {error:#}");
+                eprintln!("failed to start RayTerm Windows tray icon: {error:#}");
             }
         })
         .context("failed to spawn Windows tray thread")?;
@@ -270,7 +270,7 @@ fn run_tray_message_loop() -> anyhow::Result<()> {
         return Err(anyhow!("failed to register TaskbarCreated message"));
     }
     TASKBAR_CREATED_MESSAGE.store(taskbar_created_message, Ordering::SeqCst);
-    let class_name = w!("OxideTermTrayWindow");
+    let class_name = w!("RayTermTrayWindow");
     let window_class = WNDCLASSW {
         style: CS_HREDRAW | CS_VREDRAW,
         lpfnWndProc: Some(tray_window_proc),
@@ -326,7 +326,7 @@ unsafe extern "system" fn tray_window_proc(
         // Explorer removes notification icons when its taskbar restarts. Add
         // the existing icon again and restore the versioned callback contract.
         if let Err(error) = add_tray_icon(hwnd) {
-            eprintln!("failed to restore OxideTerm tray icon: {error:#}");
+            eprintln!("failed to restore RayTerm tray icon: {error:#}");
         }
         return LRESULT(0);
     }

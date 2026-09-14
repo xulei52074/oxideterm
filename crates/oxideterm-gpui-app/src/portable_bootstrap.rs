@@ -85,7 +85,7 @@ pub(crate) fn open_portable_bootstrap_window(
     // full workspace and its title-bar owner exist.
     options.window_decorations = Some(WindowDecorations::Server);
     if let Some(titlebar) = options.titlebar.as_mut() {
-        titlebar.title = Some(SharedString::from("OxideTerm"));
+        titlebar.title = Some(SharedString::from("RayTerm"));
         titlebar.appears_transparent = false;
         titlebar.traffic_light_position = None;
     }

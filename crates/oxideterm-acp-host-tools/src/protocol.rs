@@ -94,7 +94,7 @@ impl AcpHostToolsProtocol {
                         .unwrap_or(MCP_PROTOCOL_VERSION),
                     "capabilities": { "tools": { "listChanged": false } },
                     "serverInfo": {
-                        "name": "OxideTerm Application Tools",
+                        "name": "RayTerm Application Tools",
                         "version": env!("CARGO_PKG_VERSION"),
                     },
                 }),
@@ -135,7 +135,7 @@ impl AcpHostToolsProtocol {
             return ProtocolResponse::json(json_rpc_error(
                 id,
                 -32602,
-                "Tool is not exposed by OxideTerm.",
+                "Tool is not exposed by RayTerm.",
             ));
         };
         let arguments = request
@@ -158,13 +158,13 @@ impl AcpHostToolsProtocol {
         );
         if let Err(error) = self.call_tx.try_send(call) {
             let message = match error {
-                mpsc::error::TrySendError::Full(_) => "OxideTerm tool executor is busy.",
-                mpsc::error::TrySendError::Closed(_) => "OxideTerm tool executor is unavailable.",
+                mpsc::error::TrySendError::Full(_) => "RayTerm tool executor is busy.",
+                mpsc::error::TrySendError::Closed(_) => "RayTerm tool executor is unavailable.",
             };
             return ProtocolResponse::json(json_rpc_error(id, -32603, message));
         }
         let response = response_rx.await.unwrap_or_else(|_| {
-            AcpHostToolResponse::error("OxideTerm tool execution was cancelled.")
+            AcpHostToolResponse::error("RayTerm tool execution was cancelled.")
         });
         ProtocolResponse::json(json_rpc_result(
             id,
@@ -264,7 +264,7 @@ mod tests {
                 .body
                 .as_ref()
                 .and_then(|body| body.pointer("/error/message").and_then(Value::as_str)),
-            Some("OxideTerm tool executor is busy.")
+            Some("RayTerm tool executor is busy.")
         );
         first_call.abort();
     }

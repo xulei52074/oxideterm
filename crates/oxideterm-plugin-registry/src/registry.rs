@@ -772,7 +772,7 @@ fn validate_native_plugin_registry(registry: &NativePluginRegistryIndex) -> Resu
         if let Some(required) = entry.min_oxideterm_version.as_deref() {
             semver::Version::parse(required).map_err(|error| {
                 format!(
-                    "Plugin registry entry \"{}\" has invalid minimum OxideTerm version: {error}",
+                    "Plugin registry entry \"{}\" has invalid minimum RayTerm version: {error}",
                     entry.id
                 )
             })?;

@@ -1500,7 +1500,7 @@ fn terminal_git_ai_commit_messages(diff_context: String) -> Vec<AiChatMessage> {
         terminal_git_ai_chat_message(
             "terminal-git-commit-system",
             AiChatRole::System,
-            "You are OxideTerm's Git commit message assistant. Generate exactly one single-line Git commit subject for the staged changes. Prefer Conventional Commit style when it naturally fits. Use imperative present tense. Do not include markdown, quotes, bullets, explanations, or a git command. Keep it concise.",
+            "You are RayTerm's Git commit message assistant. Generate exactly one single-line Git commit subject for the staged changes. Prefer Conventional Commit style when it naturally fits. Use imperative present tense. Do not include markdown, quotes, bullets, explanations, or a git command. Keep it concise.",
         ),
         terminal_git_ai_chat_message(
             "terminal-git-commit-user",
@@ -1548,7 +1548,7 @@ fn terminal_git_truncate_ai_context(mut context: String, max_chars: usize) -> St
         .map(|(index, ch)| index + ch.len_utf8())
         .unwrap_or(context.len());
     context.truncate(keep_until);
-    context.push_str("\n\n[OxideTerm truncated the staged diff before sending it to the model.]");
+    context.push_str("\n\n[RayTerm truncated the staged diff before sending it to the model.]");
     context
 }
 

@@ -1,12 +1,12 @@
 {
   "menu": {
-    "app": "OxideTerm",
+    "app": "RayTerm",
     "services": "服务",
     "new_terminal": "新建终端",
     "close_tab": "关闭标签页",
     "show_main_window": "显示主窗口",
     "hide_main_window": "隐藏主窗口",
-    "quit": "退出 OxideTerm",
+    "quit": "退出 RayTerm",
     "edit": "编辑",
     "cut": "剪切",
     "copy": "复制",

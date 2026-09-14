@@ -11,7 +11,7 @@ use zeroize::Zeroizing;
 
 const AI_KEYCHAIN_SERVICE: &str = "com.oxideterm.ai";
 #[cfg(target_os = "macos")]
-const AI_KEYCHAIN_AUTHENTICATION_REASON: &str = "OxideTerm needs to access your AI API key";
+const AI_KEYCHAIN_AUTHENTICATION_REASON: &str = "RayTerm needs to access your AI API key";
 
 #[derive(Clone)]
 pub struct AiProviderKeyStore {
@@ -320,7 +320,7 @@ fn clone_provider_key_read_result(result: &ProviderKeyReadResult) -> ProviderKey
 
 fn portable_keychain_enabled() -> Result<bool> {
     oxideterm_portable_runtime::is_portable_mode()
-        .context("failed to determine OxideTerm portable mode")
+        .context("failed to determine RayTerm portable mode")
 }
 
 #[cfg(test)]

@@ -411,7 +411,7 @@ impl Default for TerminalCommandSelectionLabels {
             copy: "Copy".to_string(),
             copy_title: "Copy command output".to_string(),
             copy_command: "Copy command".to_string(),
-            send_to_ai: "Send to OxideSens".to_string(),
+            send_to_ai: "Send to RayTerm AI".to_string(),
             fill_command_bar: "Fill command bar".to_string(),
             insert_selection_into_command: "Insert selection here".to_string(),
             replace_command_with_selection: "Replace command with selection".to_string(),
@@ -641,7 +641,7 @@ impl Default for TerminalTrzszLabels {
             completed_title: "Transfer completed".to_string(),
             completed_description: "The trzsz transfer completed successfully.".to_string(),
             failed_title: "Transfer failed".to_string(),
-            failed_description: "OxideTerm could not complete this trzsz transfer.".to_string(),
+            failed_description: "RayTerm could not complete this trzsz transfer.".to_string(),
             connection_lost_title: "Transfer interrupted by connection loss".to_string(),
             connection_lost_description:
                 "The SSH connection changed while the trzsz transfer was running. Reconnect and start the transfer again."
@@ -652,15 +652,15 @@ impl Default for TerminalTrzszLabels {
                     .to_string(),
             version_mismatch_title: "trzsz protocol mismatch".to_string(),
             version_mismatch_description:
-                "The remote trzsz runtime is not compatible with this OxideTerm build."
+                "The remote trzsz runtime is not compatible with this RayTerm build."
                     .to_string(),
             path_invalid_title: "Download path rejected".to_string(),
             path_invalid_description:
-                "OxideTerm blocked this trzsz transfer because the selected path is invalid or outside the allowed download root."
+                "RayTerm blocked this trzsz transfer because the selected path is invalid or outside the allowed download root."
                     .to_string(),
             symlink_not_supported_title: "Symlink transfer is not supported".to_string(),
             symlink_not_supported_description:
-                "The current OxideTerm trzsz bridge does not write symbolic links.".to_string(),
+                "The current RayTerm trzsz bridge does not write symbolic links.".to_string(),
             conflict_detected_title: "File conflict detected".to_string(),
             conflict_detected_description:
                 "A file or folder with the same name already exists at the destination.".to_string(),
@@ -700,13 +700,13 @@ impl Default for TerminalKittyFileTransmissionLabels {
     fn default() -> Self {
         Self {
             title: "Allow Kitty local-file access for this session?".to_string(),
-            description: "The request was blocked. If you allow it, OxideTerm creates a private session directory and copies its path. Retry the transfer using a tty-graphics-protocol file directly inside that directory.".to_string(),
+            description: "The request was blocked. If you allow it, RayTerm creates a private session directory and copies its path. Retry the transfer using a tty-graphics-protocol file directly inside that directory.".to_string(),
             cancel: "Deny".to_string(),
             allow: "Allow for this session".to_string(),
             allowed_title: "Kitty file access allowed for this session".to_string(),
             allowed_description: "The private transfer directory was copied to the clipboard. The permission ends when this terminal session closes.".to_string(),
             failed_title: "Could not enable Kitty file access".to_string(),
-            failed_description: "OxideTerm could not create the private transfer directory.".to_string(),
+            failed_description: "RayTerm could not create the private transfer directory.".to_string(),
         }
     }
 }

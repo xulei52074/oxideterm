@@ -1206,7 +1206,7 @@ pub fn build_acp_initialize_request(
                     .write_text_file(policy.fs_write_text_file))
                 .terminal(policy.terminal),
         )
-        .client_info(Implementation::new("OxideTerm", client_version))
+        .client_info(Implementation::new("RayTerm", client_version))
 }
 
 fn ensure_acp_v1_initialize_response(
@@ -1230,7 +1230,7 @@ pub async fn initialize_acp_agent(
 ) -> Result<InitializeResponse, agent_client_protocol::Error> {
     Client
         .builder()
-        .name("OxideTerm")
+        .name("RayTerm")
         .connect_with(transport, async move |connection: ConnectionTo<Agent>| {
             let response = connection
                 .send_request(build_acp_initialize_request(&client_version, &policy))
@@ -1249,7 +1249,7 @@ pub async fn with_acp_agent_runtime<R>(
 ) -> Result<R, agent_client_protocol::Error> {
     Client
         .builder()
-        .name("OxideTerm")
+        .name("RayTerm")
         .connect_with(transport, async move |connection: ConnectionTo<Agent>| {
             let initialize_response = connection
                 .send_request(build_acp_initialize_request(&client_version, &policy))
@@ -1304,7 +1304,7 @@ pub async fn with_acp_agent_runtime_events<R>(
 
     Client
         .builder()
-        .name("OxideTerm")
+        .name("RayTerm")
         .on_receive_notification(
             async move |notification: SessionNotification, _connection| {
                 send_client_event(
@@ -2143,7 +2143,7 @@ mod tests {
         assert!(request.client_capabilities.elicitation.is_none());
         assert_eq!(
             request.client_info.as_ref().map(|info| info.name.as_str()),
-            Some("OxideTerm")
+            Some("RayTerm")
         );
     }
 

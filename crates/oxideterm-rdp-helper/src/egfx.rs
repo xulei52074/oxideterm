@@ -317,7 +317,7 @@ impl EgfxRenderer {
                 Ok(())
             }
             _ => Err(
-                "RDP server confirmed an EGFX capability OxideTerm did not advertise.".to_string(),
+                "RDP server confirmed an EGFX capability RayTerm did not advertise.".to_string(),
             ),
         }
     }

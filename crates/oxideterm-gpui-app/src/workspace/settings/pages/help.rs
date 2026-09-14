@@ -61,7 +61,7 @@ impl WorkspaceApp {
             .gap(px(12.0))
             .child(self.help_key_value_row(
                 "settings_view.help.app_name",
-                "OxideTerm".to_string(),
+                "RayTerm".to_string(),
                 false,
                 cx,
             ))

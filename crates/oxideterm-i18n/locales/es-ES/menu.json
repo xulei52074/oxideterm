@@ -1,12 +1,12 @@
 {
   "menu": {
-    "app": "OxideTerm",
+    "app": "RayTerm",
     "services": "Servicios",
     "new_terminal": "Nuevo terminal",
     "close_tab": "Cerrar pestaña",
     "show_main_window": "Mostrar ventana principal",
     "hide_main_window": "Ocultar ventana principal",
-    "quit": "Salir de OxideTerm",
+    "quit": "Salir de RayTerm",
     "edit": "Editar",
     "cut": "Cortar",
     "copy": "Copiar",

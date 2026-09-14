@@ -120,7 +120,7 @@ fn known_limitations() -> Vec<SshCapabilityLimitation> {
             capability: "hostbased",
             layer: SshCapabilityLayer::RusshCore,
             status: SshCapabilityStatus::Partial,
-            note: "The method name is represented, but OxideTerm has no usable client auth flow.",
+            note: "The method name is represented, but RayTerm has no usable client auth flow.",
         },
         SshCapabilityLimitation {
             capability: "umac",

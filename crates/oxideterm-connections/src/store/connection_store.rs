@@ -36,7 +36,7 @@ impl ConnectionStore {
         #[cfg(target_os = "macos")]
         let privilege_keychain = ConnectionKeychain::with_macos_device_owner_authentication(
             PRIVILEGE_CREDENTIAL_KEYCHAIN_SERVICE,
-            "OxideTerm needs to access your privilege helper credential",
+            "RayTerm needs to access your privilege helper credential",
         );
         #[cfg(not(target_os = "macos"))]
         let privilege_keychain =

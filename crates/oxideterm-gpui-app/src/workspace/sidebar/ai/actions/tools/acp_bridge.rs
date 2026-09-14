@@ -31,7 +31,7 @@ pub(in crate::workspace) async fn handle_acp_application_tool_call(
 ) {
     let Some(turn) = turn else {
         let _ = call.respond(oxideterm_acp_host_tools::AcpHostToolResponse::error(
-            "The OxideTerm ACP tool turn is no longer active.",
+            "The RayTerm ACP tool turn is no longer active.",
         ));
         return;
     };
@@ -301,7 +301,7 @@ fn canonicalize_acp_tool_arguments(
 
 fn respond_to_cancelled_acp_tool(call: oxideterm_acp_host_tools::AcpHostToolCall) {
     let _ = call.respond(oxideterm_acp_host_tools::AcpHostToolResponse::error(
-        "The OxideTerm ACP tool turn was cancelled.",
+        "The RayTerm ACP tool turn was cancelled.",
     ));
 }
 

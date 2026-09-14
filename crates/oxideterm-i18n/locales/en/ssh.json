@@ -187,7 +187,7 @@
       "title_unknown": "Unknown Host Key",
       "title_changed": "Host Key Changed",
       "title_error": "Host Key Error",
-      "unknown_message": "This is the first time OxideTerm has seen this SSH host key. Verify the fingerprint before continuing.",
+      "unknown_message": "This is the first time RayTerm has seen this SSH host key. Verify the fingerprint before continuing.",
       "changed_warning": "The saved SSH host key for this host does not match the server key. This may indicate a man-in-the-middle attack.",
       "key_type_label": "Key Type",
       "fingerprint_label": "Fingerprint",

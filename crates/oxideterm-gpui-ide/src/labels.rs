@@ -223,7 +223,7 @@ impl Default for IdeLabels {
             agent_manual_upload: "Manual upload required".into(),
             agent_manual_update: "Manual update required".into(),
             agent_optin_title: "Enable Remote Agent?".into(),
-            agent_optin_desc: "OxideTerm can deploy a lightweight agent (~2 MB) to the remote host for enhanced IDE features. The agent runs inside your existing SSH connection and makes no external network calls.".into(),
+            agent_optin_desc: "RayTerm can deploy a lightweight agent (~2 MB) to the remote host for enhanced IDE features. The agent runs inside your existing SSH connection and makes no external network calls.".into(),
             agent_optin_benefit_watch:
                 "Real-time file watching (instant tree refresh on external changes)".into(),
             agent_optin_benefit_git: "Native Git status integration".into(),

@@ -126,6 +126,9 @@ mod tests {
         // The protocol client normalises it; this only pins that the wrapper does not
         // mangle the value on the way through.
         let deployment = Deployment::new("https://rayops.internal/");
-        assert_eq!(deployment.control_plane_config().base_url, "https://rayops.internal/");
+        assert_eq!(
+            deployment.control_plane_config().base_url,
+            "https://rayops.internal/"
+        );
     }
 }

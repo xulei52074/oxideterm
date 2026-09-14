@@ -1167,7 +1167,7 @@ impl TerminalPane {
             selecting: false,
             free_type_drag: None,
             last_mouse_report_point: None,
-            title: SharedString::from("OxideTerm"),
+            title: SharedString::from("RayTerm"),
             cwd: None,
             cwd_source: None,
             pending_cwd: None,
@@ -3215,7 +3215,7 @@ impl TerminalPane {
                 TerminalEventEffect::notify()
             }
             TerminalEvent::TitleReset => {
-                self.title = SharedString::from("OxideTerm");
+                self.title = SharedString::from("RayTerm");
                 TerminalEventEffect::notify()
             }
             TerminalEvent::Bell => {

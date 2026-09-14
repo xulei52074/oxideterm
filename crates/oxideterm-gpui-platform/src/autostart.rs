@@ -4,7 +4,7 @@ use std::io;
 use std::path::PathBuf;
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
-const APP_NAME: &str = "OxideTerm";
+const APP_NAME: &str = "RayTerm";
 #[cfg(target_os = "linux")]
 const LINUX_DESKTOP_ID: &str = "com.oxideterm.app";
 
@@ -150,7 +150,7 @@ mod platform {
     use super::*;
 
     pub(super) fn open_login_items_settings() -> io::Result<()> {
-        // OxideTerm's macOS artifacts are ad-hoc signed, so the system Login
+        // RayTerm's macOS artifacts are ad-hoc signed, so the system Login
         // Items panel remains the authoritative management surface.
         unsafe { SMAppService::openSystemSettingsLoginItems() };
         Ok(())

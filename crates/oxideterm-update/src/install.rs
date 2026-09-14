@@ -139,7 +139,7 @@ pub fn plan_native_install(
             portable_root: context.portable_root.clone(),
             requires_app_exit: true,
             summary:
-                "Portable update staged. OxideTerm will restart after replacing application files."
+                "Portable update staged. RayTerm will restart after replacing application files."
                     .to_string(),
         };
     }
@@ -156,13 +156,13 @@ pub fn plan_native_install(
                 InstallStrategy::MacReplaceAppBundle,
                 InstallActionKind::LaunchReplacementScript,
                 true,
-                "Schedule .app bundle replacement after OxideTerm exits.",
+                "Schedule .app bundle replacement after RayTerm exits.",
             ),
             ("macos", InstallFlavor::MacApp, InstallPackageKind::MacArchive) => (
                 InstallStrategy::MacReplaceAppArchive,
                 InstallActionKind::LaunchReplacementScript,
                 true,
-                "Schedule archived .app bundle replacement after OxideTerm exits.",
+                "Schedule archived .app bundle replacement after RayTerm exits.",
             ),
             ("windows", InstallFlavor::WindowsNsis, InstallPackageKind::WindowsMsi) => (
                 InstallStrategy::WindowsRunInstaller,
@@ -174,7 +174,7 @@ pub fn plan_native_install(
                 InstallStrategy::WindowsRunInstaller,
                 InstallActionKind::LaunchInstaller,
                 true,
-                "Stage the Windows installer and apply it after OxideTerm exits.",
+                "Stage the Windows installer and apply it after RayTerm exits.",
             ),
             (
                 "windows",
@@ -190,13 +190,13 @@ pub fn plan_native_install(
                 InstallStrategy::LinuxReplaceAppImage,
                 InstallActionKind::LaunchReplacementScript,
                 true,
-                "Schedule AppImage replacement after OxideTerm exits.",
+                "Schedule AppImage replacement after RayTerm exits.",
             ),
             ("linux", InstallFlavor::LinuxAppImage, InstallPackageKind::LinuxAppImageArchive) => (
                 InstallStrategy::LinuxReplaceAppImageArchive,
                 InstallActionKind::LaunchReplacementScript,
                 true,
-                "Extract and schedule AppImage replacement after OxideTerm exits.",
+                "Extract and schedule AppImage replacement after RayTerm exits.",
             ),
             ("linux", InstallFlavor::LinuxDeb, InstallPackageKind::LinuxPackage) => (
                 InstallStrategy::LinuxOpenPackage,
@@ -374,7 +374,7 @@ fn windows_installer_launched_message(
     package_kind: InstallPackageKind,
 ) -> String {
     if package_kind == InstallPackageKind::WindowsExe {
-        return "Windows update staged. OxideTerm will quit and the update helper will finish replacement."
+        return "Windows update staged. RayTerm will quit and the update helper will finish replacement."
             .to_string();
     }
     format!(
@@ -836,22 +836,22 @@ mod tests {
     #[test]
     fn windows_install_plans_select_installer_strategies() {
         let plan = plan_native_install(
-            "C:/Temp/OxideTerm.msi",
+            "C:/Temp/RayTerm.msi",
             &context(
                 "windows",
                 InstallFlavor::WindowsNsis,
-                "C:/Program Files/OxideTerm/OxideTerm.exe",
+                "C:/Program Files/RayTerm/RayTerm.exe",
             ),
         );
         assert_eq!(plan.strategy, InstallStrategy::WindowsRunInstaller);
         assert_eq!(plan.package_kind, InstallPackageKind::WindowsMsi);
 
         let plan = plan_native_install(
-            "C:/Temp/OxideTerm_setup.exe",
+            "C:/Temp/RayTerm_setup.exe",
             &context(
                 "windows",
                 InstallFlavor::WindowsNsis,
-                "C:/Users/me/AppData/Local/Programs/OxideTerm/oxideterm-native.exe",
+                "C:/Users/me/AppData/Local/Programs/RayTerm/oxideterm-native.exe",
             ),
         );
         assert_eq!(plan.strategy, InstallStrategy::WindowsRunInstaller);
@@ -859,11 +859,11 @@ mod tests {
         assert!(plan.requires_app_exit);
 
         let plan = plan_native_install(
-            "C:/Temp/OxideTerm_1.0.0_x64.msi.zip",
+            "C:/Temp/RayTerm_1.0.0_x64.msi.zip",
             &context(
                 "windows",
                 InstallFlavor::WindowsNsis,
-                "C:/Program Files/OxideTerm/OxideTerm.exe",
+                "C:/Program Files/RayTerm/RayTerm.exe",
             ),
         );
         assert_eq!(
@@ -887,22 +887,22 @@ mod tests {
     #[test]
     fn linux_appimage_plans_require_replacement_runtime() {
         let plan = plan_native_install(
-            "/tmp/OxideTerm.AppImage",
+            "/tmp/RayTerm.AppImage",
             &context(
                 "linux",
                 InstallFlavor::LinuxAppImage,
-                "/opt/OxideTerm.AppImage",
+                "/opt/RayTerm.AppImage",
             ),
         );
         assert_eq!(plan.strategy, InstallStrategy::LinuxReplaceAppImage);
         assert!(plan.requires_app_exit);
 
         let plan = plan_native_install(
-            "/tmp/OxideTerm.AppImage.tar.gz",
+            "/tmp/RayTerm.AppImage.tar.gz",
             &context(
                 "linux",
                 InstallFlavor::LinuxAppImage,
-                "/opt/OxideTerm.AppImage",
+                "/opt/RayTerm.AppImage",
             ),
         );
         assert_eq!(plan.strategy, InstallStrategy::LinuxReplaceAppImageArchive);
@@ -913,22 +913,22 @@ mod tests {
     #[test]
     fn macos_install_plans_select_open_or_replace_strategy() {
         let plan = plan_native_install(
-            "/tmp/OxideTerm.dmg",
+            "/tmp/RayTerm.dmg",
             &context(
                 "macos",
                 InstallFlavor::MacApp,
-                "/Applications/OxideTerm.app/Contents/MacOS/OxideTerm",
+                "/Applications/RayTerm.app/Contents/MacOS/RayTerm",
             ),
         );
         assert_eq!(plan.strategy, InstallStrategy::MacOpenDmg);
         assert_eq!(plan.action, InstallActionKind::OpenPackage);
 
         let plan = plan_native_install(
-            "/tmp/OxideTerm.app.zip",
+            "/tmp/RayTerm.app.zip",
             &context(
                 "macos",
                 InstallFlavor::MacApp,
-                "/Applications/OxideTerm.app/Contents/MacOS/OxideTerm",
+                "/Applications/RayTerm.app/Contents/MacOS/RayTerm",
             ),
         );
         assert_eq!(plan.strategy, InstallStrategy::MacReplaceAppArchive);
@@ -940,8 +940,8 @@ mod tests {
     fn linux_packages_open_with_the_package_installer() {
         // DEB and RPM packages share the installed-package handoff contract.
         let cases = [
-            ("/tmp/OxideTerm_linux_x64.deb", InstallFlavor::LinuxDeb),
-            ("/tmp/OxideTerm_linux_x64.rpm", InstallFlavor::LinuxRpm),
+            ("/tmp/RayTerm_linux_x64.deb", InstallFlavor::LinuxDeb),
+            ("/tmp/RayTerm_linux_x64.rpm", InstallFlavor::LinuxRpm),
         ];
 
         for (package_path, flavor) in cases {
@@ -961,9 +961,9 @@ mod tests {
         // Portable archives differ by platform, but all use the same guarded
         // replacement protocol instead of an installed-package flow.
         let cases = [
-            ("macos", "/tmp/OxideTerm_macos_x64_portable.tar.gz"),
-            ("windows", "C:/Temp/OxideTerm_windows_x64_portable.zip"),
-            ("linux", "/tmp/OxideTerm_linux_x64_portable.tar.gz"),
+            ("macos", "/tmp/RayTerm_macos_x64_portable.tar.gz"),
+            ("windows", "C:/Temp/RayTerm_windows_x64_portable.zip"),
+            ("linux", "/tmp/RayTerm_linux_x64_portable.tar.gz"),
         ];
 
         for (os, package_path) in cases {
@@ -980,7 +980,7 @@ mod tests {
     #[test]
     fn mismatched_install_flavor_falls_back_to_manual_open() {
         let plan = plan_native_install(
-            "/tmp/OxideTerm_linux_x64.AppImage",
+            "/tmp/RayTerm_linux_x64.AppImage",
             &context(
                 "linux",
                 InstallFlavor::LinuxDeb,

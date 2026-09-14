@@ -431,6 +431,47 @@ mod tests {
         ]);
     }
 
+    /// RayTerm renamed every user-visible product string, and an upstream merge reintroduces
+    /// the old names wholesale. This asserts the rename held rather than trusting a one-off
+    /// search: without it, a merge silently restores the previous branding.
+    ///
+    /// The unchanged spellings are not asserted here — `.oxide` as a file format and
+    /// lowercase `oxideterm` as an identifier live outside the locale catalogs, and the
+    /// rename pass was scoped to whole words so neither could be caught by it.
+    #[test]
+    fn no_locale_carries_the_upstream_product_name() {
+        let locales = [
+            Locale::De,
+            Locale::En,
+            Locale::EsEs,
+            Locale::FrFr,
+            Locale::It,
+            Locale::Ja,
+            Locale::Ko,
+            Locale::PtBr,
+            Locale::Vi,
+            Locale::ZhCn,
+            Locale::ZhTw,
+        ];
+
+        let mut offenders = Vec::new();
+        for locale in locales {
+            let catalog = LocaleCatalog::from_json_parts(locale_parts(locale));
+            for (key, value) in &catalog.messages {
+                if value.contains("OxideTerm") || value.contains("OxideSens") {
+                    offenders.push(format!("{locale:?}/{key}"));
+                }
+            }
+        }
+
+        assert!(
+            offenders.is_empty(),
+            "the upstream product name survived the RayTerm rename in {} keys: {:?}",
+            offenders.len(),
+            &offenders[..offenders.len().min(8)]
+        );
+    }
+
     #[test]
     fn locale_catalogs_have_the_same_complete_key_set() {
         use std::collections::BTreeSet;

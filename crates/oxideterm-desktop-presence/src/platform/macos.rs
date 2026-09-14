@@ -68,7 +68,7 @@ fn main_window(window: &Window) -> anyhow::Result<*mut NSWindow> {
     let handle = raw_window_handle::HasWindowHandle::window_handle(window)
         .map_err(|_| anyhow!("unable to read macOS window handle"))?;
     let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
-        return Err(anyhow!("OxideTerm main window is not an AppKit window"));
+        return Err(anyhow!("RayTerm main window is not an AppKit window"));
     };
     let view = unsafe { handle.ns_view.cast::<NSView>().as_ref() };
     view.window()

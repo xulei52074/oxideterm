@@ -38,7 +38,7 @@ impl AcpHostToolsServer {
     /// Builds the stable MCP declaration installed when the ACP session is created.
     pub fn mcp_server(&self) -> McpServer {
         McpServer::Http(
-            McpServerHttp::new("OxideTerm Application Tools", self.endpoint_url.clone()).headers(
+            McpServerHttp::new("RayTerm Application Tools", self.endpoint_url.clone()).headers(
                 vec![HttpHeader::new(
                     "Authorization",
                     self.authorization_header.as_str(),

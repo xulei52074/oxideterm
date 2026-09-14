@@ -187,7 +187,7 @@
       "title_unknown": "Clé d’hôte inconnue",
       "title_changed": "Clé d’hôte modifiée",
       "title_error": "Erreur de clé d’hôte",
-      "unknown_message": "OxideTerm voit cette clé d’hôte SSH pour la première fois. Vérifiez l’empreinte avant de continuer.",
+      "unknown_message": "RayTerm voit cette clé d’hôte SSH pour la première fois. Vérifiez l’empreinte avant de continuer.",
       "changed_warning": "La clé d’hôte SSH enregistrée pour cet hôte ne correspond pas à la clé du serveur. Cela peut indiquer une attaque de l’homme du milieu.",
       "key_type_label": "Type de clé",
       "fingerprint_label": "Empreinte",
