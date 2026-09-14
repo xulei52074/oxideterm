@@ -45,6 +45,22 @@ ICON_SIZE = 512
 ICNS_SIZES = [16, 32, 64, 128, 256, 512, 1024]
 ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
 
+# The Windows Store tile assets. They live beside `icon.png`, are referenced only by the
+# packaging configuration, and were still the pre-rebrand mark; regenerating them from the
+# same master keeps every shipped icon on one design.
+STORE_LOGOS = {
+    "StoreLogo.png": 50,
+    "Square30x30Logo.png": 30,
+    "Square44x44Logo.png": 44,
+    "Square71x71Logo.png": 71,
+    "Square89x89Logo.png": 89,
+    "Square107x107Logo.png": 107,
+    "Square142x142Logo.png": 142,
+    "Square150x150Logo.png": 150,
+    "Square284x284Logo.png": 284,
+    "Square310x310Logo.png": 310,
+}
+
 
 def load_mark(brand_dir: Path) -> Image.Image:
     path = brand_dir / "rayterm-mark.png"
@@ -203,8 +219,13 @@ def main() -> int:
     verify(out / "icon.png", ICON_SIZE, accent)
     print("  icon.png")
 
+    for name, store_size in STORE_LOGOS.items():
+        store_icon = compose(store_size, mark, background, ink, accent)
+        store_icon.save(out / name, "PNG", optimize=True)
+
     if write_icns(out, mark, background, ink, accent):
         print(f"  icon.icns ({(out / 'icon.icns').stat().st_size} bytes)")
+    print(f"  {len(STORE_LOGOS)} Windows Store tiles")
     return 0
 
 

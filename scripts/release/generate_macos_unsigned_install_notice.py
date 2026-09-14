@@ -94,9 +94,9 @@ def generate_notice(output: Path) -> None:
     draw.text((224, 137), "未签名 macOS 版本", font=subtitle_font, fill=WARNING)
 
     steps = [
-        ("1", "Drag OxideTerm to Applications", "将 OxideTerm 拖入“应用程序”文件夹"),
+        ("1", "Drag RayTerm to Applications", "将 RayTerm 拖入“应用程序”文件夹"),
         ("2", "If macOS blocks the first launch, open Terminal", "若首次启动被 macOS 阻止，请打开“终端”"),
-        ("3", "Run the command below, then launch OxideTerm again", "执行下方命令，然后重新启动 OxideTerm"),
+        ("3", "Run the command below, then launch RayTerm again", "执行下方命令，然后重新启动 RayTerm"),
     ]
     start_y = 220
     for index, (number, english, chinese) in enumerate(steps):
@@ -109,7 +109,7 @@ def generate_notice(output: Path) -> None:
     draw.rounded_rectangle(
         (82, 496, 1118, 568), radius=8, fill=COMMAND_BACKGROUND, outline=BORDER, width=2
     )
-    command = 'xattr -cr "/Applications/OxideTerm.app"'
+    command = 'xattr -cr "/Applications/RayTerm.app"'
     draw_centered_text(draw, command, 600, 513, mono_font, PRIMARY)
 
     draw_centered_text(
@@ -148,7 +148,7 @@ def generate_dmg_background(output: Path) -> None:
     subtitle_font = load_font(UI_FONT, 21)
     detail_font = load_font(UI_FONT, 17)
 
-    draw_centered_text(draw, "Install OxideTerm", 360, 24, title_font, dmg_primary)
+    draw_centered_text(draw, "Install RayTerm", 360, 24, title_font, dmg_primary)
     draw_centered_text(
         draw, "拖入“应用程序”即可安装", 360, 68, subtitle_font, dmg_secondary
     )
