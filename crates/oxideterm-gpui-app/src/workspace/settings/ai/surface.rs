@@ -41,7 +41,7 @@ impl WorkspaceApp {
             .opacity(if enabled { 1.0 } else { 0.5 })
             .child(body);
         if !enabled {
-            // Disabled OxideSens subsections should look inert and must not let
+            // Disabled RayTerm AI subsections should look inert and must not let
             // nested controls fire while the top-level feature toggle remains
             // usable in the separate general card.
             body = body.on_mouse_down(MouseButton::Left, |_event, _window, cx| {

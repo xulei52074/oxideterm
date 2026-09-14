@@ -3924,7 +3924,7 @@ mod tests {
 
     #[test]
     fn read_only_soft_wrap_ranges_follow_visual_line_count() {
-        let text = "你好！我是 OxideSens，你的终端助手。我可以帮助你处理终端命令、SSH 连接、文件操作、脚本调试等等。";
+        let text = "你好！我是 RayTerm AI，你的终端助手。我可以帮助你处理终端命令、SSH 连接、文件操作、脚本调试等等。";
         let ranges = soft_wrapped_line_ranges_utf16(text, 260.0, 112.0);
         assert!(ranges.len() >= 3, "{ranges:?}");
         assert_eq!(ranges.first().map(|range| range.start), Some(0));

@@ -959,7 +959,7 @@ impl WorkspaceApp {
                                 SelectableTextRole::PlainDocument,
                                 "file-preview-font-sample",
                                 "zh",
-                                "中文字体预览：家里的主机 OxideTerm 终端文件管理器",
+                                "中文字体预览：家里的主机 RayTerm 终端文件管理器",
                                 theme.text,
                                 cx,
                             )),

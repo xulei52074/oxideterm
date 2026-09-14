@@ -1868,7 +1868,7 @@ mod sidebar_resize_region_tests {
 
         // The collapse control should be at the right chrome edge, allowing for
         // the titlebar padding. This catches regressions where the titlebar row
-        // shrinks to the intrinsic "OxideSens" title width.
+        // shrinks to the intrinsic "RayTerm AI" title width.
         let right_padding = right_edge(&titlebar) - right_edge(&collapse);
         assert_close("collapse right padding", right_padding, 12.0);
 

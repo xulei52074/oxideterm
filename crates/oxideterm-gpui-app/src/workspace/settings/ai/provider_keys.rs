@@ -257,7 +257,7 @@ impl WorkspaceApp {
         provider_views: &[AiProviderView],
         cx: &mut Context<Self>,
     ) {
-        // Rendering OxideSens already derives provider views, so reuse that
+        // Rendering RayTerm AI already derives provider views, so reuse that
         // snapshot when available instead of parsing the same JSON again.
         let provider_jobs: Vec<_> = provider_views
             .iter()
