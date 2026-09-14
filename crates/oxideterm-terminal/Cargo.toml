@@ -13,6 +13,12 @@ fernomade-predict = { path = "../fernomade/predict" }
 libc.workspace = true
 memchr.workspace = true
 oxideterm-ssh = { path = "../oxideterm-ssh" }
+# The RayTerm protocol client, kept in the RayTerm repository rather than in this fork so an
+# upstream merge never has to reconcile files that were never upstream's. Only the
+# runtime-free protocol crate is pulled in; the network wiring (reqwest, tokio-tungstenite)
+# lives in `crates/rayterm`, which constructs a `Box<dyn oxideterm_rayops::Socket>` and hands
+# it to the backend. This keeps this crate free of an HTTP or WebSocket dependency.
+oxideterm-rayops = { path = "../../../crates/oxideterm-rayops" }
 oxideterm-modem-transfer = { path = "../oxideterm-modem-transfer" }
 oxideterm-mosh = { path = "../oxideterm-mosh" }
 oxideterm-terminal-encoding = { path = "../oxideterm-terminal-encoding" }
