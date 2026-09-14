@@ -677,6 +677,9 @@ impl WorkspaceApp {
             .on_action(cx.listener(|this, _: &NewConnection, window, cx| {
                 this.open_new_connection_form(window, cx);
             }))
+            .on_action(cx.listener(|this, _: &NewRayOpsConnection, window, cx| {
+                this.open_rayops_connection(window, cx);
+            }))
             .on_action(cx.listener(|this, _: &ToggleSidebar, _window, cx| {
                 this.toggle_sidebar(cx);
             }))

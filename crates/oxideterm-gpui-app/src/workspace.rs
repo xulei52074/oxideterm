@@ -9,6 +9,7 @@ mod breadcrumb_scroll;
 mod browser_behavior;
 mod cloud_sync;
 mod command_palette;
+mod rayops_flow;
 mod connection_monitor;
 mod delivery;
 mod detached_tab_window;
@@ -308,7 +309,8 @@ use self::window_intent::WorkspaceWindowIntentEntity;
 use crate::{
     CloseOtherTabs, ClosePane, CloseSearch, CloseTab, CommandPalette, Copy, Cut, Find, FindNext,
     FindPrev, FontDecrease, FontIncrease, FontReset, GoToTab1, GoToTab2, GoToTab3, GoToTab4,
-    GoToTab5, GoToTab6, GoToTab7, GoToTab8, GoToTab9, NewConnection, NewTerminal, NextTab,
+    GoToTab5, GoToTab6, GoToTab7, GoToTab8, GoToTab9, NewConnection, NewRayOpsConnection,
+    NewTerminal, NextTab,
     OpenSettings, PaletteAiSidebar, PaletteBroadcast, PaletteCancelReconnect, PaletteCleanupDead,
     PaletteDetachTerminal, PaletteDisconnectAll, PaletteEventLog, PaletteHealthCheck,
     PaletteReconnectAll, PaletteResetPanes, Paste, PrevTab, ShellLauncher, ShowShortcuts,

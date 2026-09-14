@@ -60,6 +60,7 @@
     "quick_connect": "クイック接続",
     "cmd_new_terminal": "新規ローカルターミナル",
     "cmd_new_connection": "新規 SSH 接続",
+    "cmd_new_rayops_connection": "RayOps 接続を新規作成",
     "cmd_settings": "設定を開く",
     "cmd_manage_terminal_triggers": "ターミナルトリガーを管理",
     "cmd_toggle_sidebar": "サイドバー切替",

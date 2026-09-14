@@ -60,6 +60,7 @@
     "quick_connect": "빠른 연결",
     "cmd_new_terminal": "새 로컬 터미널",
     "cmd_new_connection": "새 SSH 연결",
+    "cmd_new_rayops_connection": "새 RayOps 연결",
     "cmd_settings": "설정 열기",
     "cmd_manage_terminal_triggers": "터미널 트리거 관리",
     "cmd_toggle_sidebar": "사이드바 전환",

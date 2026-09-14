@@ -60,6 +60,7 @@
     "quick_connect": "Kết nối nhanh",
     "cmd_new_terminal": "Terminal mới",
     "cmd_new_connection": "Kết nối SSH mới",
+    "cmd_new_rayops_connection": "Kết nối RayOps mới",
     "cmd_settings": "Mở cài đặt",
     "cmd_manage_terminal_triggers": "Quản lý trình kích hoạt terminal",
     "cmd_toggle_sidebar": "Chuyển đổi thanh bên",

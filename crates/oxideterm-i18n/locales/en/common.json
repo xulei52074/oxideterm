@@ -60,6 +60,7 @@
     "quick_connect": "Quick Connect",
     "cmd_new_terminal": "New Local Terminal",
     "cmd_new_connection": "New SSH Connection",
+    "cmd_new_rayops_connection": "New RayOps Connection",
     "cmd_settings": "Open Settings",
     "cmd_manage_terminal_triggers": "Manage Terminal Triggers",
     "cmd_toggle_sidebar": "Toggle Sidebar",

@@ -413,6 +413,106 @@ impl WorkspaceApp {
             && state.saved_connection_prompt_action.is_none()
     }
 
+    /// Reports a RayOps failure the user can see.
+    ///
+    /// A notification rather than an inline error because the connection runs in the background:
+    /// by the time it can fail the modal it was launched from is gone, so there is no surface
+    /// left to attach an inline message to. Reporting it instead of logging keeps a failed
+    /// connection from looking like nothing happened.
+    fn notify_rayops_error(&mut self, message: String, cx: &mut Context<Self>) {
+        self.push_notification_entry(
+            crate::workspace::WorkspaceNotificationKind::Connection,
+            crate::workspace::WorkspaceNotificationSeverity::Error,
+            self.i18n.t("command_palette.cmd_new_rayops_connection"),
+            Some(message),
+            crate::workspace::WorkspaceNotificationScope::Global,
+            Some("rayops-connect-failed".to_owned()),
+        );
+        cx.notify();
+    }
+
+    /// Opens a RayOps session from the configured deployment.
+    ///
+    /// The network work runs on the forwarding runtime and the tab is created back on the UI
+    /// thread, because a tab needs a `Window`. The asset is taken from settings rather than
+    /// picked: the asset picker does not exist yet, and a menu entry with nothing to open would
+    /// be worse than one that requires configuration. When it lands, this function is where the
+    /// picker's result is threaded through — the connection flow below it does not change.
+    pub(in crate::workspace) fn open_rayops_connection(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let settings = self.settings_store.settings().rayops.clone();
+        let base_url = settings.base_url.trim().to_owned();
+        if base_url.is_empty() {
+            self.notify_rayops_error(
+                "RayOps is not configured: set the deployment URL in Settings → RayOps.".to_owned(),
+                cx,
+            );
+            return;
+        }
+        if settings.asset_id <= 0 {
+            self.notify_rayops_error(
+                "RayOps is not configured: set an asset id in Settings → RayOps.".to_owned(),
+                cx,
+            );
+            return;
+        }
+        let password = match crate::workspace::rayops_flow::credential_from_environment() {
+            Ok(password) => password,
+            Err(message) => {
+                self.notify_rayops_error(message, cx);
+                return;
+            }
+        };
+
+        let launch = crate::workspace::rayops_flow::RayOpsLaunch {
+            base_url,
+            asset_id: settings.asset_id,
+            insecure_tls: settings.insecure_tls,
+            username: std::env::var("RAYOPS_USERNAME").unwrap_or_else(|_| "admin".to_owned()),
+            password,
+        };
+        let title = format!("RayOps {}", launch.asset_id);
+        let terminal_options = ConnectionTerminalOptions::default();
+        let runtime = self.forwarding_runtime.clone();
+        let task = cx.spawn_in(window, async move |this, cx| {
+            let opened = runtime
+                .spawn(crate::workspace::rayops_flow::open_rayops_connection(launch))
+                .await;
+            match opened {
+                Ok(Err(message)) => {
+                    let _ = this.update_in(cx, |this, _window, cx| {
+                        this.notify_rayops_error(message, cx);
+                    });
+                }
+                Ok(Ok(connection)) => {
+                    let _ = this.update_in(cx, |this, window, cx| {
+                        if let Err(error) = this.create_rayops_terminal_tab(
+                            title,
+                            connection.socket,
+                            terminal_options,
+                            window,
+                            cx,
+                        ) {
+                            this.notify_rayops_error(error.to_string(), cx);
+                        }
+                    });
+                }
+                Err(join_error) => {
+                    let _ = this.update_in(cx, |this, _window, cx| {
+                        this.notify_rayops_error(
+                            format!("the RayOps connection task failed: {join_error}"),
+                            cx,
+                        );
+                    });
+                }
+            }
+        });
+        task.detach();
+    }
+
     pub(in crate::workspace) fn open_new_connection_form(
         &mut self,
         window: &mut Window,

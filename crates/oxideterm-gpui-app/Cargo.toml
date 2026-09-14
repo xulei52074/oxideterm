@@ -20,6 +20,13 @@ base64.workspace = true
 chrono.workspace = true
 fs2.workspace = true
 gpui.workspace = true
+# The RayTerm protocol client and its network wiring. The application layer is where the RayOps
+# flow lives — login, the asset picker, the ticket exchange — so it is one of the two places that
+# legitimately depends on both, the other being `crates/rayterm`. `oxideterm-terminal` depends
+# only on the runtime-free protocol crate, which is what keeps reqwest and tokio-tungstenite out
+# of the terminal model.
+oxideterm-rayops = { path = "../../../crates/oxideterm-rayops" }
+oxideterm-rayops-net = { path = "../../../crates/oxideterm-rayops-net" }
 image.workspace = true
 oxideterm-backend-classification = { path = "../oxideterm-backend-classification" }
 oxideterm-ai = { path = "../oxideterm-ai" }

@@ -35,9 +35,6 @@ actions!(
         CloseTab,
         CloseOtherTabs,
         NewConnection,
-        /// Opens the RayOps asset picker, which is a separate flow from `NewConnection`: that
-        /// one builds a saved profile, whereas a RayOps session is authorized per connection by
-        /// the gateway and cannot be reopened from stored state.
         NewRayOpsConnection,
         ToggleSidebar,
         CommandPalette,

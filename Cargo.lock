@@ -7920,6 +7920,8 @@ dependencies = [
  "oxideterm-preview",
  "oxideterm-public-mcp",
  "oxideterm-quick-commands",
+ "oxideterm-rayops",
+ "oxideterm-rayops-net",
  "oxideterm-remote-desktop",
  "oxideterm-render-policy",
  "oxideterm-session-adapter",
