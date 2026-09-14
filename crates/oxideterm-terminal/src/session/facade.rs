@@ -11,6 +11,24 @@ pub struct TelnetSessionConfig {
     pub port: u16,
 }
 
+/// What the UI needs to construct a RayOps session.
+///
+/// Deliberately not `Serialize`: the socket is a live channel and a RayOps session is not
+/// restorable from stored state. Persisting a session would imply the server keeps it alive,
+/// which it does not — a reconnect is a new shell.
+pub struct RayOpsSessionConfig {
+    /// Shown on the pane. Comes from the asset the user picked, not from the gateway.
+    pub title: String,
+    /// The live channel. Boxed because the transport is chosen outside this crate, which is
+    /// what keeps a WebSocket dependency out of the terminal model.
+    pub socket: Box<dyn oxideterm_rayops::Socket>,
+    pub cols: usize,
+    pub rows: usize,
+    pub scrollback_lines: usize,
+    /// Passed to the graphics ingress, which decides which image protocols are answered.
+    pub graphics_options: GraphicsOptions,
+}
+
 /// One-shot URI credentials consumed by the Telnet worker and never persisted.
 pub struct TelnetLoginCredentials {
     pub username: zeroize::Zeroizing<String>,
@@ -169,6 +187,19 @@ impl TerminalSession {
                 encoding,
                 scrollback_lines,
             )),
+            kitty_file_transmission,
+        }
+    }
+
+    /// Opens a session carried by the RayOps KoKo gateway.
+    ///
+    /// The caller supplies an already-connected socket: negotiating the ticket and the
+    /// WebSocket lives outside this crate, so this constructor takes the channel rather than
+    /// a URL or credentials.
+    pub fn rayops(config: RayOpsSessionConfig) -> Self {
+        let kitty_file_transmission = Some(config.graphics_options.kitty_file_transmission.clone());
+        Self {
+            backend: Box::new(RayOpsSession::new(config)),
             kitty_file_transmission,
         }
     }
