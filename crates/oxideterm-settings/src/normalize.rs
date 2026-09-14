@@ -314,9 +314,18 @@ fn acp_agent_preset_migration(
             Some(("oxideterm-native", vec!["--acp-adapter", "claude-code"]))
         }
         ("codex-acp", []) => Some(("oxideterm-native", vec!["--acp-adapter", "codex"])),
+        // A stored preset from before the rename names the old executable, which no longer
+        // exists on disk. Rewritten rather than left alone: the adapter would fail to start and
+        // the failure would look like a broken AI integration rather than a stale path.
+        ("oxideterm-native", ["--acp-adapter", "claude-code"]) => {
+            Some(("oxideterm-native", vec!["--acp-adapter", "claude-code"]))
+        }
+        ("oxideterm-native", ["--acp-adapter", "codex"]) => {
+            Some(("oxideterm-native", vec!["--acp-adapter", "codex"]))
+        }
         // Copilot already exposes native ACP over stdio; undo older OxideTerm
         // migrations that wrapped it as a text CLI adapter.
-        ("oxideterm-native", ["--acp-adapter", "github-copilot"])
+        | ("oxideterm-native", ["--acp-adapter", "github-copilot"])
         | ("oxideterm", ["--acp-adapter", "github-copilot"]) => {
             Some(("copilot", vec!["--acp", "--stdio"]))
         }

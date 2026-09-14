@@ -41,6 +41,16 @@ const MAX_RETAINED_RESUMABLE_UPDATE_DIRS: usize = 2;
 
 #[derive(Debug, thiserror::Error)]
 pub enum NativeUpdateError {
+    /// This build does not update itself.
+    ///
+    /// The upstream updater replaces the running executable with a release from the product's own
+    /// repository. On this fork that would install the upstream product over RayTerm and discard
+    /// everything RayTerm adds, so the check is refused rather than left reachable. Reporting it as
+    /// its own error keeps the reason visible in the UI instead of surfacing as a network failure
+    /// someone would try to debug.
+    #[error("Updates are disabled in this build")]
+    UpdatesDisabled,
+
     #[error("Update error: {0}")]
     General(String),
 
@@ -136,9 +146,13 @@ impl NativeUpdateClient {
 
     pub async fn check(
         &self,
-        request: NativeUpdateRequest,
+        _request: NativeUpdateRequest,
     ) -> Result<NativeUpdateStatus, NativeUpdateError> {
-        let endpoint = endpoint_for_channel(request.channel);
+        // Refused before any network traffic: see `NativeUpdateError::UpdatesDisabled`.
+        return Err(NativeUpdateError::UpdatesDisabled);
+
+        #[allow(unreachable_code)]
+        let endpoint = endpoint_for_channel(_request.channel);
         let response = self
             .http
             .get(endpoint.url)
@@ -160,16 +174,16 @@ impl NativeUpdateClient {
             serde_json::from_slice(&bytes).map_err(NativeUpdateError::ManifestJson)?;
 
         match manifest.select_package(
-            &request.current_version,
-            &request.target,
-            request.install_flavor,
+            &_request.current_version,
+            &_request.target,
+            _request.install_flavor,
         ) {
             Some(package) => Ok(NativeUpdateStatus::Available(package)),
             None if manifest.platforms.is_empty() => Ok(NativeUpdateStatus::UpToDate),
-            None if crate::is_update_newer(&manifest.version, &request.current_version) => {
+            None if crate::is_update_newer(&manifest.version, &_request.current_version) => {
                 Err(NativeUpdateError::UnsupportedPlatform {
-                    os: request.target.os(),
-                    arch: request.target.arch(),
+                    os: _request.target.os(),
+                    arch: _request.target.arch(),
                 })
             }
             None => Ok(NativeUpdateStatus::UpToDate),
@@ -794,4 +808,41 @@ mod tests {
         assert!(!name.contains('/'));
         assert!(!name.contains('?'));
     }
+    /// This build must never download a release from the upstream product.
+    ///
+    /// The upstream updater replaces the running executable with a release from the product's own
+    /// repository. For this fork that would install the upstream product over RayTerm and discard
+    /// the RayOps integration, so the check stays refused. Asserted directly rather than described
+    /// in a comment, because re-enabling it would look like a legitimate fix to anyone who did not
+    /// know why it was closed.
+    #[tokio::test]
+    async fn the_update_check_refuses_to_contact_the_upstream_repository() {
+        let client = NativeUpdateClient::new().expect("an HTTP client for the test");
+        let outcome = client
+            .check(NativeUpdateRequest::current(
+                UpdateChannel::Stable,
+                "0.0.0-test",
+                InstallFlavor::Standard,
+            ))
+            .await;
+        assert!(
+            matches!(outcome, Err(NativeUpdateError::UpdatesDisabled)),
+            "the check must be refused before any network traffic, got {outcome:?}"
+        );
+    }
+
+    /// The endpoint constants must not name the upstream repository.
+    ///
+    /// A second guard on the same property from the other side: even if the refusal above were
+    /// removed, the constants would still have to be repointed deliberately.
+    #[test]
+    fn no_endpoint_names_the_upstream_product() {
+        for endpoint in [crate::STABLE_UPDATE_ENDPOINT, crate::BETA_UPDATE_ENDPOINT] {
+            assert!(
+                !endpoint.to_ascii_lowercase().contains("analysecircuit"),
+                "an update endpoint still points at the upstream product: {endpoint}"
+            );
+        }
+    }
+
 }
