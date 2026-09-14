@@ -413,6 +413,28 @@ pub struct WindowGeometry {
     pub height: i64,
 }
 
+/// Where the RayOps control plane lives.
+///
+/// Only the deployment origin is stored. Credentials are deliberately absent: the password is
+/// typed per session and the JWT and the one-shot ticket live in memory for the lifetime of a
+/// connection. Nothing here is a secret, which is why these fields may sit in a plain settings
+/// file that is exported, synced and backed up.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RayOpsSettings {
+    /// Deployment origin without a path, for example `https://rayops.internal`. Empty means the
+    /// user has not configured a deployment yet.
+    #[serde(default)]
+    pub base_url: String,
+    /// Accept any TLS certificate.
+    ///
+    /// Off by default and never enabled without the user asking for it: on a terminal
+    /// connection, accepting any certificate also accepts whoever is in the middle of it.
+    /// The UI must warn before this can be turned on.
+    #[serde(default)]
+    pub insecure_tls: bool,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistedSettings {
@@ -459,6 +481,8 @@ pub struct PersistedSettings {
     pub diagnostics: DiagnosticsSettings,
     #[serde(default)]
     pub host_tools: HostToolsSettings,
+    #[serde(default)]
+    pub rayops: RayOpsSettings,
     #[serde(flatten)]
     pub extra: ExtraFields,
 }
@@ -494,6 +518,7 @@ impl Default for PersistedSettings {
             ssh_config: SshConfigSettings::default(),
             diagnostics: DiagnosticsSettings::default(),
             host_tools: HostToolsSettings::default(),
+            rayops: RayOpsSettings::default(),
             extra: ExtraFields::new(),
         }
     }
@@ -517,7 +542,7 @@ impl PersistedSettings {
 
 #[cfg(test)]
 mod misc_tests {
-    use super::{PersistedSettings, SettingsApplicationProxyMode};
+    use super::{PersistedSettings, RayOpsSettings, SettingsApplicationProxyMode};
     use crate::DEFAULT_WINDOW_OPACITY;
 
     #[test]
@@ -677,4 +702,63 @@ mod misc_tests {
         assert_eq!(serialized["network"]["applicationProxyMode"], "direct");
         assert!(serialized["network"].get("applicationProxyEnabled").is_none());
     }
+    /// A fresh install must produce a settings file that contains no credential.
+    ///
+    /// The assertion is on the serialized form rather than the struct, because the risk is that
+    /// a future field is added here holding a password, JWT or ticket and is then written to
+    /// disk, exported and synced. A struct-level assertion would not catch that.
+    #[test]
+    fn rayops_settings_round_trip_and_carry_no_credential() {
+        let mut settings = PersistedSettings::default();
+        settings.rayops.base_url = "https://rayops.internal".to_owned();
+        settings.rayops.insecure_tls = false;
+
+        let json = serde_json::to_string(&settings).expect("settings serialize");
+        let value: serde_json::Value = serde_json::from_str(&json).expect("settings are valid JSON");
+
+        assert_eq!(value["rayops"]["baseUrl"], "https://rayops.internal");
+        assert_eq!(value["rayops"]["insecureTls"], false);
+
+        // Every key under `rayops` is enumerated, so a new one has to be a deliberate choice.
+        let keys: Vec<&String> = value["rayops"]
+            .as_object()
+            .expect("rayops is an object")
+            .keys()
+            .collect();
+        assert_eq!(keys, vec!["baseUrl", "insecureTls"], "unexpected key under rayops");
+
+        for needle in ["password", "token", "jwt", "ticket", "secret"] {
+            assert!(
+                !json.to_ascii_lowercase().contains(needle),
+                "the settings file must never carry a {needle}: {json}"
+            );
+        }
+
+        let restored: PersistedSettings =
+            serde_json::from_str(&json).expect("settings deserialize");
+        assert_eq!(restored.rayops, settings.rayops);
+    }
+
+    /// A settings file written before RayOps existed must still load.
+    #[test]
+    fn a_settings_file_without_the_rayops_section_still_loads() {
+        let mut value =
+            serde_json::to_value(PersistedSettings::default()).expect("settings serialize");
+        value
+            .as_object_mut()
+            .expect("an object")
+            .remove("rayops");
+
+        let restored: PersistedSettings =
+            serde_json::from_value(value).expect("older settings load");
+        assert_eq!(restored.rayops.base_url, "");
+        assert!(!restored.rayops.insecure_tls);
+    }
+
+    /// Certificate verification is on unless the user turned it off.
+    #[test]
+    fn verification_is_enabled_by_default() {
+        assert!(!RayOpsSettings::default().insecure_tls);
+    }
+
 }
