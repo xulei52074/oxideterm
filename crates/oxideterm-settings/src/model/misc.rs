@@ -433,6 +433,13 @@ pub struct RayOpsSettings {
     /// The UI must warn before this can be turned on.
     #[serde(default)]
     pub insecure_tls: bool,
+    /// The asset the menu command opens.
+    ///
+    /// A stand-in until the asset picker exists: without it the entry point has nothing to
+    /// connect to. `0` means unset, which the entry point reports as a configuration error
+    /// rather than guessing an asset. Not a credential — an asset id is a public identifier.
+    #[serde(default)]
+    pub asset_id: i64,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -712,20 +719,27 @@ mod misc_tests {
         let mut settings = PersistedSettings::default();
         settings.rayops.base_url = "https://rayops.internal".to_owned();
         settings.rayops.insecure_tls = false;
+        settings.rayops.asset_id = 12;
 
         let json = serde_json::to_string(&settings).expect("settings serialize");
         let value: serde_json::Value = serde_json::from_str(&json).expect("settings are valid JSON");
 
         assert_eq!(value["rayops"]["baseUrl"], "https://rayops.internal");
         assert_eq!(value["rayops"]["insecureTls"], false);
+        assert_eq!(value["rayops"]["assetId"], 12);
 
         // Every key under `rayops` is enumerated, so a new one has to be a deliberate choice.
+        // The order is declaration order, not alphabetical: serde_json preserves it.
         let keys: Vec<&String> = value["rayops"]
             .as_object()
             .expect("rayops is an object")
             .keys()
             .collect();
-        assert_eq!(keys, vec!["baseUrl", "insecureTls"], "unexpected key under rayops");
+        assert_eq!(
+            keys,
+            vec!["baseUrl", "insecureTls", "assetId"],
+            "unexpected key under rayops"
+        );
 
         for needle in ["password", "token", "jwt", "ticket", "secret"] {
             assert!(

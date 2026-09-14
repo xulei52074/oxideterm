@@ -6,7 +6,7 @@ use std::{borrow::Cow, sync::LazyLock};
 use crate::{
     CloseOtherTabs, CloseTab, CommandPalette, Copy, Cut, Find, FontDecrease, FontIncrease,
     FontReset, GoToTab1, GoToTab2, GoToTab3, GoToTab4, GoToTab5, GoToTab6, GoToTab7, GoToTab8,
-    GoToTab9, NewConnection, NewTerminal, NextTab, OpenSettings, PaletteAiSidebar,
+    GoToTab9, NewConnection, NewRayOpsConnection, NewTerminal, NextTab, OpenSettings, PaletteAiSidebar,
     PaletteBroadcast, PaletteEventLog, Paste, PrevTab, Quit, ShellLauncher, ShowShortcuts,
     SplitHorizontal, SplitNavLeft, SplitNavRight, SplitVertical, TerminalAiPanel,
     TerminalClearScreen, TerminalFreeTypeMode, TerminalRecording, ToggleFullscreen, ToggleSidebar,
@@ -1453,6 +1453,7 @@ fn push_action_binding(bindings: &mut Vec<KeyBinding>, action_id: &str, combo: &
         "app.closeTab" => push_binding!(CloseTab),
         "app.closeOtherTabs" => push_binding!(CloseOtherTabs),
         "app.newConnection" => push_binding!(NewConnection),
+        "app.newRayOpsConnection" => push_binding!(NewRayOpsConnection),
         "app.settings" => push_binding!(OpenSettings),
         "app.quit" => push_binding!(Quit, workspace_and_global),
         "app.toggleSidebar" => push_binding!(ToggleSidebar),
