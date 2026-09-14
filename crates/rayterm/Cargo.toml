@@ -1,0 +1,28 @@
+[package]
+name = "rayterm"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+version.workspace = true
+description = "RayTerm's own integration layer: hosts the RayOps client and adapts it to the terminal session contract"
+
+# Part of the oxideTerm workspace so it is built and gated by the same CI as the rest of the
+# tree. The protocol crates themselves stay in the RayTerm repository and are pulled in by
+# path, so this crate is the only file set that has to be carried inside the fork.
+#
+# Deliberately absent from `default-members`: the default workspace build must not grow a
+# RayOps dependency, so `cargo check`/`cargo test` at the workspace root behave exactly as
+# they do upstream unless this crate is named explicitly.
+
+[dependencies]
+# The RayTerm repository's protocol crates. Kept outside this workspace on purpose: they are
+# RayTerm's code rather than a modification of oxideTerm, and they stay buildable on a
+# machine that cannot compile the GPUI layer.
+oxideterm-rayops = { path = "../../../crates/oxideterm-rayops" }
+oxideterm-rayops-net = { path = "../../../crates/oxideterm-rayops-net" }
+
+# From Phase 2 onward this crate implements the terminal session contract, and the runtime
+# the session runs on comes from the workspace so the version cannot drift from the rest of
+# the application.
+oxideterm-terminal = { path = "../oxideterm-terminal" }
+tokio.workspace = true
