@@ -5,6 +5,12 @@ pub enum TerminalSessionKind {
     Telnet,
     Mosh,
     Serial,
+    /// A session carried by the RayOps KoKo gateway rather than by a local or SSH transport.
+    ///
+    /// RayOps terminates SSH server-side, so this backend speaks a JSON control envelope
+    /// plus unwrapped terminal output over a WebSocket; there is no SSH channel underneath
+    /// it and no `NodeId` that owns it. See `docs/adr/0002-session-integration.md`.
+    RayOps,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]

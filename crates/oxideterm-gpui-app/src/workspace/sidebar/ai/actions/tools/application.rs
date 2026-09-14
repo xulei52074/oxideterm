@@ -531,6 +531,13 @@ impl WorkspaceApp {
                     "canReconnect": status.can_reconnect,
                 }))
             }
+            // A RayOps session is neither, and the tool genuinely cannot manage it: RayOps
+            // owns the transport, so there is no local serial port or Telnet socket to drive.
+            // Listed explicitly rather than left to the catch-all so a future reader does not
+            // mistake the omission for an oversight.
+            oxideterm_terminal::TerminalSessionKind::RayOps => {
+                Err("The selected terminal is a RayOps session, which this tool cannot manage.".to_string())
+            }
             _ => Err("The selected terminal is not a serial or Telnet session.".to_string()),
         }
     }

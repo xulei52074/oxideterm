@@ -2243,6 +2243,7 @@ impl TerminalPane {
             TerminalSessionKind::Telnet => "TN",
             TerminalSessionKind::Mosh => "M",
             TerminalSessionKind::Serial => "SER",
+            TerminalSessionKind::RayOps => "RO",
         };
         div()
             .absolute()

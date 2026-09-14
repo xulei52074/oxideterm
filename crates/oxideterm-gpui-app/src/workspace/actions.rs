@@ -1726,6 +1726,18 @@ impl WorkspaceApp {
             TerminalSessionKind::Telnet => QuickCommandTargetProtocol::Telnet,
             TerminalSessionKind::Mosh => QuickCommandTargetProtocol::Mosh,
             TerminalSessionKind::Serial => QuickCommandTargetProtocol::Serial,
+            // A RayOps session deliberately does not get its own protocol here.
+            //
+            // `QuickCommandTargetProtocol` is serialized into the quick-command store and
+            // mirrored into the public MCP surface, so adding a variant is a persisted-format
+            // and public-API change — exactly the cost `docs/adr/0002-session-integration.md`
+            // decided to defer. `Local` is used as a value no stored command names, so a
+            // command scoped to SSH or Telnet never offers itself on a RayOps session.
+            //
+            // The consequence to be aware of: a command with no protocol restriction is
+            // offered here, which is why the Phase 2 work must decide separately whether
+            // quick commands should run against RayOps sessions at all.
+            TerminalSessionKind::RayOps => QuickCommandTargetProtocol::Local,
         };
         if pane.is_tmux_control_mode() {
             protocol = QuickCommandTargetProtocol::Tmux;

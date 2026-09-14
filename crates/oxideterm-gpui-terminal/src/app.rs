@@ -389,6 +389,10 @@ fn populate_default_session_log_context(
         TerminalSessionKind::Telnet => "telnet",
         TerminalSessionKind::Mosh => "mosh",
         TerminalSessionKind::Serial => "serial",
+        // The session log records which transport carried the session. "rayops" is the
+        // honest answer for a KoKo-backed session: it is not "ssh" from this client's point
+        // of view, because RayOps terminated SSH server-side and this client never spoke it.
+        TerminalSessionKind::RayOps => "rayops",
     };
     if context.protocol.is_empty() {
         context.protocol = protocol.to_string();
