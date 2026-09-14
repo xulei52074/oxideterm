@@ -6,7 +6,7 @@ const test = require('node:test');
 const gate = require('../issue_quality_policy.cjs');
 
 function featureBody({ version = '2.0.5', problem = '会话录制文件无法被转换工具读取。', proposal = '让录制文件保持标准格式兼容。', importance = '团队每周导出多次录制用于审计。' } = {}) {
-  return `### OxideTerm version / 版本
+  return `### RayTerm version / 版本
 
 ${version}
 
@@ -25,7 +25,7 @@ ${importance}
 }
 
 function bugBody({ version = '2.0.5', reproduction = '打开应用，建立连接，然后点击终端录制按钮。' } = {}) {
-  return `### OxideTerm version / 版本
+  return `### RayTerm version / 版本
 
 ${version}
 

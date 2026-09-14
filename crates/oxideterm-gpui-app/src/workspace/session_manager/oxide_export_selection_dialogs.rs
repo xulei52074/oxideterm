@@ -617,7 +617,7 @@ impl WorkspaceApp {
             .child(self.render_oxide_forward_card(cx))
             .child(self.render_oxide_option_row(
                 "包含全局设置".to_string(),
-                "导出终端外观、操作习惯和其他 OxideTerm 应用设置。".to_string(),
+                "导出终端外观、操作习惯和其他 RayTerm 应用设置。".to_string(),
                 include_app_settings,
                 cx.listener(|this, _event, _window, cx| {
                     this.session_manager.update(cx, |manager, cx| {
@@ -819,7 +819,7 @@ impl WorkspaceApp {
             )
             .child(self.render_oxide_option_row(
                 "包含插件偏好设置".to_string(),
-                "导出存放在 OxideTerm 本地存储中的声明式插件 settings。".to_string(),
+                "导出存放在 RayTerm 本地存储中的声明式插件 settings。".to_string(),
                 include_plugin_settings,
                 cx.listener(|this, _event, _window, cx| {
                     this.session_manager.update(cx, |manager, cx| {

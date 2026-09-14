@@ -6,7 +6,7 @@ const test = require('node:test');
 const policy = require('../issue_version_policy.cjs');
 
 function issueBody(version) {
-  return `### OxideTerm version / 版本
+  return `### RayTerm version / 版本
 
 ${version}
 
@@ -28,7 +28,7 @@ function release(tagName, options = {}) {
 
 test('reads a stable version from the dedicated issue form field', () => {
   assert.equal(policy.readReportedStableVersion(issueBody('v2.0.9')).value, '2.0.9');
-  assert.equal(policy.readReportedStableVersion(issueBody('OxideTerm 2.0.9 (stable)')).value, '2.0.9');
+  assert.equal(policy.readReportedStableVersion(issueBody('RayTerm 2.0.9 (stable)')).value, '2.0.9');
   assert.equal(policy.readReportedStableVersion(issueBody('2.0.9+package.1')).value, '2.0.9');
 });
 

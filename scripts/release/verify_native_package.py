@@ -56,28 +56,28 @@ def target_label(target: str) -> str:
 
 def expected_artifact_names(target: str, version: str) -> set[str]:
     label = target_label(target)
-    names = {f"OxideTerm_{version}_{label}_portable"}
+    names = {f"RayTerm_{version}_{label}_portable"}
     if "windows" in target:
         return {
-            f"OxideTerm_{version}_{label}-setup.exe",
-            f"OxideTerm_{version}_{label}_portable.zip",
+            f"RayTerm_{version}_{label}-setup.exe",
+            f"RayTerm_{version}_{label}_portable.zip",
         }
-    names = {f"OxideTerm_{version}_{label}_portable.tar.gz"}
+    names = {f"RayTerm_{version}_{label}_portable.tar.gz"}
     if "apple-darwin" in target:
         names.update(
             {
-                f"OxideTerm_{version}_{label}.app.zip",
-                f"OxideTerm_{version}_{label}.dmg",
+                f"RayTerm_{version}_{label}.app.zip",
+                f"RayTerm_{version}_{label}.dmg",
             }
         )
         if "-" not in version:
-            names.add(f"OxideTerm_{version}_{label}.app.tar.gz")
+            names.add(f"RayTerm_{version}_{label}.app.tar.gz")
     if "linux" in target:
         names.update(
             {
-                f"OxideTerm_{version}_{label}.AppImage",
-                f"OxideTerm_{version}_{label}.deb",
-                f"OxideTerm_{version}_{label}.rpm",
+                f"RayTerm_{version}_{label}.AppImage",
+                f"RayTerm_{version}_{label}.deb",
+                f"RayTerm_{version}_{label}.rpm",
             }
         )
     return names
@@ -401,9 +401,9 @@ def verify_release(dist: Path, target: str, version: str) -> dict[str, object]:
 
     label = target_label(target)
     portable_name = (
-        f"OxideTerm_{version}_{label}_portable.zip"
+        f"RayTerm_{version}_{label}_portable.zip"
         if "windows" in target
-        else f"OxideTerm_{version}_{label}_portable.tar.gz"
+        else f"RayTerm_{version}_{label}_portable.tar.gz"
     )
     portable_path = dist / portable_name
     verify_portable_archive(portable_path, target, version)
@@ -415,16 +415,16 @@ def verify_release(dist: Path, target: str, version: str) -> dict[str, object]:
             verify_linux_glibc_compatibility(binary)
 
     if "windows" in target:
-        verify_windows_installer(dist / f"OxideTerm_{version}_{label}-setup.exe", version)
+        verify_windows_installer(dist / f"RayTerm_{version}_{label}-setup.exe", version)
     elif "apple-darwin" in target:
-        verify_macos_app_zip(dist / f"OxideTerm_{version}_{label}.app.zip", version)
-        legacy_archive = dist / f"OxideTerm_{version}_{label}.app.tar.gz"
+        verify_macos_app_zip(dist / f"RayTerm_{version}_{label}.app.zip", version)
+        legacy_archive = dist / f"RayTerm_{version}_{label}.app.tar.gz"
         if legacy_archive.exists():
             verify_macos_tauri_archive(legacy_archive, version)
     elif "linux" in target:
-        verify_appimage(dist / f"OxideTerm_{version}_{label}.AppImage", version)
-        verify_deb(dist / f"OxideTerm_{version}_{label}.deb", version)
-        verify_rpm(dist / f"OxideTerm_{version}_{label}.rpm", target, version)
+        verify_appimage(dist / f"RayTerm_{version}_{label}.AppImage", version)
+        verify_deb(dist / f"RayTerm_{version}_{label}.deb", version)
+        verify_rpm(dist / f"RayTerm_{version}_{label}.rpm", target, version)
 
     return {"target": target, "version": version, "artifacts": sorted(expected), "status": "ok"}
 

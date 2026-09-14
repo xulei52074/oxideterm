@@ -30,8 +30,8 @@ class ArtifactNameTests(unittest.TestCase):
                 "x86_64-pc-windows-msvc", "2.0.0"
             ),
             {
-                "OxideTerm_2.0.0_windows_x64-setup.exe",
-                "OxideTerm_2.0.0_windows_x64_portable.zip",
+                "RayTerm_2.0.0_windows_x64-setup.exe",
+                "RayTerm_2.0.0_windows_x64_portable.zip",
             },
         )
 
@@ -53,9 +53,9 @@ class ArtifactNameTests(unittest.TestCase):
             "aarch64-apple-darwin", "2.0.0-gpui-preview.15"
         )
 
-        self.assertIn("OxideTerm_2.0.0_macos_arm64.app.tar.gz", stable)
+        self.assertIn("RayTerm_2.0.0_macos_arm64.app.tar.gz", stable)
         self.assertNotIn(
-            "OxideTerm_2.0.0-gpui-preview.15_macos_arm64.app.tar.gz",
+            "RayTerm_2.0.0-gpui-preview.15_macos_arm64.app.tar.gz",
             preview,
         )
 
@@ -101,7 +101,7 @@ class PortableArchiveTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "portable.zip"
             with zipfile.ZipFile(path, "w") as archive:
-                for name in self.required_entries("OxideTerm", "oxideterm-native.exe"):
+                for name in self.required_entries("RayTerm", "oxideterm-native.exe"):
                     archive.writestr(
                         name, self.entry_bytes(name, "oxideterm-native.exe")
                     )
@@ -113,7 +113,7 @@ class PortableArchiveTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "root"
             root.mkdir()
-            for name in self.required_entries("OxideTerm", "oxideterm-native"):
+            for name in self.required_entries("RayTerm", "oxideterm-native"):
                 if name.endswith("AGENT_THIRD_PARTY_NOTICES.md"):
                     continue
                 path = root / name
@@ -124,7 +124,7 @@ class PortableArchiveTests(unittest.TestCase):
                     path.write_bytes(self.entry_bytes(name, "oxideterm-native"))
             archive_path = Path(directory) / "portable.tar.gz"
             with tarfile.open(archive_path, "w:gz") as archive:
-                archive.add(root / "OxideTerm", arcname="OxideTerm")
+                archive.add(root / "RayTerm", arcname="RayTerm")
 
             with self.assertRaisesRegex(RuntimeError, "AGENT_THIRD_PARTY_NOTICES"):
                 verify_native_package.verify_portable_archive(
@@ -135,7 +135,7 @@ class PortableArchiveTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "portable.zip"
             with zipfile.ZipFile(path, "w") as archive:
-                for name in self.required_entries("OxideTerm", "oxideterm-native.exe"):
+                for name in self.required_entries("RayTerm", "oxideterm-native.exe"):
                     content = self.entry_bytes(name, "oxideterm-native.exe")
                     archive.writestr(
                         name, b"1.9.0\n" if name.endswith("VERSION") else content
@@ -150,7 +150,7 @@ class PortableArchiveTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "portable.zip"
             with zipfile.ZipFile(path, "w") as archive:
-                for name in self.required_entries("OxideTerm", "oxideterm-native.exe"):
+                for name in self.required_entries("RayTerm", "oxideterm-native.exe"):
                     if name.endswith("/data/plugins/"):
                         continue
                     archive.writestr(
@@ -168,7 +168,7 @@ class PortableArchiveTests(unittest.TestCase):
             path = Path(directory) / "portable.zip"
             with zipfile.ZipFile(path, "w") as archive:
                 for name in self.required_entries(
-                    "OxideTerm", "oxideterm-native.exe"
+                    "RayTerm", "oxideterm-native.exe"
                 ):
                     content = self.entry_bytes(name, "oxideterm-native.exe")
                     if name.endswith("portable-update.json"):

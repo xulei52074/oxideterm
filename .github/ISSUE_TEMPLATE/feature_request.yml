@@ -21,7 +21,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: OxideTerm version / 版本
+      label: RayTerm version / 版本
       description: "e.g. `1.1.13` — from Settings → Help & About, or the title bar"
       placeholder: "1.1.13"
     validations:

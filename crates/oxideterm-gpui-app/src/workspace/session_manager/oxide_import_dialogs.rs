@@ -172,7 +172,7 @@ impl WorkspaceApp {
                                             OXIDE_BLUE_500,
                                             "导入说明".to_string(),
                                             vec![
-                                                "选择 OxideTerm 导出的 .oxide 文件".to_string(),
+                                                "选择 RayTerm 导出的 .oxide 文件".to_string(),
                                                 "输入导出时设置的加密密码".to_string(),
                                                 "解密并预览后，可以选择要导入的连接、应用设置分组、插件偏好和端口转发".to_string(),
                                                 "文件中包含的密钥口令会安全存入系统钥匙串；已保存的服务器密码不会出现在文件中".to_string(),

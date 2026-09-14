@@ -18,7 +18,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: OxideTerm version / 版本
+      label: RayTerm version / 版本
       description: e.g. `0.20.1` (from About or title bar)
       placeholder: "0.20.1"
     validations:
@@ -164,7 +164,7 @@ body:
         - label: This is one reproducible bug, not a usage question or feature request / 这是一个可复现的 bug，而不是使用问题或功能建议
           required: true
         - label: |
-            I provided the OxideTerm version, platform, and steps to reproduce; I understand vague, incomplete, or inactive issues may be closed.
+            I provided the RayTerm version, platform, and steps to reproduce; I understand vague, incomplete, or inactive issues may be closed.
             我已提供 OxideTerm 版本、平台及复现步骤；我理解描述模糊、信息不足或长期无回复的 Issue 可能会被关闭。
           required: true
         - label: |

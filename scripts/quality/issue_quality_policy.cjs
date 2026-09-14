@@ -11,7 +11,7 @@ const REQUIRED_SECTIONS = [
   {
     label: 'bug',
     headings: [
-      'OxideTerm version / 版本',
+      'RayTerm version / 版本',
       'Platform / 平台',
       'Summary / 简述',
       'Steps to reproduce / 复现步骤',
@@ -21,7 +21,7 @@ const REQUIRED_SECTIONS = [
   {
     label: 'enhancement',
     headings: [
-      'OxideTerm version / 版本',
+      'RayTerm version / 版本',
       'Problem or use case / 问题或使用场景',
       'Proposed solution / 期望方案',
       'Why is this important? / 为什么这个功能对你重要？',
@@ -30,7 +30,7 @@ const REQUIRED_SECTIONS = [
   {
     label: 'compatibility',
     headings: [
-      'OxideTerm version / 版本',
+      'RayTerm version / 版本',
       'Client platform / 客户端平台',
       'Authentication method / 认证方式',
       'SSH server details / 服务端信息',
@@ -123,7 +123,7 @@ function findRequiredSectionPolicy(labels) {
 
 function readSubmittedVersion(body) {
   const sections = parseSections(body);
-  const value = sections.get(normalizeHeading('OxideTerm version / 版本'));
+  const value = sections.get(normalizeHeading('RayTerm version / 版本'));
   if (!value) return null;
   const match = value.match(/(?:^|\s)v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?)(?:\s|$)/);
   return match?.[1] || null;

@@ -72,7 +72,7 @@ impl WorkspaceApp {
         }
         if result.imported_app_settings {
             card = card.child(self.render_oxide_import_result_line(
-                "已恢复全局 OxideTerm 设置。".to_string(),
+                "已恢复全局 RayTerm 设置。".to_string(),
                 tone,
                 cx,
             ));

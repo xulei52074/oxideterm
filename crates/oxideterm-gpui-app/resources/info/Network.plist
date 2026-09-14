@@ -1,5 +1,5 @@
 <key>NSLocalNetworkUsageDescription</key>
-<string>OxideTerm connects to SSH servers and other user-configured hosts on your local network.</string>
+<string>RayTerm connects to SSH servers and other user-configured hosts on your local network.</string>
 <key>NSAppTransportSecurity</key>
 <dict>
     <key>NSAllowsLocalNetworking</key>
