@@ -674,3 +674,257 @@ impl TerminalSessionBackend for RayOpsSession {
         self.lifecycle = TerminalLifecycle::Closed;
     }
 }
+
+#[cfg(test)]
+mod rayops_session_tests {
+    use super::*;
+
+    /// A socket the test drives by hand.
+    ///
+    /// The real transport is a WebSocket chosen outside this crate, so a fake is the only way
+    /// to exercise the session without a gateway. It records everything the session wrote,
+    /// which is how the tests observe the protocol rather than the implementation.
+    struct ScriptedSocket {
+        // Owned directly, never behind a lock: the trait's read future must be `Send`, and a
+        // guard held across the `recv().await` would make it non-Send. This is the same
+        // constraint that forced `Socket` to return a boxed future in the first place.
+        inbound: tokio::sync::mpsc::UnboundedReceiver<oxideterm_rayops::InboundEvent>,
+        written: crossbeam_channel::Sender<oxideterm_rayops::OutboundEvent>,
+    }
+
+    impl oxideterm_rayops::Socket for ScriptedSocket {
+        fn read(
+            &mut self,
+        ) -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<
+                        Output = std::result::Result<
+                            oxideterm_rayops::InboundEvent,
+                            oxideterm_rayops::SocketError,
+                        >,
+                    > + Send
+                    + '_,
+            >,
+        > {
+            Box::pin(async move {
+                self.inbound
+                    .recv()
+                    .await
+                    .ok_or_else(|| oxideterm_rayops::SocketError::new("the test script ended"))
+            })
+        }
+
+        fn write(
+            &mut self,
+            event: oxideterm_rayops::OutboundEvent,
+        ) -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<
+                        Output = std::result::Result<(), oxideterm_rayops::SocketError>,
+                    > + Send
+                    + '_,
+            >,
+        > {
+            Box::pin(async move {
+                let _ = self.written.send(event);
+                Ok(())
+            })
+        }
+    }
+
+    /// One session plus the two ends of its fake transport.
+    struct Harness {
+        session: TerminalSession,
+        /// Push frames toward the session.
+        inbound: tokio::sync::mpsc::UnboundedSender<oxideterm_rayops::InboundEvent>,
+        /// Everything the session wrote.
+        written: crossbeam_channel::Receiver<oxideterm_rayops::OutboundEvent>,
+        runtime: Arc<Runtime>,
+    }
+
+    impl Harness {
+        fn new() -> Self {
+            let runtime = Arc::new(Runtime::new().expect("a test runtime"));
+            let (inbound_tx, inbound_rx) = tokio::sync::mpsc::unbounded_channel();
+            let (written_tx, written_rx) = crossbeam_channel::unbounded();
+            let socket = ScriptedSocket {
+                inbound: inbound_rx,
+                written: written_tx,
+            };
+            let session = TerminalSession::rayops(RayOpsSessionConfig {
+                title: "test asset".to_owned(),
+                socket: Box::new(socket),
+                cols: 80,
+                rows: 24,
+                scrollback_lines: 1000,
+                graphics_options: GraphicsOptions::default(),
+            });
+            Self {
+                session,
+                inbound: inbound_tx,
+                written: written_rx,
+                runtime,
+            }
+        }
+
+        /// Sends one text frame and waits for the session to consume it.
+        fn send(&self, payload: &str) {
+            self.inbound
+                .send(oxideterm_rayops::InboundEvent::Text(payload.as_bytes().to_vec()))
+                .expect("the session is alive");
+        }
+
+        /// Runs the session's drain until `predicate` holds, or panics after a deadline.
+        fn wait_for(&mut self, label: &str, mut predicate: impl FnMut(&mut Self) -> bool) {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while Instant::now() < deadline {
+                self.session.read_pending();
+                if predicate(self) {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            panic!("timed out waiting for {label}");
+        }
+    }
+
+    /// The session reports `Closed` once the socket task has ended.
+    fn session_closed(harness: &mut Harness) -> bool {
+        harness.session.lifecycle() == TerminalLifecycle::Closed
+    }
+
+    #[test]
+    fn establishing_a_session_and_receiving_output_reaches_the_terminal_model() {
+        let mut harness = Harness::new();
+
+        harness.send(r#"{"id":"koko-1","type":"CONNECT"}"#);
+        // The gateway's authoritative geometry request must follow establishment, or the remote
+        // PTY keeps a default width and output wraps at the wrong column. Collected rather than
+        // peeked: a predicate that consumed the frame would leave the assertion nothing to read.
+        let mut frames: Vec<String> = Vec::new();
+        harness.wait_for("TERMINAL_INIT", |h| {
+            h.runtime.block_on(async { tokio::task::yield_now().await });
+            while let Ok(event) = h.written.try_recv() {
+                if let oxideterm_rayops::OutboundEvent::Frame(json) = event {
+                    frames.push(json);
+                }
+            }
+            frames.iter().any(|json| json.contains("TERMINAL_INIT"))
+        });
+        assert!(
+            frames.iter().any(|json| json.contains("TERMINAL_INIT")),
+            "expected a TERMINAL_INIT frame, got {frames:?}"
+        );
+
+        harness.send("hello");
+        harness.wait_for("terminal output", |h| {
+            let snapshot = h.session.snapshot();
+            let text: String = snapshot
+                .lines
+                .iter()
+                .map(|line| line.text())
+                .collect::<Vec<_>>()
+                .join("\n");
+            text.contains("hello")
+        });
+
+        // Output must also wake the render loop. Without this the terminal receives bytes but
+        // the pane never redraws, which is invisible to a snapshot assertion.
+        let events = harness.session.take_events();
+        assert!(
+            events
+                .iter()
+                .any(|event| matches!(event, TerminalEvent::Wakeup)),
+            "output must push a Wakeup so the pane redraws"
+        );
+    }
+
+    #[test]
+    fn a_bare_output_frame_is_written_to_the_screen_byte_for_byte() {
+        let mut harness = Harness::new();
+        harness.send("abc");
+        harness.wait_for("output", |h| {
+            let snapshot = h.session.snapshot();
+            snapshot
+                .lines
+                .iter()
+                .any(|line| line.text().contains("abc"))
+        });
+    }
+
+    #[test]
+    fn an_error_before_connect_closes_the_session_but_one_after_does_not() {
+        // The distinction the phase exists for: before CONNECT the socket is dead, after it
+        // only the input was refused. Treating them the same either reconnects pointlessly on
+        // every forbidden command or swallows a failed dial.
+        let mut harness = Harness::new();
+        harness.send(r#"{"type":"ERROR","data":"dial failed"}"#);
+        harness.wait_for("closed after pre-connect error", session_closed);
+
+        let mut established = Harness::new();
+        established.send(r#"{"id":"koko-1","type":"CONNECT"}"#);
+        established.wait_for("established", |h| {
+            h.runtime.block_on(async { tokio::task::yield_now().await });
+            h.written.try_recv().is_ok()
+        });
+        established.send(r#"{"type":"ERROR","data":"command rejected"}"#);
+        // The error is surfaced through the event stream, not written to the screen: a gateway
+        // message is not terminal output, and printing it would corrupt whatever the remote
+        // program is drawing.
+        established.wait_for("the error to surface", |h| {
+            h.session
+                .take_events()
+                .iter()
+                .any(|event| matches!(event, TerminalEvent::TitleChanged(title) if title.contains("command rejected")))
+        });
+        assert_ne!(
+            established.session.lifecycle(),
+            TerminalLifecycle::Closed,
+            "a refused command must leave the session usable"
+        );
+    }
+
+    #[test]
+    fn shutdown_is_idempotent_and_stops_further_input() {
+        let mut harness = Harness::new();
+        harness.session.shutdown();
+        assert_eq!(harness.session.lifecycle(), TerminalLifecycle::Closed);
+        // Second call must be a no-op rather than a panic or a second close frame.
+        harness.session.shutdown();
+        assert_eq!(harness.session.lifecycle(), TerminalLifecycle::Closed);
+
+        // A shut-down session refuses input instead of queueing it for a transport that is gone.
+        assert!(
+            harness.session.write_input(b"ls\n").is_err(),
+            "input after shutdown must fail rather than be silently dropped"
+        );
+    }
+
+    #[test]
+    fn cancelling_a_read_ends_the_session_without_replaying_input() {
+        // A disconnect must surface as a closed session, and nothing may be re-sent: replaying
+        // input could re-execute a command that already ran.
+        let mut harness = Harness::new();
+        harness.send(r#"{"id":"koko-1","type":"CONNECT"}"#);
+        harness.wait_for("established", |h| {
+            h.runtime.block_on(async { tokio::task::yield_now().await });
+            h.written.try_recv().is_ok()
+        });
+        let _ = harness.session.write_input(b"echo hi\n");
+        harness.wait_for("the input frame", |h| {
+            h.runtime.block_on(async { tokio::task::yield_now().await });
+            h.written.try_recv().is_ok()
+        });
+
+        // Dropping the sender is an abrupt disconnect from the session's point of view.
+        let inbound = harness.inbound.clone();
+        drop(inbound);
+        drop(harness.inbound.clone());
+        harness.session.shutdown();
+        assert_eq!(harness.session.lifecycle(), TerminalLifecycle::Closed);
+        assert!(
+            harness.written.try_recv().is_err(),
+            "nothing may be replayed after the session ends"
+        );
+    }
+}
