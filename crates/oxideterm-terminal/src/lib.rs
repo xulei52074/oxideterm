@@ -88,6 +88,13 @@ pub use remote_shell_integration::{
 };
 pub use search::TerminalSearchSource;
 pub use selection::TerminalSelectionRange;
+/// The transport a RayOps session drives.
+///
+/// Re-exported so a pane constructor can name it without depending on the protocol crate
+/// directly: the terminal model already depends on it, and one re-export is smaller than a
+/// second edge in the workspace graph for a single trait.
+pub use oxideterm_rayops::Socket as RayOpsSocket;
+
 pub use session::{
     MoshConnectionStatus, MoshPredictionDisplay, MoshTerminalConfig, SerialControlLine,
     SerialControlState, SerialDisplayMode, SerialError, SerialErrorCode, SerialFlowControl,

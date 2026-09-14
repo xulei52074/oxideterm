@@ -379,6 +379,82 @@ impl WorkspaceApp {
         Ok((session_id, shared_session))
     }
 
+    /// Opens a tab for a session carried by the RayOps KoKo gateway.
+    ///
+    /// The socket is already connected: the ticket exchange and the WebSocket handshake happen
+    /// in the caller, so this function owns only the tab, pane and session lifecycle. It
+    /// deliberately has no reconnect entry — a RayOps reconnect is a new session with a new
+    /// ticket, so offering this tab as "restorable" would promise a shell state the server
+    /// does not keep.
+    pub(in crate::workspace) fn create_rayops_terminal_tab(
+        &mut self,
+        title: String,
+        socket: Box<dyn oxideterm_terminal::RayOpsSocket>,
+        terminal_options: ConnectionTerminalOptions,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Result<TerminalSessionId> {
+        let tab_id = self.alloc_tab_id(cx);
+        let pane_id = self.alloc_pane_id(cx);
+        let session_id = self.alloc_session_id(cx);
+
+        let mut preference_overrides = terminal_preference_overrides(
+            terminal_options,
+            &self.settings_store.settings().terminal,
+        );
+        // The session log records which transport carried the session. "rayops" is the honest
+        // answer: RayOps terminated SSH server-side and this client never spoke it.
+        preference_overrides.session_log_context = Some(TerminalSessionLogContext {
+            session: title.clone(),
+            host: String::new(),
+            username: String::new(),
+            protocol: "rayops".to_string(),
+        });
+        let mut preferences =
+            self.prepare_terminal_preferences_for_tab_kind(&TabKind::LocalTerminal, cx);
+        preference_overrides.apply_to(&mut preferences);
+
+        let pane_title = title.clone();
+        let pane = cx.new(|cx| {
+            TerminalPane::new_rayops_with_preferences(
+                pane_title,
+                socket,
+                preferences,
+                window,
+                cx,
+            )
+            .expect("failed to initialize RayOps terminal pane")
+            .with_preference_overrides(preference_overrides)
+        });
+
+        // RayOps owns the transport, so this pane has no SSH node and no NodeRouter owner. It
+        // still participates in the ordinary tab/pane/session registry, which is what makes
+        // split panes, tab switching and shutdown behave like any other session.
+        self.register_terminal_pane(pane_id, session_id, pane.clone(), window, cx);
+        self.refresh_native_plugin_terminal_hooks(cx);
+        // No `standalone_connections` entry: that registry exists to relaunch a saved
+        // standalone profile, and a RayOps session cannot be relaunched without a fresh ticket.
+        self.insert_tab(
+            Tab {
+                id: tab_id,
+                kind: TabKind::LocalTerminal,
+                title,
+                title_source: TabTitleSource::Static,
+                root_pane: Some(PaneNode::leaf(pane_id, session_id)),
+                active_pane_id: Some(pane_id),
+            },
+            cx,
+        );
+        self.bind_terminal_location(tab_id, pane_id, session_id, cx);
+        self.set_main_window_active_tab(Some(tab_id), cx);
+        self.active_surface = ActiveSurface::Terminal;
+        self.needs_active_pane_focus = true;
+        pane.update(cx, |pane, cx| pane.focus(window, cx));
+        self.reveal_active_tab(window, cx);
+        cx.notify();
+        Ok(session_id)
+    }
+
     pub(in crate::workspace) fn create_telnet_terminal_tab(
         &mut self,
         config: TelnetSessionConfig,

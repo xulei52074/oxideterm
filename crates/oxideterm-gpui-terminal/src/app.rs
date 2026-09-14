@@ -904,6 +904,31 @@ impl TerminalPane {
         Self::from_session(terminal, preferences, window, cx)
     }
 
+    /// Builds a pane for a session carried by the RayOps KoKo gateway.
+    ///
+    /// The caller supplies an already-connected socket: negotiating the ticket and the
+    /// WebSocket happens outside the terminal model, so this constructor takes the channel
+    /// rather than a URL or credentials.
+    pub fn new_rayops_with_preferences(
+        title: String,
+        socket: Box<dyn oxideterm_terminal::RayOpsSocket>,
+        preferences: TerminalUiPreferences,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Result<Self> {
+        let terminal = Arc::new(Mutex::new(TerminalSession::rayops(
+            oxideterm_terminal::RayOpsSessionConfig {
+                title,
+                socket,
+                cols: DEFAULT_COLS,
+                rows: DEFAULT_ROWS,
+                scrollback_lines: preferences.scrollback_lines,
+                graphics_options: graphics_options_from_preferences(&preferences),
+            },
+        )));
+        Self::from_session(terminal, preferences, window, cx)
+    }
+
     pub fn new_mosh_with_preferences(
         config: oxideterm_terminal::MoshTerminalConfig,
         mut preferences: TerminalUiPreferences,
