@@ -378,6 +378,12 @@ impl WorkspaceApp {
         if self.serial_terminal_configs.contains_key(&session_id) {
             return;
         }
+        // A RayOps session ends whenever the gateway connection does, which is expected rather
+        // than exceptional. Closing the tab would erase the only evidence the user has that the
+        // session dropped, so the pane stays and the session reports itself ended.
+        if self.rayops_terminal_sessions.contains(&session_id) {
+            return;
+        }
         if self.pending_auto_close_terminal_sessions.insert(session_id) {
             cx.notify();
         }
@@ -411,6 +417,9 @@ impl WorkspaceApp {
         let session_ids: Vec<_> = self.pending_auto_close_terminal_sessions.drain().collect();
         for session_id in session_ids {
             if self.serial_terminal_configs.contains_key(&session_id) {
+                continue;
+            }
+            if self.rayops_terminal_sessions.contains(&session_id) {
                 continue;
             }
             self.close_terminal_session(session_id, window, cx);
@@ -610,6 +619,7 @@ impl WorkspaceApp {
             );
             self.release_public_mcp_terminal_for_closed_session(session_id, cx);
             self.serial_terminal_configs.remove(&session_id);
+            self.rayops_terminal_sessions.remove(&session_id);
             self.telnet_terminal_profile_ids.remove(&session_id);
             self.terminal_saved_connection_refs.remove(&session_id);
             self.clear_terminal_trigger_session_overrides(session_id);
@@ -666,6 +676,7 @@ impl WorkspaceApp {
             );
             self.release_public_mcp_terminal_for_closed_session(session_id, cx);
             self.serial_terminal_configs.remove(&session_id);
+            self.rayops_terminal_sessions.remove(&session_id);
             self.telnet_terminal_profile_ids.remove(&session_id);
             self.terminal_saved_connection_refs.remove(&session_id);
             self.clear_terminal_trigger_session_overrides(session_id);

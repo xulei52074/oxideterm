@@ -357,6 +357,9 @@ impl WorkspaceApp {
         let shared_session = pane.read(cx).shared_session();
 
         self.register_terminal_pane(pane_id, session_id, pane.clone(), window, cx);
+        // Marked so the pane survives the session ending: a RayOps disconnect must stay on
+        // screen, and the ordinary exit path closes the tab.
+        self.rayops_terminal_sessions.insert(session_id);
         self.refresh_native_plugin_terminal_hooks(cx);
         self.insert_tab(
             Tab {

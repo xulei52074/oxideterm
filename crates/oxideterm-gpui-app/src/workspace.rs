@@ -770,6 +770,13 @@ pub(crate) struct WorkspaceApp {
     detached_local_terminals: HashMap<TerminalSessionId, DetachedLocalTerminalSession>,
     detached_local_terminal_order: Vec<TerminalSessionId>,
     serial_terminal_configs: HashMap<TerminalSessionId, SerialSessionConfig>,
+    /// Which panes are RayOps sessions.
+    ///
+    /// A marker rather than a config: a RayOps session is not recreatable from stored state,
+    /// because reconnecting needs a fresh one-shot ticket. Its only purpose is to keep the pane
+    /// alive when the session ends — a disconnect has to stay visible, and the default path
+    /// closes the tab, which would make the failure disappear with it.
+    rayops_terminal_sessions: std::collections::HashSet<TerminalSessionId>,
     // A Telnet pane keeps only the stable profile owner needed for toolbar persistence.
     telnet_terminal_profile_ids: HashMap<TerminalSessionId, String>,
     // Non-SSH connection records outlive their current terminal or desktop surface.
