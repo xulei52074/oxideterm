@@ -391,6 +391,25 @@ fn flatten_json(prefix: &str, value: &Value, messages: &mut HashMap<String, Stri
 
 #[cfg(test)]
 mod tests {
+/// Whether `haystack` contains `word` delimited by non-alphanumeric characters.
+///
+/// Used instead of a plain `contains` so the check is not confused by identifiers that merely
+/// embed the word. ASCII-only, which is what the product name is.
+fn contains_brand_word(haystack: &str, word: &str) -> bool {
+    let is_boundary = |c: char| !c.is_ascii_alphanumeric();
+    let mut rest = haystack;
+    while let Some(index) = rest.find(word) {
+        let before_ok = rest[..index].chars().next_back().is_none_or(is_boundary);
+        let after = &rest[index + word.len()..];
+        let after_ok = after.chars().next().is_none_or(is_boundary);
+        if before_ok && after_ok {
+            return true;
+        }
+        rest = after;
+    }
+    false
+}
+
     use super::*;
 
     #[test]
@@ -458,7 +477,11 @@ mod tests {
         for locale in locales {
             let catalog = LocaleCatalog::from_json_parts(locale_parts(locale));
             for (key, value) in &catalog.messages {
-                if value.contains("OxideTerm") || value.contains("OxideSens") {
+                // Matched as a word so that the short brand form is caught too. Renaming only the
+                // full "OxideTerm" left strings like "Oxide Cloud Sync" and "Oxide Series" in
+                // place, because they name the product without the "Term" suffix — checking for
+                // the long form alone let them through.
+                if contains_brand_word(value, "Oxide") || value.contains("OxideTerm") {
                     offenders.push(format!("{locale:?}/{key}"));
                 }
             }

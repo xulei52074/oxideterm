@@ -205,7 +205,7 @@
     "native_sidebar_empty_title": "外掛系統暫不可用",
     "native_sidebar_empty_description": "開啟外掛標籤頁查看 native 目前狀態。",
     "cloud_sync": {
-      "panel_title": "Oxide 雲端同步",
+      "panel_title": "RayTerm 雲端同步",
       "backend": {
         "webdav": "WebDAV",
         "http_json": "HTTP JSON",
@@ -429,7 +429,7 @@
         "backend_google_drive": "Google Drive 使用隱藏 appDataFolder 與含 PKCE 的桌面 OAuth。檔案隔離為 metadata.json 與 objects__*.oxide；不會要求完整 Drive 存取權。"
       },
       "backup": {
-        "description": "Oxide 雲端同步回滾備份",
+        "description": "RayTerm 雲端同步回滾備份",
         "summary_line": "{{connections}} 個連線，{{forwards}} 個轉送，{{quickCommands}} 條快捷命令，{{serialProfiles}} 個序列埠設定，{{telnetProfiles}} 個 Telnet 設定，{{pluginSettingsCount}} 項外掛偏好設定，{{size}}，{{sensitiveCredentials}} 個敏感憑證"
       },
       "history": {
@@ -643,7 +643,7 @@
         "enable_sensitive_sync_title": "要啟用敏感憑證同步嗎？",
         "enable_sensitive_sync_description": "這會將連線密碼、金鑰密碼、受管理私鑰、AI 金鑰和提權憑證放入加密的雲端同步物件中上傳。共用或不可信的同步儲存空間建議保持關閉。"
       },
-      "snapshot_description": "Oxide 雲端同步快照",
+      "snapshot_description": "RayTerm 雲端同步快照",
       "placeholders": {
         "token": "貼上 Bearer Token",
         "secret_stored": "已安全儲存。如需取代，請輸入新值。",

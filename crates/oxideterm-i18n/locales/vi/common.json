@@ -205,7 +205,7 @@
     "native_sidebar_empty_title": "Hệ thống plugin chưa khả dụng",
     "native_sidebar_empty_description": "Mở tab plugin để xem trạng thái native hiện tại.",
     "cloud_sync": {
-      "panel_title": "Đồng bộ đám mây Oxide",
+      "panel_title": "Đồng bộ đám mây RayTerm",
       "backend": {
         "webdav": "WebDAV",
         "http_json": "HTTP JSON",
@@ -429,7 +429,7 @@
         "backend_google_drive": "Google Drive dùng appDataFolder ẩn và OAuth desktop với PKCE. Tệp được tách biệt dưới dạng metadata.json và objects__*.oxide; không yêu cầu quyền truy cập Drive đầy đủ."
       },
       "backup": {
-        "description": "Bản sao lưu khôi phục Oxide Cloud Sync",
+        "description": "Bản sao lưu khôi phục RayTerm Cloud Sync",
         "summary_line": "{{connections}} kết nối, {{forwards}} chuyển tiếp, {{quickCommands}} lệnh nhanh, {{serialProfiles}} hồ sơ serial, {{telnetProfiles}} hồ sơ Telnet, {{pluginSettingsCount}} cài đặt plugin, {{size}}, {{sensitiveCredentials}} thông tin xác thực nhạy cảm"
       },
       "history": {
@@ -643,7 +643,7 @@
         "enable_sensitive_sync_title": "Bật đồng bộ thông tin xác thực nhạy cảm?",
         "enable_sensitive_sync_description": "Mật khẩu kết nối, mật khẩu khóa, khóa riêng được quản lý, khóa AI và thông tin xác thực nâng quyền sẽ được tải lên trong một đối tượng Cloud Sync đã mã hóa. Hãy tắt tùy chọn này trên kho đồng bộ dùng chung hoặc không đáng tin cậy."
       },
-      "snapshot_description": "Ảnh chụp Oxide Cloud Sync",
+      "snapshot_description": "Ảnh chụp RayTerm Cloud Sync",
       "placeholders": {
         "token": "Dán token Bearer",
         "secret_stored": "Đã lưu trữ an toàn. Nhập giá trị mới để thay thế.",

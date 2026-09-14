@@ -665,7 +665,7 @@
       "select_theme": "Select theme",
       "layout": "Interface Layout",
       "layout_hint": "Sidebar can be resized by dragging its right edge. Use the collapse button (◧) to hide it.",
-      "theme_group_oxide": "Oxide Series",
+      "theme_group_oxide": "RayTerm Series",
       "theme_group_classic": "Classic / Other",
       "theme_group_custom": "Custom",
       "theme_import": "Import",

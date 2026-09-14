@@ -665,7 +665,7 @@
       "select_theme": "Seleziona tema",
       "layout": "Layout dell’interfaccia",
       "layout_hint": "La barra laterale può essere ridimensionata trascinando il bordo destro. Usa il pulsante comprimi (◧) per nasconderla.",
-      "theme_group_oxide": "Serie Oxide",
+      "theme_group_oxide": "Serie RayTerm",
       "theme_group_classic": "Classico / Altri",
       "theme_group_custom": "Personalizzato",
       "theme_import": "Importa",

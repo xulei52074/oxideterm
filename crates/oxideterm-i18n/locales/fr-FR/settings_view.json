@@ -665,7 +665,7 @@
       "select_theme": "Sélectionner le thème",
       "layout": "Disposition de l’interface",
       "layout_hint": "La barre latérale peut être redimensionnée en faisant glisser son bord droit. Utilisez le bouton de réduction (◧) pour la masquer.",
-      "theme_group_oxide": "Série Oxide",
+      "theme_group_oxide": "Série RayTerm",
       "theme_group_classic": "Classique / Autre",
       "theme_group_custom": "Personnalisé",
       "theme_import": "Importer",

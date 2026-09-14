@@ -665,7 +665,7 @@
       "select_theme": "选择主题",
       "layout": "界面排版",
       "layout_hint": "可以通过拖动右边缘调整侧边栏大小。使用折叠按钮 (◧) 隐藏它。",
-      "theme_group_oxide": "Oxide 系列",
+      "theme_group_oxide": "RayTerm 系列",
       "theme_group_classic": "经典 / 其他",
       "theme_group_custom": "自定义",
       "theme_import": "导入",

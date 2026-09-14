@@ -205,7 +205,7 @@
     "native_sidebar_empty_title": "プラグインシステムは利用できません",
     "native_sidebar_empty_description": "現在の native 状態はプラグインタブで確認できます。",
     "cloud_sync": {
-      "panel_title": "Oxide クラウド同期",
+      "panel_title": "RayTerm クラウド同期",
       "backend": {
         "webdav": "WebDAV",
         "http_json": "HTTP JSON",
@@ -429,7 +429,7 @@
         "backend_google_drive": "Google Drive は非表示の appDataFolder と PKCE 付きデスクトップ OAuth を使用します。ファイルは metadata.json と objects__*.oxide として分離され、完全な Drive アクセスは要求しません。"
       },
       "backup": {
-        "description": "Oxide クラウド同期ロールバックバックアップ",
+        "description": "RayTerm クラウド同期ロールバックバックアップ",
         "summary_line": "{{connections}} 件の接続、{{forwards}} 件のフォワード、{{quickCommands}} 件のクイックコマンド、{{serialProfiles}} 件のシリアルプロファイル、{{telnetProfiles}} 件の Telnet プロファイル、{{pluginSettingsCount}} 件のプラグイン設定、{{size}}、{{sensitiveCredentials}} 件の機密資格情報"
       },
       "history": {
@@ -643,7 +643,7 @@
         "enable_sensitive_sync_title": "機密資格情報の同期を有効にしますか？",
         "enable_sensitive_sync_description": "接続パスワード、キーパスフレーズ、管理対象秘密鍵、AI キー、権限昇格用資格情報を暗号化されたクラウド同期オブジェクトに入れてアップロードします。共有または信頼できない同期ストレージではオフのままにしてください。"
       },
-      "snapshot_description": "Oxide クラウド同期スナップショット",
+      "snapshot_description": "RayTerm クラウド同期スナップショット",
       "placeholders": {
         "token": "Bearer Token を貼り付け",
         "secret_stored": "安全に保存済みです。置き換えるには新しい値を入力してください。",

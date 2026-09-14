@@ -665,7 +665,7 @@
       "select_theme": "Chọn giao diện",
       "layout": "Bố cục giao diện",
       "layout_hint": "Có thể thay đổi kích thước thanh bên bằng cách kéo cạnh phải. Sử dụng nút thu gọn (◧) để ẩn.",
-      "theme_group_oxide": "Dòng Oxide",
+      "theme_group_oxide": "Dòng RayTerm",
       "theme_group_classic": "Cổ điển / Khác",
       "theme_group_custom": "Tùy chỉnh",
       "theme_import": "Nhập",

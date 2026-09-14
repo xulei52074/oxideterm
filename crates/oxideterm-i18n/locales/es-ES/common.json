@@ -205,7 +205,7 @@
     "native_sidebar_empty_title": "Sistema de plugins no disponible",
     "native_sidebar_empty_description": "Abre la pestaña de plugins para ver el estado native actual.",
     "cloud_sync": {
-      "panel_title": "Oxide sincronización en la nube",
+      "panel_title": "RayTerm sincronización en la nube",
       "backend": {
         "webdav": "WebDAV",
         "http_json": "HTTP JSON",
@@ -429,7 +429,7 @@
         "backend_google_drive": "Google Drive usa el appDataFolder oculto y OAuth de escritorio con PKCE. Los archivos quedan aislados como metadata.json y objects__*.oxide; no se solicita acceso completo a Drive."
       },
       "backup": {
-        "description": "Copia de respaldo de Oxide Cloud Sync",
+        "description": "Copia de respaldo de RayTerm Cloud Sync",
         "summary_line": "{{connections}} conexiones, {{forwards}} reenvíos, {{quickCommands}} comandos rápidos, {{serialProfiles}} perfiles serie, {{telnetProfiles}} perfiles Telnet, {{pluginSettingsCount}} ajustes de plugins, {{size}}, {{sensitiveCredentials}} credenciales sensibles"
       },
       "history": {
@@ -643,7 +643,7 @@
         "enable_sensitive_sync_title": "¿Activar la sincronización de credenciales sensibles?",
         "enable_sensitive_sync_description": "Las contraseñas de conexión, frases de paso de claves, claves privadas administradas, claves de IA y credenciales de elevación se subirán dentro de un objeto cifrado de Cloud Sync. Mantén esta opción desactivada en almacenamiento compartido o no confiable."
       },
-      "snapshot_description": "Snapshot de Oxide Cloud Sync",
+      "snapshot_description": "Snapshot de RayTerm Cloud Sync",
       "placeholders": {
         "token": "Pegue un token Bearer",
         "secret_stored": "Almacenado de forma segura. Introduzca un nuevo valor para reemplazarlo.",

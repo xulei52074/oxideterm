@@ -665,7 +665,7 @@
       "select_theme": "選擇主題",
       "layout": "介面排版",
       "layout_hint": "可拖曳側邊欄右側邊緣來調整大小。使用收合按鈕 (◧) 來隱藏它。",
-      "theme_group_oxide": "Oxide 系列",
+      "theme_group_oxide": "RayTerm 系列",
       "theme_group_classic": "經典 / 其他",
       "theme_group_custom": "自訂",
       "theme_import": "匯入",

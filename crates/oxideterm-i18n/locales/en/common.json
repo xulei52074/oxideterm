@@ -197,7 +197,7 @@
     "compatibility_title": "Compatibility",
     "manager_compatibility_notice": "Native plugins can use a manifest, WASM, or a separate process. Legacy JavaScript plugins from the Tauri version remain available for inspection or removal, but cannot run in the native version.",
     "cloud_sync": {
-      "panel_title": "Oxide Cloud Sync",
+      "panel_title": "RayTerm Cloud Sync",
       "backend": {
         "webdav": "WebDAV",
         "http_json": "HTTP JSON",
@@ -421,7 +421,7 @@
         "backend_google_drive": "Google Drive uses the hidden appDataFolder and desktop OAuth with PKCE. Files are isolated as metadata.json and objects__*.oxide; no full Drive access is requested."
       },
       "backup": {
-        "description": "Oxide Cloud Sync rollback backup",
+        "description": "RayTerm Cloud Sync rollback backup",
         "summary_line": "{{connections}} connections, {{forwards}} forwards, {{quickCommands}} quick commands, {{serialProfiles}} serial profiles, {{telnetProfiles}} Telnet profiles, {{pluginSettingsCount}} plugin settings, {{size}}, {{sensitiveCredentials}} sensitive credentials"
       },
       "history": {
@@ -635,7 +635,7 @@
         "enable_sensitive_sync_title": "Enable sensitive credential sync?",
         "enable_sensitive_sync_description": "This uploads connection passwords, key passphrases, managed private keys, AI keys, and privilege credentials inside an encrypted Cloud Sync object. Keep it off on shared or untrusted sync storage."
       },
-      "snapshot_description": "Oxide Cloud Sync snapshot",
+      "snapshot_description": "RayTerm Cloud Sync snapshot",
       "placeholders": {
         "token": "Paste a bearer token",
         "secret_stored": "Stored securely. Enter a new value to replace it.",

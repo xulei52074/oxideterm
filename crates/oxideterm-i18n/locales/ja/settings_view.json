@@ -665,7 +665,7 @@
       "select_theme": "テーマを選択",
       "layout": "インターフェースのレイアウト",
       "layout_hint": "サイドバーは右端をドラッグしてサイズ変更できます。折りたたみボタン（◧）を使用して非表示にします。",
-      "theme_group_oxide": "Oxide シリーズ",
+      "theme_group_oxide": "RayTerm シリーズ",
       "theme_group_classic": "クラシック / その他",
       "theme_group_custom": "カスタム",
       "theme_import": "インポート",

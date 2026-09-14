@@ -665,7 +665,7 @@
       "select_theme": "Design auswählen",
       "layout": "Oberflächenlayout",
       "layout_hint": "Die Seitenleiste kann durch Ziehen des rechten Rands angepasst werden. Verwenden Sie die Einklappen-Schaltfläche (◧) zum Ausblenden.",
-      "theme_group_oxide": "Oxide-Reihe",
+      "theme_group_oxide": "RayTerm-Reihe",
       "theme_group_classic": "Klassisch / Andere",
       "theme_group_custom": "Benutzerdefiniert",
       "theme_import": "Importieren",
