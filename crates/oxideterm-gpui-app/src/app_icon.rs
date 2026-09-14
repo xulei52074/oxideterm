@@ -165,3 +165,51 @@ pub(crate) fn install_runtime_app_icon(variant: AppIconVariant) {
 pub(crate) fn install_runtime_app_icon(_variant: AppIconVariant) {
     // Linux desktop shells resolve the installed icon through desktop metadata.
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every variant must have a non-empty asset on disk.
+    ///
+    /// A *missing* file is already caught at compile time, because the icon is embedded with
+    /// `include_bytes!`. What this catches is the case the compiler accepts: a file that
+    /// exists but is empty or truncated, which would embed a zero-byte icon and show as a
+    /// blank or default icon in the window and taskbar.
+    ///
+    /// The assets come from `scripts/branding/generate_rayterm_icons.py`, so a regeneration
+    /// that failed partway is the realistic way this regresses.
+    #[test]
+    fn every_variant_has_its_icon_files_checked_in() {
+        let variants_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join("icons")
+            .join("variants");
+
+        for variant in APP_ICON_VARIANTS {
+            let png = variants_dir.join(app_icon_variant_file_name(*variant));
+            assert!(
+                png.is_file(),
+                "missing icon asset for {variant:?}: {}",
+                png.display()
+            );
+            assert!(
+                std::fs::metadata(&png).map(|m| m.len() > 0).unwrap_or(false),
+                "icon asset for {variant:?} is empty: {}",
+                png.display()
+            );
+        }
+    }
+
+    /// The window and taskbar icon must exist alongside the variants.
+    #[test]
+    fn the_default_icon_and_macos_bundle_icon_are_present() {
+        let icons_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join("icons");
+        for name in ["icon.png", "icon.icns"] {
+            let path = icons_dir.join(name);
+            assert!(path.is_file(), "missing {}", path.display());
+        }
+    }
+}
