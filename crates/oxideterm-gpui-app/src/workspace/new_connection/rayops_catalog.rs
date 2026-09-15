@@ -472,3 +472,95 @@ impl crate::workspace::WorkspaceApp {
         task.detach();
     }
 }
+
+impl crate::workspace::WorkspaceApp {
+    /// Signs in at start-up when the deployment and a credential are both available.
+    ///
+    /// Without this the session manager shows nothing until the user opens the picker, which reads
+    /// as "the assets disappeared" rather than as "nobody is signed in". A missing credential is
+    /// not an error here: it is the ordinary state for someone who has not configured a
+    /// deployment, and the tree shows a sign-in entry instead.
+    pub(in crate::workspace) fn start_rayops_catalog_session(&mut self, cx: &mut Context<Self>) {
+        let settings = self.settings_store.settings().rayops.clone();
+        let base_url = settings.base_url.trim().to_owned();
+        if base_url.is_empty() {
+            return;
+        }
+        if credential_from_environment().is_err() {
+            // Reported by the tree as "sign in", not as a failure: the credential source is
+            // provisional and its absence is not something the user did wrong.
+            return;
+        }
+        self.authenticate_rayops_catalog(cx);
+    }
+
+    /// Authenticates the catalog, if it is not already signed in.
+    pub(in crate::workspace) fn authenticate_rayops_catalog(&mut self, cx: &mut Context<Self>) {
+        let settings = self.settings_store.settings().rayops.clone();
+        let base_url = settings.base_url.trim().to_owned();
+        if base_url.is_empty() {
+            return;
+        }
+        if self.rayops_catalog.phase == RayOpsCatalogPhase::Authenticating {
+            return;
+        }
+        let password = match credential_from_environment() {
+            Ok(password) => password,
+            Err(message) => {
+                self.rayops_catalog.report_failure(RayOpsCatalogError {
+                    message,
+                    retryable: false,
+                });
+                cx.notify();
+                return;
+            }
+        };
+        self.rayops_catalog.phase = RayOpsCatalogPhase::Authenticating;
+        self.rayops_catalog.error = None;
+        cx.notify();
+
+        let launch = crate::workspace::rayops_flow::RayOpsLaunch {
+            base_url: base_url.clone(),
+            asset_id: 0,
+            insecure_tls: settings.insecure_tls,
+            allow_plaintext: settings.allow_plaintext,
+            username: std::env::var("RAYOPS_USERNAME").unwrap_or_else(|_| "admin".to_owned()),
+            password,
+        };
+        let runtime = self.forwarding_runtime.clone();
+        let task = cx.spawn(async move |this, cx| {
+            let outcome = runtime
+                .spawn(crate::workspace::rayops_flow::sign_in(launch))
+                .await;
+            let _ = this.update_in(cx, |this, _window, cx| {
+                match outcome {
+                    Ok(Ok(session)) => {
+                        this.rayops_catalog.adopt_session(base_url, session.token);
+                        this.refresh_rayops_catalog(cx);
+                    }
+                    Ok(Err(message)) => {
+                        let lowered = message.to_ascii_lowercase();
+                        // A refused credential is not retryable with the same one, so it must not
+                        // be presented as a transient failure.
+                        let retryable = !lowered.contains("unauthorized")
+                            && !lowered.contains("401")
+                            && !lowered.contains("invalid");
+                        this.rayops_catalog.report_failure(RayOpsCatalogError {
+                            message,
+                            retryable,
+                        });
+                        cx.notify();
+                    }
+                    Err(join) => {
+                        this.rayops_catalog.report_failure(RayOpsCatalogError {
+                            message: format!("the RayOps sign-in failed: {join}"),
+                            retryable: true,
+                        });
+                        cx.notify();
+                    }
+                }
+            });
+        });
+        task.detach();
+    }
+}
