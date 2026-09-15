@@ -894,10 +894,6 @@ impl WorkspaceApp {
         workspace.sync_active_privilege_prompt_inline_hint(cx);
         workspace.refresh_terminal_trigger_runtime(cx);
         workspace.schedule_automatic_native_update_check(cx);
-        // Signs in to RayOps when a deployment and a credential are both configured, so the
-        // session manager shows managed assets from the first frame instead of looking empty until
-        // the picker is opened.
-        workspace.start_rayops_catalog_session(cx);
         cx.on_release(|workspace, cx| {
             workspace.flush_main_window_state(cx);
             workspace.shutdown_terminal_trigger_runtime();

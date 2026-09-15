@@ -474,26 +474,6 @@ impl crate::workspace::WorkspaceApp {
 }
 
 impl crate::workspace::WorkspaceApp {
-    /// Signs in at start-up when the deployment and a credential are both available.
-    ///
-    /// Without this the session manager shows nothing until the user opens the picker, which reads
-    /// as "the assets disappeared" rather than as "nobody is signed in". A missing credential is
-    /// not an error here: it is the ordinary state for someone who has not configured a
-    /// deployment, and the tree shows a sign-in entry instead.
-    pub(in crate::workspace) fn start_rayops_catalog_session(&mut self, cx: &mut Context<Self>) {
-        let settings = self.settings_store.settings().rayops.clone();
-        let base_url = settings.base_url.trim().to_owned();
-        if base_url.is_empty() {
-            return;
-        }
-        if credential_from_environment().is_err() {
-            // Reported by the tree as "sign in", not as a failure: the credential source is
-            // provisional and its absence is not something the user did wrong.
-            return;
-        }
-        self.authenticate_rayops_catalog(cx);
-    }
-
     /// Authenticates the catalog, if it is not already signed in.
     pub(in crate::workspace) fn authenticate_rayops_catalog(&mut self, cx: &mut Context<Self>) {
         let settings = self.settings_store.settings().rayops.clone();

@@ -1246,8 +1246,12 @@ impl WorkspaceApp {
                         .on_mouse_down(
                             MouseButton::Left,
                             cx.listener(move |this, _: &gpui::MouseDownEvent, window, cx| {
+                                let _ = window;
                                 if signed_out {
-                                    this.open_rayops_connection(window, cx);
+                                    // Signs in directly instead of opening the picker: the entry
+                                    // exists to fill this tree, and the picker is reachable from the
+                                    // menu for anyone who wants to choose an asset right away.
+                                    this.authenticate_rayops_catalog(cx);
                                 } else {
                                     this.refresh_rayops_catalog(cx);
                                 }
