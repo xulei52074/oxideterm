@@ -235,6 +235,14 @@
       "chain_failed_title": "Falló la cadena de conexión",
       "chain_failed_desc": "Falló el salto {{position}} de {{total}}: {{error}}",
       "generic_title": "Error de conexión"
+    },
+    "rayops": {
+      "search_placeholder": "Buscar recursos...",
+      "search": "Buscar",
+      "empty": "No se encontraron recursos.",
+      "previous_page": "Anterior",
+      "next_page": "Siguiente",
+      "connecting": "Conectando..."
     }
   }
 }

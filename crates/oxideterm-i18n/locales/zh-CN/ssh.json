@@ -235,6 +235,14 @@
       "chain_failed_title": "连接链失败",
       "chain_failed_desc": "第 {{position}}/{{total}} 跳失败：{{error}}",
       "generic_title": "连接失败"
+    },
+    "rayops": {
+      "search_placeholder": "搜索资产...",
+      "search": "搜索",
+      "empty": "没有找到资产。",
+      "previous_page": "上一页",
+      "next_page": "下一页",
+      "connecting": "连接中..."
     }
   },
   "connections": {

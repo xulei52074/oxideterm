@@ -235,6 +235,14 @@
       "chain_failed_title": "連線鏈失敗",
       "chain_failed_desc": "第 {{position}}/{{total}} 跳失敗：{{error}}",
       "generic_title": "連線失敗"
+    },
+    "rayops": {
+      "search_placeholder": "搜尋資產...",
+      "search": "搜尋",
+      "empty": "沒有找到資產。",
+      "previous_page": "上一頁",
+      "next_page": "下一頁",
+      "connecting": "連線中..."
     }
   },
   "connections": {

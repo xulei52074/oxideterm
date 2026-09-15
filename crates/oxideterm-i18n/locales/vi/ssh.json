@@ -235,6 +235,14 @@
       "chain_failed_title": "Chuỗi kết nối thất bại",
       "chain_failed_desc": "Bước nhảy {{position}}/{{total}} thất bại: {{error}}",
       "generic_title": "Kết nối thất bại"
+    },
+    "rayops": {
+      "search_placeholder": "Tìm tài sản...",
+      "search": "Tìm kiếm",
+      "empty": "Không tìm thấy tài sản nào.",
+      "previous_page": "Trước",
+      "next_page": "Tiếp",
+      "connecting": "Đang kết nối..."
     }
   }
 }

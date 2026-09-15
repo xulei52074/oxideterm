@@ -235,6 +235,14 @@
       "chain_failed_title": "Falha na cadeia de conexão",
       "chain_failed_desc": "Falha no salto {{position}} de {{total}}: {{error}}",
       "generic_title": "Falha na conexão"
+    },
+    "rayops": {
+      "search_placeholder": "Pesquisar ativos...",
+      "search": "Pesquisar",
+      "empty": "Nenhum ativo encontrado.",
+      "previous_page": "Anterior",
+      "next_page": "Próximo",
+      "connecting": "Conectando..."
     }
   }
 }

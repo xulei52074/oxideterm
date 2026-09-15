@@ -235,6 +235,14 @@
       "chain_failed_title": "Catena di connessione non riuscita",
       "chain_failed_desc": "Hop {{position}} di {{total}} non riuscito: {{error}}",
       "generic_title": "Connessione non riuscita"
+    },
+    "rayops": {
+      "search_placeholder": "Cerca risorse...",
+      "search": "Cerca",
+      "empty": "Nessuna risorsa trovata.",
+      "previous_page": "Precedente",
+      "next_page": "Successivo",
+      "connecting": "Connessione..."
     }
   }
 }

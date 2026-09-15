@@ -235,6 +235,14 @@
       "chain_failed_title": "Échec de la chaîne de connexion",
       "chain_failed_desc": "L'étape {{position}} sur {{total}} a échoué : {{error}}",
       "generic_title": "Échec de la connexion"
+    },
+    "rayops": {
+      "search_placeholder": "Rechercher des ressources...",
+      "search": "Rechercher",
+      "empty": "Aucune ressource trouvée.",
+      "previous_page": "Précédent",
+      "next_page": "Suivant",
+      "connecting": "Connexion..."
     }
   }
 }

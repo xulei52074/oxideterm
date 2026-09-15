@@ -235,6 +235,14 @@
       "chain_failed_title": "接続チェーンに失敗しました",
       "chain_failed_desc": "{{total}} 中 {{position}} 番目のホップに失敗しました: {{error}}",
       "generic_title": "接続に失敗しました"
+    },
+    "rayops": {
+      "search_placeholder": "資産を検索...",
+      "search": "検索",
+      "empty": "資産が見つかりません。",
+      "previous_page": "前へ",
+      "next_page": "次へ",
+      "connecting": "接続中..."
     }
   }
 }

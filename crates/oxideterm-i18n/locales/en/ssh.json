@@ -235,6 +235,14 @@
       "chain_failed_title": "Connection chain failed",
       "chain_failed_desc": "Hop {{position}} of {{total}} failed: {{error}}",
       "generic_title": "Connection failed"
+    },
+    "rayops": {
+      "search_placeholder": "Search assets...",
+      "search": "Search",
+      "empty": "No assets found.",
+      "previous_page": "Previous",
+      "next_page": "Next",
+      "connecting": "Connecting..."
     }
   },
   "connections": {

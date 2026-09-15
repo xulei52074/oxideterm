@@ -235,6 +235,14 @@
       "chain_failed_title": "연결 체인 실패",
       "chain_failed_desc": "총 {{total}}개 중 {{position}}번째 홉 실패: {{error}}",
       "generic_title": "연결 실패"
+    },
+    "rayops": {
+      "search_placeholder": "자산 검색...",
+      "search": "검색",
+      "empty": "자산을 찾을 수 없습니다.",
+      "previous_page": "이전",
+      "next_page": "다음",
+      "connecting": "연결 중..."
     }
   }
 }

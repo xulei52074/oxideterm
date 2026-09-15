@@ -483,7 +483,7 @@ impl WorkspaceApp {
                     this.close_rayops_flow(cx);
                 }))
                 .child(self.render_rayops_button(
-                    if busy { "ssh.form.connecting" } else { "ssh.form.connect" }.to_owned(),
+                    if busy { "ssh.rayops.connecting" } else { "ssh.form.connect" }.to_owned(),
                     true,
                     busy,
                     theme,
@@ -502,7 +502,7 @@ impl WorkspaceApp {
         cx: &mut Context<Self>,
     ) -> gpui::Div {
         card = card.child(self.render_rayops_labelled_input(
-            "ssh.list.search_placeholder",
+            "ssh.rayops.search_placeholder",
             &state.search,
             "",
             RayOpsField::AssetSearch,
@@ -510,7 +510,7 @@ impl WorkspaceApp {
             cx,
         ));
         card = card.child(self.render_rayops_button(
-            "ssh.list.search".to_owned(),
+            "ssh.rayops.search".to_owned(),
             false,
             matches!(state.phase, RayOpsPhase::Browsing { loading: true }),
             theme,
@@ -520,7 +520,7 @@ impl WorkspaceApp {
 
         if state.assets.is_empty() {
             card = card.child(div().text_color(rgb(theme.text_muted)).child(
-                self.i18n.t("ssh.list.empty"),
+                self.i18n.t("ssh.rayops.empty"),
             ));
         } else {
             let mut list = div().flex().flex_col().gap_1().max_h(px(280.0)).overflow_hidden();
@@ -576,7 +576,7 @@ impl WorkspaceApp {
                             .flex_row()
                             .gap_2()
                             .child(self.render_rayops_button(
-                                "ssh.list.previous_page".to_owned(),
+                                "ssh.rayops.previous_page".to_owned(),
                                 false,
                                 state.page.index <= 1,
                                 theme,
@@ -584,7 +584,7 @@ impl WorkspaceApp {
                                 |this, cx| this.previous_rayops_page(cx),
                             ))
                             .child(self.render_rayops_button(
-                                "ssh.list.next_page".to_owned(),
+                                "ssh.rayops.next_page".to_owned(),
                                 false,
                                 !state.has_more,
                                 theme,
