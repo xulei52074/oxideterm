@@ -591,7 +591,7 @@ impl WorkspaceApp {
                 .max_h(px(420.0))
                 .overflow_hidden();
             for node in &tree {
-                list = self.render_rayops_tree_node(list, node, 0, theme, cx);
+                list = list.child(self.render_rayops_tree_node(node, 0, theme, cx));
             }
             card = card.child(list);
         }
@@ -710,12 +710,12 @@ impl WorkspaceApp {
     /// the nesting the operator created. Depth is bounded by the tree builder.
     fn render_rayops_tree_node(
         &self,
-        mut container: gpui::Div,
         node: &super::rayops_state::RayOpsTreeNode,
         depth: usize,
         theme: AppUiColors,
         cx: &mut Context<Self>,
-    ) -> gpui::Div {
+    ) -> AnyElement {
+        let mut container = div().flex().flex_col().gap_1();
         // An unnamed node is the placeholder for assets whose group this user cannot see; it gets
         // assets but no header.
         if !node.group.name.is_empty() {
@@ -765,15 +765,9 @@ impl WorkspaceApp {
             );
         }
         for child in &node.children {
-            container = container.child(self.render_rayops_tree_node(
-                div().flex().flex_col(),
-                child,
-                depth + 1,
-                theme,
-                cx,
-            ));
+            container = container.child(self.render_rayops_tree_node(child, depth + 1, theme, cx));
         }
-        container
+        container.into_any_element()
     }
 
     /// A flat button that runs an action on the workspace.

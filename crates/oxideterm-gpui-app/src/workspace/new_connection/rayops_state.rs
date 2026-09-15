@@ -22,11 +22,12 @@ pub(in crate::workspace) struct RayOpsPage {
 
 impl Default for RayOpsPage {
     fn default() -> Self {
-        // Large enough that a typical deployment fits on one page, small enough that the gateway
-        // is not asked for everything.
+        // The whole estate by default. A picker that shows only part of the inventory makes the
+        // user page through it to find an asset they can see exists, and the gateway answers 200
+        // assets on a real deployment without complaint. Paging stays available for a larger one.
         Self {
             index: 1,
-            size: 50,
+            size: 200,
         }
     }
 }
