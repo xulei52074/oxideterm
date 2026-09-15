@@ -429,6 +429,10 @@ impl WorkspaceApp {
         };
         launch.asset_id = asset_id;
         let runtime = self.forwarding_runtime.clone();
+        // Logged with the id actually being connected: a row's identity and the request it
+        // produces must agree, and when they did not there was no way to tell which of the two was
+        // wrong from the error alone.
+        tracing::info!(asset_id, "RayOps: connecting to the selected asset");
         let title = self
             .connection_flow
             .read(cx)
@@ -494,9 +498,35 @@ impl WorkspaceApp {
             .border_color(rgb(theme.border))
             .child(
                 div()
-                    .text_lg()
-                    .text_color(rgb(theme.text))
-                    .child(self.i18n.t("command_palette.cmd_new_rayops_connection")),
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .justify_between()
+                    .child(
+                        div()
+                            .text_lg()
+                            .text_color(rgb(theme.text))
+                            .child(self.i18n.t("command_palette.cmd_new_rayops_connection")),
+                    )
+                    // A visible close control, because a modal with no dismissal affordance traps
+                    // the user when the obvious exit (the buttons at the bottom) is off screen.
+                    .child(
+                        div()
+                            .id("rayops-close")
+                            .px_3()
+                            .py_1()
+                            .rounded_md()
+                            .text_color(rgb(theme.text_muted))
+                            .cursor_pointer()
+                            .hover(|style| style.bg(rgb(theme.bg_hover)))
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
+                                    this.close_rayops_flow(cx);
+                                }),
+                            )
+                            .child("✕"),
+                    ),
             );
 
         match &state.phase {
@@ -647,8 +677,9 @@ impl WorkspaceApp {
                 .gap_1()
                 .max_h(px(420.0))
                 .overflow_hidden();
+            let collapsed = state.collapsed_groups.clone();
             for node in &tree {
-                list = list.child(self.render_rayops_tree_node(node, 0, theme, cx));
+                list = list.child(self.render_rayops_tree_node(node, 0, &collapsed, theme, cx));
             }
             card = card.child(list);
         }
@@ -763,51 +794,88 @@ impl WorkspaceApp {
 
     /// Renders one group and everything under it.
     ///
-    /// Recursive because the gateway's tree is recursive, and flattening it here would throw away
-    /// the nesting the operator created. Depth is bounded by the tree builder.
+    /// Groups collapse instead of relying on scrolling: a modal that cannot be scrolled leaves
+    /// hundreds of assets unreachable, and collapsing also answers the question a list cannot —
+    /// where does one group end and the next begin.
     fn render_rayops_tree_node(
         &self,
         node: &super::rayops_state::RayOpsTreeNode,
         depth: usize,
+        collapsed: &std::collections::HashSet<i64>,
         theme: AppUiColors,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let mut container = div().flex().flex_col().gap_1();
+        let mut container = div().flex().flex_col();
+        let is_collapsed = collapsed.contains(&node.group.id);
+
         // An unnamed node is the placeholder for assets whose group this user cannot see; it gets
         // assets but no header.
         if !node.group.name.is_empty() {
+            let group_id = node.group.id;
             let count = node.total_assets();
+            let marker = if is_collapsed { "▸" } else { "▾" };
             container = container.child(
                 div()
+                    .id(("rayops-group", group_id as u64))
                     .flex()
                     .flex_row()
                     .gap_2()
                     .items_center()
-                    .mt_3()
+                    .mt_2()
                     .pl(px(8.0 + 14.0 * depth as f32))
-                    .py_1()
-                    .text_sm()
-                    // The group name is the navigation affordance, so it reads stronger than the
-                    // muted metadata around it rather than blending into the list.
-                    .text_color(rgb(theme.text_heading))
-                    .child(format!("{} · {count}", node.group.name)),
+                    .py_2()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .hover(|style| style.bg(rgb(theme.bg_hover)))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                            this.connection_flow.update(cx, |flow, cx| {
+                                if let Some(state) = flow.rayops.as_mut() {
+                                    if !state.collapsed_groups.remove(&group_id) {
+                                        state.collapsed_groups.insert(group_id);
+                                    }
+                                    cx.notify();
+                                }
+                            });
+                        }),
+                    )
+                    .child(
+                        div()
+                            .w(px(14.0))
+                            .text_color(rgb(theme.text_muted))
+                            .child(marker),
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(rgb(theme.text_heading))
+                            .child(node.group.name.clone()),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(rgb(theme.text_muted))
+                            .child(count.to_string()),
+                    ),
             );
         }
+
+        if is_collapsed {
+            return container.into_any_element();
+        }
+
         for asset in &node.assets {
             let id = asset.id;
-            // The gateway's own metadata, so an asset is recognisable without connecting: the
-            // platform tells the operator which shell to expect.
+            // The gateway's own metadata, so an asset is recognisable without connecting.
             let mut label = format!("{} ({})", asset.hostname, asset.ip);
             if !asset.platform.is_empty() {
                 label.push_str(&format!(" · {}", asset.platform));
             }
-            if !asset.os.is_empty() {
-                label.push_str(&format!(" · {}", asset.os));
-            }
             container = container.child(
                 div()
                     .id(("rayops-asset", id as u64))
-                    .ml(px(12.0 * (depth + 1) as f32))
+                    .ml(px(14.0 * (depth + 1) as f32))
                     .px_3()
                     .py_2()
                     .rounded_md()
@@ -825,7 +893,13 @@ impl WorkspaceApp {
             );
         }
         for child in &node.children {
-            container = container.child(self.render_rayops_tree_node(child, depth + 1, theme, cx));
+            container = container.child(self.render_rayops_tree_node(
+                child,
+                depth + 1,
+                collapsed,
+                theme,
+                cx,
+            ));
         }
         container.into_any_element()
     }

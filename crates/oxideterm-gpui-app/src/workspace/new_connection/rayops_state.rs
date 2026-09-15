@@ -116,6 +116,9 @@ pub(in crate::workspace) struct RayOpsFlowState {
     pub(in crate::workspace) request_generation: u64,
     /// Which field owns text input. `None` means no field is focused.
     pub(in crate::workspace) focused_field: Option<RayOpsField>,
+    /// Groups the user collapsed. Stored as collapsed rather than expanded so a group that
+    /// appears after a refresh starts open — a newly visible group should not arrive hidden.
+    pub(in crate::workspace) collapsed_groups: std::collections::HashSet<i64>,
 }
 
 impl Default for RayOpsFlowState {
@@ -136,6 +139,7 @@ impl Default for RayOpsFlowState {
             block: None,
             request_generation: 0,
             focused_field: None,
+            collapsed_groups: std::collections::HashSet::new(),
         }
     }
 }
@@ -430,7 +434,21 @@ pub(in crate::workspace) fn build_asset_tree(
             .unwrap_or_default()
     }
 
-    let mut roots = build(0, &by_parent, &mut assets_by_group, 0);
+    // Groups holding nothing, directly or below them, are dropped: an empty folder is noise in a
+    // picker that exists to reach a machine. A user with 162 assets in one group and three empty
+    // ones sees one heading instead of four.
+    fn prune_empty(nodes: Vec<RayOpsTreeNode>) -> Vec<RayOpsTreeNode> {
+        nodes
+            .into_iter()
+            .filter_map(|mut node| {
+                node.children = prune_empty(node.children);
+                let keep = !node.assets.is_empty() || !node.children.is_empty();
+                keep.then_some(node)
+            })
+            .collect()
+    }
+
+    let mut roots = prune_empty(build(0, &by_parent, &mut assets_by_group, 0));
     // Anything left belongs to a group this user cannot see. Surfaced as an unnamed root-level
     // node so those assets stay reachable.
     let orphans: Vec<_> = assets_by_group.into_values().flatten().collect();
@@ -452,6 +470,32 @@ pub(in crate::workspace) fn build_asset_tree(
 }
 
 
+    fn group(id: i64, name: &str, parent_id: i64) -> oxideterm_rayops::AssetGroup {
+        oxideterm_rayops::AssetGroup {
+            id,
+            name: name.to_owned(),
+            parent_id,
+            sort_order: 0,
+            icon: String::new(),
+            color: String::new(),
+        }
+    }
+
+    fn asset(id: i64, group_id: i64) -> oxideterm_rayops::Asset {
+        oxideterm_rayops::Asset {
+            id,
+            hostname: format!("h{id}"),
+            ip: String::new(),
+            port: 22,
+            platform: String::new(),
+            protocols: Vec::new(),
+            os: String::new(),
+            group_id,
+            tags: Vec::new(),
+            credential_verify_status: String::new(),
+        }
+    }
+
     /// The flat list with parent links becomes a tree.
     #[test]
     fn the_tree_nests_children_under_their_parent() {
@@ -459,7 +503,9 @@ pub(in crate::workspace) fn build_asset_tree(
             oxideterm_rayops::AssetGroup { id: 1, name: "prod".into(), parent_id: 0, sort_order: 0, icon: String::new(), color: String::new() },
             oxideterm_rayops::AssetGroup { id: 2, name: "db".into(), parent_id: 1, sort_order: 0, icon: String::new(), color: String::new() },
         ];
-        let tree = build_asset_tree(&groups, &[]);
+        // Both groups need an asset: an empty group is pruned, so a fixture without assets would
+        // assert against a tree that is legitimately empty.
+        let tree = build_asset_tree(&groups, &[asset(1, 1), asset(2, 2)]);
         assert_eq!(tree.len(), 1);
         assert_eq!(tree[0].group.name, "prod");
         assert_eq!(tree[0].children.len(), 1);
@@ -473,11 +519,6 @@ pub(in crate::workspace) fn build_asset_tree(
             oxideterm_rayops::AssetGroup { id: 1, name: "prod".into(), parent_id: 0, sort_order: 0, icon: String::new(), color: String::new() },
             oxideterm_rayops::AssetGroup { id: 2, name: "db".into(), parent_id: 1, sort_order: 0, icon: String::new(), color: String::new() },
         ];
-        let asset = |id: i64, group_id: i64| oxideterm_rayops::Asset {
-            id, hostname: format!("h{id}"), ip: String::new(), port: 22,
-            platform: String::new(), protocols: Vec::new(), os: String::new(),
-            group_id, tags: Vec::new(), credential_verify_status: String::new(),
-        };
         let tree = build_asset_tree(&groups, &[asset(1, 2), asset(2, 1)]);
         assert_eq!(tree[0].assets.len(), 1, "the root group holds only its own asset");
         assert_eq!(tree[0].children[0].assets.len(), 1);
@@ -487,19 +528,29 @@ pub(in crate::workspace) fn build_asset_tree(
     /// An asset whose group is absent must stay reachable.
     #[test]
     fn an_asset_in_an_unknown_group_stays_visible() {
-        let groups = vec![oxideterm_rayops::AssetGroup {
-            id: 1, name: "prod".into(), parent_id: 0, sort_order: 0,
-            icon: String::new(), color: String::new(),
-        }];
-        let asset = oxideterm_rayops::Asset {
-            id: 9, hostname: "orphan".into(), ip: String::new(), port: 22,
-            platform: String::new(), protocols: Vec::new(), os: String::new(),
-            group_id: 404, tags: Vec::new(), credential_verify_status: String::new(),
+        let groups = vec![group(1, "prod", 0)];
+        // The only asset names a group that is not in the tree, so the named group is pruned as
+        // empty and the orphan takes its own root node.
+        let orphan = oxideterm_rayops::Asset {
+            group_id: 404,
+            ..asset(9, 404)
         };
-        let tree = build_asset_tree(&groups, &[asset]);
-        assert_eq!(tree.len(), 2, "an extra root node carries the orphan");
-        assert_eq!(tree[1].assets.len(), 1);
-        assert_eq!(tree[1].assets[0].hostname, "orphan");
+        let tree = build_asset_tree(&groups, &[orphan]);
+        // The named group is empty once its only asset is found to belong elsewhere, so it is
+        // pruned and the orphan is the sole root.
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree[0].assets.len(), 1);
+        assert_eq!(tree[0].assets[0].hostname, "h9");
+        assert!(tree[0].group.name.is_empty(), "the orphan node carries no header");
+    }
+
+    /// A group holding nothing is not shown.
+    #[test]
+    fn an_empty_group_is_pruned() {
+        let groups = vec![group(1, "prod", 0), group(2, "empty", 0)];
+        let tree = build_asset_tree(&groups, &[asset(1, 1)]);
+        assert_eq!(tree.len(), 1, "the empty group is dropped");
+        assert_eq!(tree[0].group.name, "prod");
     }
 
     /// A parent cycle must not recurse without end.
