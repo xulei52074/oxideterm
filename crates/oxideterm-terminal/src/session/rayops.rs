@@ -138,6 +138,7 @@ impl RayOpsSession {
                 session.lifecycle = TerminalLifecycle::Closed;
                 session.last_error =
                     Some("a Tokio runtime is required for a RayOps session".to_owned());
+                session.announce_session_end("no async runtime is available");
             }
         }
         session.runtime = runtime;
@@ -262,6 +263,16 @@ impl RayOpsSession {
         }
     }
 
+    /// Writes a line into the terminal so the user can see why input stopped.
+    ///
+    /// Without it a session that has ended looks like a frozen terminal: the last screenful stays
+    /// on display, keystrokes are refused, and nothing says why. "The connection dropped" and "the
+    /// application hung" are different problems, and the user cannot tell them apart from silence.
+    fn announce_session_end(&mut self, reason: &str) {
+        let line = format!("\r\n\u{2500}\u{2500} RayOps session ended: {reason} \u{2500}\u{2500}\r\n");
+        self.feed_plain_transport_output(line.as_bytes());
+    }
+
     /// Drains the socket task's events into the model, honouring `budget`.
     fn drain_worker_events_with_budget(
         &mut self,
@@ -301,11 +312,17 @@ impl RayOpsSession {
                         .push(TerminalEvent::TitleChanged(format!("RayOps: {message}")));
                     if phase != oxideterm_rayops::Phase::Established {
                         self.lifecycle = TerminalLifecycle::Closed;
+                        self.announce_session_end("the gateway refused the connection");
+                    } else {
+                        // After `CONNECT` the session survives a refused command, but the user
+                        // still needs to see what the gateway said.
+                        self.announce_session_end("the gateway rejected a command");
                     }
                     report.mark_changed();
                 }
                 RayOpsWorkerEvent::Ended => {
                     self.lifecycle = TerminalLifecycle::Closed;
+                    self.announce_session_end("the gateway closed the connection");
                     report.mark_changed();
                 }
             }
@@ -362,7 +379,58 @@ async fn rayops_socket_task(
                     let _ = worker_tx.send_control(RayOpsWorkerEvent::Ended);
                     return;
                 };
+                // TEMPORARY DIAGNOSTIC: records what the gateway actually sends, and what this
+                // client concluded from it. The build does not write tracing output, so the record
+                // goes to a file beside the log. Remove once the premature session end is
+                // understood.
+                let inbound_kind = match &event {
+                    oxideterm_rayops::InboundEvent::Text(_) => "text",
+                    oxideterm_rayops::InboundEvent::Binary(_) => "binary",
+                    oxideterm_rayops::InboundEvent::Ping(_) => "ping",
+                    oxideterm_rayops::InboundEvent::Pong(_) => "pong",
+                    oxideterm_rayops::InboundEvent::Closed { .. } => "closed",
+                };
+                let payload_preview = match &event {
+                    oxideterm_rayops::InboundEvent::Text(bytes)
+                    | oxideterm_rayops::InboundEvent::Binary(bytes) => {
+                        String::from_utf8_lossy(&bytes[..bytes.len().min(160)]).to_string()
+                    }
+                    oxideterm_rayops::InboundEvent::Closed { code, reason } => {
+                        format!("code={code:?} reason={reason:?}")
+                    }
+                    _ => String::new(),
+                };
                 let (events, outbound) = state.handle(event);
+                {
+                    use std::io::Write as _;
+                    if let Some(home) = std::env::var_os("HOME") {
+                        let path = std::path::PathBuf::from(home)
+                            .join(".oxideterm")
+                            .join("rayops-frames.log");
+                        if let Ok(mut file) = std::fs::OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open(path)
+                        {
+                            let concluded: Vec<&str> = events
+                                .iter()
+                                .map(|event| match event {
+                                    oxideterm_rayops::SessionEvent::Output(_) => "output",
+                                    oxideterm_rayops::SessionEvent::Established { .. } => "established",
+                                    oxideterm_rayops::SessionEvent::Error { .. } => "ERROR",
+                                    oxideterm_rayops::SessionEvent::Ended { .. } => "ENDED",
+                                    oxideterm_rayops::SessionEvent::SessionInfo { .. } => "info",
+                                })
+                                .collect();
+                            let _ = writeln!(
+                                file,
+                                "in={inbound_kind} phase={:?} -> {:?} | {payload_preview}",
+                                state.phase(),
+                                concluded,
+                            );
+                        }
+                    }
+                }
 
                 // The handshake carried the geometry, but the gateway's own `TERMINAL_INIT` is
                 // what sets the PTY size authoritatively. Sending it once, right after the
