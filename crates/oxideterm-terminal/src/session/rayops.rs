@@ -637,6 +637,23 @@ impl TerminalSessionBackend for RayOpsSession {
         self.graphics.clear();
     }
 
+    fn command_output_text(&self, mark: &TerminalCommandMark) -> String {
+        let term = self.term.lock();
+        command_output_text_from_term(&term, mark)
+    }
+
+    /// The whole buffer, for readers that are not looking at the screen.
+    ///
+    /// The trait's default returns an empty string, which is invisible until something depends on
+    /// it. The AI command runner does: it treats "the buffer changed" as the signal that a command
+    /// produced output, so with an empty buffer the comparison never becomes true and a command
+    /// that finished normally waits until its timeout. Overridden here for the same reason the
+    /// other backends override it.
+    fn buffer_text(&self) -> String {
+        let term = self.term.lock();
+        terminal_buffer_text_from_term(&term, self.resize.cols)
+    }
+
     fn snapshot(&self) -> TerminalSnapshot {
         let term = self.term.lock();
         snapshot_from_term(
@@ -837,6 +854,22 @@ mod rayops_session_tests {
                 .any(|event| matches!(event, TerminalEvent::Wakeup)),
             "output must push a Wakeup so the pane redraws"
         );
+    }
+
+    /// `buffer_text` must return what is on screen.
+    ///
+    /// The trait's default returns an empty string, which looks harmless and is not: the AI
+    /// command runner waits for the buffer to change, so an always-empty buffer makes a finished
+    /// command wait out its full timeout. Asserted through the trait rather than by calling the
+    /// inherent method, because it is the trait's default that the missing override silently
+    /// selected.
+    #[test]
+    fn the_buffer_reports_what_the_screen_shows() {
+        let mut harness = Harness::new();
+        harness.send("buffer-probe-text");
+        harness.wait_for("output", |h| {
+            h.session.buffer_text().contains("buffer-probe-text")
+        });
     }
 
     #[test]

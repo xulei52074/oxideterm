@@ -281,12 +281,7 @@ impl WorkspaceApp {
     fn rayops_active_session_sidebar_rows(&self, cx: &App) -> Vec<ActiveSessionSidebarRow> {
         let mut rows = Vec::new();
         let tab_host = self.tab_host.read(cx);
-        // Reported once per call at info level so a missing row can be told apart from a missing
-        // session without a rebuild: the two have different causes and different fixes.
-        let mut seen = 0usize;
         for (session_id, location) in tab_host.terminal_locations() {
-            seen += 1;
-            let _ = &location;
             if !self.rayops_terminal_sessions.contains(&session_id) {
                 continue;
             }
