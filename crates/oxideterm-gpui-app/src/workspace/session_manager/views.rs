@@ -1282,15 +1282,54 @@ impl WorkspaceApp {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let mut container = div().flex().flex_col().w_full();
+        let collapsed = self.collapsed_rayops_groups.contains(&node.group.id);
         if !node.group.name.is_empty() {
+            let group_id = node.group.id;
             container = container.child(
                 div()
-                    .pl(px(12.0 + 12.0 * depth as f32))
+                    .id(("rayops-tree-group", group_id as u64))
+                    .flex()
+                    .flex_row()
+                    .gap_1()
+                    .items_center()
+                    .pl(px(8.0 + 12.0 * depth as f32))
                     .py_1()
-                    .text_xs()
-                    .text_color(rgb(theme.text_muted))
-                    .child(format!("{} · {}", node.group.name, node.total_assets())),
+                    .cursor_pointer()
+                    .hover(|style| style.bg(rgb(theme.bg_hover)))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                            if !this.collapsed_rayops_groups.remove(&group_id) {
+                                this.collapsed_rayops_groups.insert(group_id);
+                            }
+                            cx.notify();
+                        }),
+                    )
+                    .child(
+                        div()
+                            .w(px(10.0))
+                            .text_xs()
+                            .text_color(rgb(theme.text_muted))
+                            .child(if collapsed { "▸" } else { "▾" }),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            // The group name is the navigation affordance, so it reads stronger
+                            // than the muted metadata around it.
+                            .text_color(rgb(theme.text_heading))
+                            .child(node.group.name.clone()),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(rgb(theme.text_muted))
+                            .child(node.total_assets().to_string()),
+                    ),
             );
+        }
+        if collapsed {
+            return container.into_any_element();
         }
         for asset in &node.assets {
             let id = asset.id;

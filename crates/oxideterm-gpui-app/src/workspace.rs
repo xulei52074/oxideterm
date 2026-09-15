@@ -785,6 +785,11 @@ pub(crate) struct WorkspaceApp {
     /// reads it — the session manager tree and the picker — and because it must outlive the modal
     /// that established it. Never persisted: see `RayOpsCatalog`.
     rayops_catalog: crate::workspace::new_connection::rayops_catalog::RayOpsCatalog,
+    /// Which managed-asset groups the user collapsed in the session manager.
+    ///
+    /// Kept here rather than in the catalog: it is a view preference, not a fact about the
+    /// deployment, and a refresh must not reset it.
+    collapsed_rayops_groups: std::collections::HashSet<i64>,
     // A Telnet pane keeps only the stable profile owner needed for toolbar persistence.
     telnet_terminal_profile_ids: HashMap<TerminalSessionId, String>,
     // Non-SSH connection records outlive their current terminal or desktop surface.

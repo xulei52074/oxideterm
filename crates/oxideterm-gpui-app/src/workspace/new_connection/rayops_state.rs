@@ -22,12 +22,14 @@ pub(in crate::workspace) struct RayOpsPage {
 
 impl Default for RayOpsPage {
     fn default() -> Self {
-        // The whole estate by default. A picker that shows only part of the inventory makes the
-        // user page through it to find an asset they can see exists, and the gateway answers 200
-        // assets on a real deployment without complaint. Paging stays available for a larger one.
+        // The whole estate in one request. Measured against a real deployment: the gateway returns
+        // all 220 assets for `size=500`, while `size=200` silently truncates at 200 and leaves the
+        // remaining 20 unreachable — and makes every group's count wrong, because the tree is built
+        // from what arrived rather than from what exists. Paging stays available for an estate
+        // larger than this.
         Self {
             index: 1,
-            size: 200,
+            size: 500,
         }
     }
 }

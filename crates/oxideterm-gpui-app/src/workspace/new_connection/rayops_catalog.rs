@@ -328,7 +328,7 @@ impl crate::workspace::WorkspaceApp {
                                 token: token.clone(),
                                 keyword: String::new(),
                                 page: 1,
-                                size: 200,
+                                size: 500,
                             }
                         ),
                         crate::workspace::rayops_flow::fetch_asset_groups(
