@@ -1,7 +1,7 @@
 mod entity;
 mod form_entity;
 mod form_state;
-mod rayops_state;
+pub(in crate::workspace) mod rayops_state;
 mod rayops_view;
 mod form_view;
 mod host_key_dialog;

@@ -110,6 +110,8 @@ pub(in crate::workspace) struct RayOpsFlowState {
     pub(in crate::workspace) block: Option<RayOpsBlock>,
     /// Bumped per request so a slow reply from an abandoned search cannot overwrite a newer one.
     pub(in crate::workspace) request_generation: u64,
+    /// Which field owns text input. `None` means no field is focused.
+    pub(in crate::workspace) focused_field: Option<RayOpsField>,
 }
 
 impl Default for RayOpsFlowState {
@@ -128,6 +130,7 @@ impl Default for RayOpsFlowState {
             has_more: false,
             block: None,
             request_generation: 0,
+            focused_field: None,
         }
     }
 }
@@ -255,5 +258,57 @@ mod rayops_state_tests {
         assert!(pending.message().contains("Approval required"));
         assert!(pending.message().contains("A-1"));
         assert_ne!(denied.message(), pending.message());
+    }
+}
+
+/// One editable field in the RayOps modal.
+///
+/// Separate from `NewConnectionField` because the two flows store their text in different places:
+/// this one lives in `RayOpsFlowState`, whose password must never reach the SSH profile logic that
+/// the connection form's fields are wired into.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub(in crate::workspace) enum RayOpsField {
+    BaseUrl,
+    Username,
+    Password,
+    AssetSearch,
+}
+
+impl RayOpsField {
+    /// Stable index used for element ids and anchor identity.
+    pub(in crate::workspace) fn index(self) -> u32 {
+        match self {
+            Self::BaseUrl => 0,
+            Self::Username => 1,
+            Self::Password => 2,
+            Self::AssetSearch => 3,
+        }
+    }
+
+    /// The text for this field, for the IME snapshot.
+    pub(in crate::workspace) fn value<'a>(self, state: &'a RayOpsFlowState) -> &'a str {
+        match self {
+            Self::BaseUrl => &state.base_url,
+            Self::Username => &state.username,
+            Self::Password => state.password.as_str(),
+            Self::AssetSearch => &state.search,
+        }
+    }
+
+    /// Mutable text for this field.
+    pub(in crate::workspace) fn value_mut(self, state: &mut RayOpsFlowState) -> &mut String {
+        match self {
+            // `Zeroizing<String>` derefs to `String`, so the password edits in place like the rest
+            // and the allocation is still scrubbed when the state drops.
+            Self::Password => &mut state.password,
+            Self::BaseUrl => &mut state.base_url,
+            Self::Username => &mut state.username,
+            Self::AssetSearch => &mut state.search,
+        }
+    }
+
+    /// Whether the field renders its contents masked.
+    pub(in crate::workspace) fn is_secret(self) -> bool {
+        matches!(self, Self::Password)
     }
 }

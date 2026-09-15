@@ -20,6 +20,7 @@ use super::connection_monitor::HostToolsTextInput;
 use super::file_manager::FileManagerInput;
 use super::forwards::ForwardInput;
 use super::graphics::GraphicsInput;
+use super::new_connection::rayops_state::RayOpsField;
 use super::new_connection::{
     CONNECTION_NOTES_LINE_HEIGHT, CONNECTION_NOTES_VERTICAL_PADDING, NewConnectionField,
     refresh_connection_timeout_seconds, refresh_identity_agent_availability,
@@ -113,6 +114,9 @@ impl TextInputAnchorStore {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub(super) enum WorkspaceImeTarget {
+    /// A field in the RayOps login / asset-picker modal.
+    RayOps(RayOpsField),
+
     ReadOnlyText(u64),
     CommandPalette,
     ShortcutsModalSearch,
@@ -522,6 +526,9 @@ impl WorkspaceImeTarget {
             Self::PluginControl { key, .. } => key.wrapping_add(10_000),
             Self::Sftp(input) => 1_900 + input.anchor_key(),
             Self::NewConnection(field) => 2_000 + field as u64,
+            // A separate range so a RayOps field can never collide with a connection field's
+            // anchor, which would route IME input to the wrong surface.
+            Self::RayOps(field) => 3_000 + field.index() as u64,
             Self::KeyboardInteractive(index) => 3_000 + index as u64,
         };
         TextInputAnchorId(id)
@@ -979,6 +986,19 @@ impl WorkspaceApp {
             .focused_keyboard_interactive_prompt()
         {
             return Some(WorkspaceImeTarget::KeyboardInteractive(focused_prompt));
+        }
+
+        // The RayOps modal is modal in the same sense as the connection form, so its focused
+        // field owns text input ahead of any surface underneath. Checked first because the two
+        // modals cannot be open at once, which also makes the order unambiguous.
+        if let Some(field) = self
+            .connection_flow
+            .read(cx)
+            .rayops
+            .as_ref()
+            .and_then(|state| state.focused_field)
+        {
+            return Some(WorkspaceImeTarget::RayOps(field));
         }
 
         if let Some(form) = self.connection_form_state(cx).form.as_ref()
@@ -2153,6 +2173,12 @@ impl WorkspaceApp {
                 new_connection_field_value(form, field)
                     .map(|value| ime_text_snapshot(target, value))
             }
+            WorkspaceImeTarget::RayOps(field) => self
+                .connection_flow
+                .read(cx)
+                .rayops
+                .as_ref()
+                .map(|state| ime_text_snapshot(target, field.value(state))),
             WorkspaceImeTarget::KeyboardInteractive(index) => self
                 .connection_flow
                 .read(cx)
@@ -3038,6 +3064,20 @@ impl WorkspaceApp {
                     self.show_active_input_caret(cx);
                     cx.notify();
                 }
+            }
+            WorkspaceImeTarget::RayOps(field) => {
+                self.connection_flow.update(cx, |flow, cx| {
+                    let Some(state) = flow.rayops.as_mut() else {
+                        return;
+                    };
+                    // A masked field owns an allocation the user cannot see; scrubbing before
+                    // replacement keeps the old bytes from lingering in freed memory.
+                    if field.is_secret() && replacement_range.is_none() {
+                        zeroize::Zeroize::zeroize(RayOpsField::value_mut(field, state));
+                    }
+                    replace_utf16(RayOpsField::value_mut(field, state), replacement_range, text);
+                    cx.notify();
+                });
             }
             WorkspaceImeTarget::NewConnection(field) => {
                 let changed = self.update_connection_form_state(cx, |state| {

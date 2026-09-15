@@ -1,4 +1,5 @@
 use crate::workspace::WorkspaceApp;
+use crate::workspace::ime::WorkspaceImeTarget;
 use oxideterm_connections::ConnectionTerminalOptions;
 use oxideterm_gpui_ui::{TextInputView, text_input};
 use oxideterm_theme::AppUiColors;
@@ -17,7 +18,7 @@ use gpui::{
 // settings file, and the token that comes back lives only in `RayOpsFlowState` for as long as the
 // modal is open.
 
-use super::rayops_state::{RayOpsBlock, RayOpsFlowState, RayOpsPhase};
+use super::rayops_state::{RayOpsBlock, RayOpsField, RayOpsFlowState, RayOpsPhase};
 
 impl WorkspaceApp {
     /// Opens the RayOps modal, seeded from settings.
@@ -431,8 +432,7 @@ impl WorkspaceApp {
             "ssh.form.host",
             &state.base_url,
             "https://rayops.example",
-            false,
-            0,
+            RayOpsField::BaseUrl,
             theme,
             cx,
         ));
@@ -440,8 +440,7 @@ impl WorkspaceApp {
             "ssh.form.username",
             &state.username,
             "admin",
-            false,
-            1,
+            RayOpsField::Username,
             theme,
             cx,
         ));
@@ -449,8 +448,7 @@ impl WorkspaceApp {
             "ssh.form.password",
             state.password.as_str(),
             "",
-            true,
-            2,
+            RayOpsField::Password,
             theme,
             cx,
         ));
@@ -507,8 +505,7 @@ impl WorkspaceApp {
             "ssh.list.search_placeholder",
             &state.search,
             "",
-            false,
-            3,
+            RayOpsField::AssetSearch,
             theme,
             cx,
         ));
@@ -610,16 +607,47 @@ impl WorkspaceApp {
         label_key: &str,
         value: &str,
         placeholder: &str,
-        secret: bool,
-        index: usize,
+        field: RayOpsField,
         theme: AppUiColors,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let focus_handle = cx.focus_handle();
-        // Borrowed, not owned: `TextInputView` takes `&str` for the value so rendering a field
-        // allocates nothing on the hot path.
-        let value = value;
-        let placeholder = placeholder.to_owned();
+        let focused = self
+            .connection_flow
+            .read(cx)
+            .rayops
+            .as_ref()
+            .is_some_and(|state| state.focused_field == Some(field));
+        let input = text_input(
+            &self.tokens,
+            TextInputView {
+                value,
+                placeholder: placeholder.to_owned(),
+                focused,
+                caret_visible: focused && self.input_caret.visible(),
+                secret: field.is_secret(),
+                selected_all: false,
+                selected_range: None,
+                marked_text: None,
+            },
+        )
+        .id(("rayops-field", field.index()));
+
+        let target = WorkspaceImeTarget::RayOps(field);
+        let probe = self.text_input_with_workspace_ime(
+            target,
+            input,
+            move |this, cx| {
+                this.connection_flow.update(cx, |flow, cx| {
+                    if let Some(state) = flow.rayops.as_mut() {
+                        state.focused_field = Some(field);
+                        cx.notify();
+                    }
+                });
+                this.show_active_input_caret(cx);
+            },
+            cx,
+        );
+
         div()
             .flex()
             .flex_col()
@@ -630,32 +658,7 @@ impl WorkspaceApp {
                     .text_color(rgb(theme.text_muted))
                     .child(self.i18n.t(label_key)),
             )
-            .child(
-                text_input(
-                    &self.tokens,
-                    TextInputView {
-                        value,
-                        placeholder,
-                        // Focus tracking for these fields is not wired to the input
-                        // element yet, so the caret is hidden rather than shown in a field the
-                        // widget does not consider focused.
-                        focused: false,
-                        caret_visible: true,
-                        secret,
-                        selected_all: false,
-                        selected_range: None,
-                        marked_text: None,
-                    },
-                )
-                .id(("rayops-field", index))
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |this, _: &gpui::MouseDownEvent, window, cx| {
-                        focus_handle.focus(window, cx);
-                        let _ = this;
-                    }),
-                ),
-            )
+            .child(probe)
             .into_any_element()
     }
 
