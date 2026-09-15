@@ -357,9 +357,6 @@ impl WorkspaceApp {
         let shared_session = pane.read(cx).shared_session();
 
         self.register_terminal_pane(pane_id, session_id, pane.clone(), window, cx);
-        // Marked so the pane survives the session ending: a RayOps disconnect must stay on
-        // screen, and the ordinary exit path closes the tab.
-        self.rayops_terminal_sessions.insert(session_id);
         self.refresh_native_plugin_terminal_hooks(cx);
         self.insert_tab(
             Tab {
@@ -434,6 +431,10 @@ impl WorkspaceApp {
         // still participates in the ordinary tab/pane/session registry, which is what makes
         // split panes, tab switching and shutdown behave like any other session.
         self.register_terminal_pane(pane_id, session_id, pane.clone(), window, cx);
+        // Marked so the pane survives the session ending — a RayOps disconnect must stay on
+        // screen rather than closing the tab — and so the active-session sidebar can list it,
+        // because this session owns no SSH node for the router-driven list to find.
+        self.rayops_terminal_sessions.insert(session_id);
         self.refresh_native_plugin_terminal_hooks(cx);
         // No `standalone_connections` entry: that registry exists to relaunch a saved
         // standalone profile, and a RayOps session cannot be relaunched without a fresh ticket.
