@@ -146,7 +146,13 @@ impl WorkspaceApp {
     fn apply_rayops_assets_outcome(
         &mut self,
         generation: u64,
-        outcome: Result<Result<oxideterm_rayops::AssetPage, String>, tokio::task::JoinError>,
+        outcome: Result<
+            (
+                Result<oxideterm_rayops::AssetPage, String>,
+                Option<Result<Vec<oxideterm_rayops::AssetGroup>, String>>,
+            ),
+            tokio::task::JoinError,
+        >,
         cx: &mut Context<Self>,
     ) {
         self.connection_flow.update(cx, |flow, cx| {
@@ -157,19 +163,28 @@ impl WorkspaceApp {
                 return;
             }
             match outcome {
-                Ok(Ok(page)) => {
+                Ok((assets_result, groups_result)) => {
+                    // A failing tree must not hide the assets: they are still connectable, and the
+                    // picker falls back to a flat list.
+                    if let Some(Ok(groups)) = groups_result {
+                        state.groups = groups;
+                    }
+                    match assets_result {
+                        Ok(page) => {
                     // More pages are inferred from the total the gateway reports rather than
                     // from a short page, because a deployment may return fewer than requested
                     // on a page that is not the last.
-                    let seen = page.page.saturating_mul(page.size);
-                    state.has_more = seen < page.total;
-                    state.assets = page.assets;
-                    state.block = None;
-                }
-                Ok(Err(message)) => {
-                    state.assets.clear();
-                    state.has_more = false;
-                    state.block = Some(RayOpsBlock::Failed { message });
+                            let seen = page.page.saturating_mul(page.size);
+                            state.has_more = seen < page.total;
+                            state.assets = page.assets;
+                            state.block = None;
+                        }
+                        Err(message) => {
+                            state.assets.clear();
+                            state.has_more = false;
+                            state.block = Some(RayOpsBlock::Failed { message });
+                        }
+                    }
                 }
                 Err(join) => {
                     state.block = Some(RayOpsBlock::Failed {
@@ -273,6 +288,21 @@ impl WorkspaceApp {
             return;
         };
         let runtime = self.forwarding_runtime.clone();
+        let (need_groups, groups_base_url, groups_insecure_tls, groups_allow_plaintext, groups_token) = {
+            let Some(state) = self.connection_flow.read(cx).rayops.as_ref() else {
+                return;
+            };
+            let Some(token) = state.token.clone() else {
+                return;
+            };
+            (
+                state.groups.is_empty(),
+                state.base_url.trim().to_owned(),
+                state.insecure_tls,
+                state.allow_plaintext,
+                token,
+            )
+        };
         let generation = self.connection_flow.update(cx, |flow, _| {
             let state = flow.rayops.as_mut()?;
             state.block = None;
@@ -281,9 +311,33 @@ impl WorkspaceApp {
         });
         let Some(generation) = generation else { return };
 
+        let want_groups = need_groups;
         let task = cx.spawn(async move |this, cx| {
             let outcome = runtime
-                .spawn(super::super::rayops_flow::fetch_assets(request))
+                .spawn(async move {
+                    // Fetched together because the tree is only useful with names, and a header
+                    // without one is worse than a flat list. The tree is small: it is bounded by
+                    // how many folders an operator made, not by asset count.
+                    let (assets, groups) = tokio::join!(
+                        super::super::rayops_flow::fetch_assets(request),
+                        async {
+                            if want_groups {
+                                Some(
+                                    super::super::rayops_flow::fetch_asset_groups(
+                                        groups_base_url,
+                                        groups_insecure_tls,
+                                        groups_allow_plaintext,
+                                        groups_token,
+                                    )
+                                    .await,
+                                )
+                            } else {
+                                None
+                            }
+                        }
+                    );
+                    (assets, groups)
+                })
                 .await;
             let _ = this.update_in(cx, |this, _window, cx| {
                 this.apply_rayops_assets_outcome(generation, outcome, cx);
@@ -519,38 +573,25 @@ impl WorkspaceApp {
         ));
 
         if state.assets.is_empty() {
-            card = card.child(div().text_color(rgb(theme.text_muted)).child(
-                self.i18n.t("ssh.rayops.empty"),
-            ));
+            card = card.child(
+                div()
+                    .text_color(rgb(theme.text_muted))
+                    .child(self.i18n.t("ssh.rayops.empty")),
+            );
         } else {
-            let mut list = div().flex().flex_col().gap_1().max_h(px(280.0)).overflow_hidden();
-            for asset in &state.assets {
-                let id = asset.id;
-                // `Asset` carries no display name; the hostname is what identifies it to the
-                // operator, with the id kept alongside because two assets can share a hostname.
-                let label = if asset.hostname.trim().is_empty() {
-                    format!("#{id}")
-                } else {
-                    format!("{} ({}) (#{id})", asset.hostname, asset.ip)
-                };
-                list = list.child(
-                    div()
-                        .id(("rayops-asset", id as u64))
-                        .px_3()
-                        .py_2()
-                        .rounded_md()
-                        .bg(rgb(theme.bg_elevated))
-                        .text_color(rgb(theme.text))
-                        .cursor_pointer()
-                        .hover(|style| style.bg(rgb(theme.bg_hover)))
-                        .on_mouse_down(
-                            MouseButton::Left,
-                            cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
-                                this.connect_rayops_asset(id, cx);
-                            }),
-                        )
-                        .child(label),
-                );
+            // Grouped the way the gateway files them, because that is how the operator thinks
+            // about their estate: a flat list of two hundred hosts is not navigable.
+            let tree = super::rayops_state::build_asset_tree(&state.groups, &state.assets);
+            // No : an id makes the element , and this container is passed to a
+            // helper that takes a plain . The scroll container does not need identity.
+            let mut list = div()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .max_h(px(420.0))
+                .overflow_hidden();
+            for node in &tree {
+                list = self.render_rayops_tree_node(list, node, 0, theme, cx);
             }
             card = card.child(list);
         }
@@ -660,6 +701,79 @@ impl WorkspaceApp {
             )
             .child(probe)
             .into_any_element()
+    }
+
+
+    /// Renders one group and everything under it.
+    ///
+    /// Recursive because the gateway's tree is recursive, and flattening it here would throw away
+    /// the nesting the operator created. Depth is bounded by the tree builder.
+    fn render_rayops_tree_node(
+        &self,
+        mut container: gpui::Div,
+        node: &super::rayops_state::RayOpsTreeNode,
+        depth: usize,
+        theme: AppUiColors,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
+        // An unnamed node is the placeholder for assets whose group this user cannot see; it gets
+        // assets but no header.
+        if !node.group.name.is_empty() {
+            let count = node.total_assets();
+            container = container.child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap_2()
+                    .items_center()
+                    .pl(px(12.0 * depth as f32))
+                    .pt_2()
+                    .text_sm()
+                    .text_color(rgb(theme.text_muted))
+                    .child(format!("{} ({count})", node.group.name)),
+            );
+        }
+        for asset in &node.assets {
+            let id = asset.id;
+            // The gateway's own metadata, so an asset is recognisable without connecting: the
+            // platform tells the operator which shell to expect.
+            let mut label = format!("{} ({})", asset.hostname, asset.ip);
+            if !asset.platform.is_empty() {
+                label.push_str(&format!(" · {}", asset.platform));
+            }
+            if !asset.os.is_empty() {
+                label.push_str(&format!(" · {}", asset.os));
+            }
+            container = container.child(
+                div()
+                    .id(("rayops-asset", id as u64))
+                    .ml(px(12.0 * (depth + 1) as f32))
+                    .px_3()
+                    .py_2()
+                    .rounded_md()
+                    .bg(rgb(theme.bg_elevated))
+                    .text_color(rgb(theme.text))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(rgb(theme.bg_hover)))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                            this.connect_rayops_asset(id, cx);
+                        }),
+                    )
+                    .child(label),
+            );
+        }
+        for child in &node.children {
+            container = container.child(self.render_rayops_tree_node(
+                div().flex().flex_col(),
+                child,
+                depth + 1,
+                theme,
+                cx,
+            ));
+        }
+        container
     }
 
     /// A flat button that runs an action on the workspace.

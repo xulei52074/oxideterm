@@ -259,3 +259,31 @@ pub(in crate::workspace) async fn fetch_assets(
     let response = control.transport.send(&outbound).await.map_err(describe)?;
     interpret_assets(&response).map_err(|e| e.to_string())
 }
+
+/// The gateway's asset tree, so the picker can follow the operator's grouping.
+///
+/// Fetched alongside the first page rather than on demand: a group header with no name would be
+/// worse than no grouping at all, and the tree is small — it is bounded by how many folders an
+/// operator created, not by asset count.
+pub(in crate::workspace) async fn fetch_asset_groups(
+    base_url: String,
+    insecure_tls: bool,
+    allow_plaintext: bool,
+    token: oxideterm_rayops::Secret,
+) -> Result<Vec<oxideterm_rayops::AssetGroup>, String> {
+    use oxideterm_rayops::{
+        Transport, asset_groups_request, interpret_asset_groups,
+    };
+
+    let control = control_plane(&RayOpsLaunch {
+        base_url,
+        asset_id: 0,
+        insecure_tls,
+        allow_plaintext,
+        username: String::new(),
+        password: zeroize::Zeroizing::new(String::new()),
+    })?;
+    let request = asset_groups_request(&token);
+    let response = control.transport.send(&request).await.map_err(describe)?;
+    interpret_asset_groups(&response).map_err(|e| e.to_string())
+}

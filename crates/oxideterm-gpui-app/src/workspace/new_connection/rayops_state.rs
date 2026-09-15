@@ -103,6 +103,9 @@ pub(in crate::workspace) struct RayOpsFlowState {
     /// Held only while browsing. Never persisted, never logged, and dropped when the flow ends.
     pub(in crate::workspace) token: Option<oxideterm_rayops::Secret>,
     pub(in crate::workspace) assets: Vec<oxideterm_rayops::Asset>,
+    /// The gateway's tree, fetched once per session. Empty means the deployment has no groups,
+    /// which the picker renders as a flat list.
+    pub(in crate::workspace) groups: Vec<oxideterm_rayops::AssetGroup>,
     pub(in crate::workspace) search: String,
     pub(in crate::workspace) page: RayOpsPage,
     /// Whether the gateway reported more pages after this one.
@@ -125,6 +128,7 @@ impl Default for RayOpsFlowState {
             allow_plaintext: false,
             token: None,
             assets: Vec::new(),
+            groups: Vec::new(),
             search: String::new(),
             page: RayOpsPage::default(),
             has_more: false,
@@ -311,4 +315,163 @@ impl RayOpsField {
     pub(in crate::workspace) fn is_secret(self) -> bool {
         matches!(self, Self::Password)
     }
+}
+
+/// One node of the asset tree, assembled from the gateway's flat list.
+///
+/// Built here rather than in the view because a view cannot test it, and the shape the gateway
+/// sends — a flat list with parent links — is the part most likely to be got wrong.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(in crate::workspace) struct RayOpsTreeNode {
+    pub(in crate::workspace) group: oxideterm_rayops::AssetGroup,
+    pub(in crate::workspace) children: Vec<RayOpsTreeNode>,
+    /// Assets filed directly under this group.
+    pub(in crate::workspace) assets: Vec<oxideterm_rayops::Asset>,
+}
+
+impl RayOpsTreeNode {
+    /// Every asset in this subtree, including this group's own.
+    pub(in crate::workspace) fn total_assets(&self) -> usize {
+        self.assets.len() + self.children.iter().map(Self::total_assets).sum::<usize>()
+    }
+}
+
+/// Builds the tree, then attaches assets to the deepest group that holds them.
+///
+/// An asset whose `group_id` names no group in the tree is placed at the root level rather than
+/// dropped: an asset the user can connect to must never become invisible because its folder was
+/// deleted or is not visible to this user.
+pub(in crate::workspace) fn build_asset_tree(
+    groups: &[oxideterm_rayops::AssetGroup],
+    assets: &[oxideterm_rayops::Asset],
+) -> Vec<RayOpsTreeNode> {
+    use std::collections::HashMap;
+
+    let mut by_parent: HashMap<i64, Vec<&oxideterm_rayops::AssetGroup>> = HashMap::new();
+    for group in groups {
+        by_parent.entry(group.parent_id).or_default().push(group);
+    }
+    for children in by_parent.values_mut() {
+        children.sort_by_key(|group| (group.sort_order, group.id));
+    }
+
+    let known: std::collections::HashSet<i64> = groups.iter().map(|group| group.id).collect();
+    let mut assets_by_group: HashMap<i64, Vec<oxideterm_rayops::Asset>> = HashMap::new();
+    for asset in assets {
+        let key = if known.contains(&asset.group_id) {
+            asset.group_id
+        } else {
+            0
+        };
+        assets_by_group.entry(key).or_default().push(asset.clone());
+    }
+
+    fn build(
+        parent: i64,
+        by_parent: &HashMap<i64, Vec<&oxideterm_rayops::AssetGroup>>,
+        assets_by_group: &mut HashMap<i64, Vec<oxideterm_rayops::Asset>>,
+        depth: usize,
+    ) -> Vec<RayOpsTreeNode> {
+        // Depth-bounded: a malformed tree with a cycle would otherwise recurse until the stack
+        // ends. Twelve levels is far past any real deployment.
+        if depth > 12 {
+            return Vec::new();
+        }
+        by_parent
+            .get(&parent)
+            .map(|children| {
+                children
+                    .iter()
+                    .map(|group| RayOpsTreeNode {
+                        group: (*group).clone(),
+                        children: build(group.id, by_parent, assets_by_group, depth + 1),
+                        assets: assets_by_group.remove(&group.id).unwrap_or_default(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    let mut roots = build(0, &by_parent, &mut assets_by_group, 0);
+    // Anything left belongs to a group this user cannot see. Surfaced as an unnamed root-level
+    // node so those assets stay reachable.
+    let orphans: Vec<_> = assets_by_group.into_values().flatten().collect();
+    if !orphans.is_empty() {
+        roots.push(RayOpsTreeNode {
+            group: oxideterm_rayops::AssetGroup {
+                id: 0,
+                name: String::new(),
+                parent_id: 0,
+                sort_order: i64::MAX,
+                icon: String::new(),
+                color: String::new(),
+            },
+            children: Vec::new(),
+            assets: orphans,
+        });
+    }
+    roots
+}
+
+
+    /// The flat list with parent links becomes a tree.
+    #[test]
+    fn the_tree_nests_children_under_their_parent() {
+        let groups = vec![
+            oxideterm_rayops::AssetGroup { id: 1, name: "prod".into(), parent_id: 0, sort_order: 0, icon: String::new(), color: String::new() },
+            oxideterm_rayops::AssetGroup { id: 2, name: "db".into(), parent_id: 1, sort_order: 0, icon: String::new(), color: String::new() },
+        ];
+        let tree = build_asset_tree(&groups, &[]);
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree[0].group.name, "prod");
+        assert_eq!(tree[0].children.len(), 1);
+        assert_eq!(tree[0].children[0].group.name, "db");
+    }
+
+    /// An asset lands in its own group, not in its parent's.
+    #[test]
+    fn assets_are_filed_under_their_own_group() {
+        let groups = vec![
+            oxideterm_rayops::AssetGroup { id: 1, name: "prod".into(), parent_id: 0, sort_order: 0, icon: String::new(), color: String::new() },
+            oxideterm_rayops::AssetGroup { id: 2, name: "db".into(), parent_id: 1, sort_order: 0, icon: String::new(), color: String::new() },
+        ];
+        let asset = |id: i64, group_id: i64| oxideterm_rayops::Asset {
+            id, hostname: format!("h{id}"), ip: String::new(), port: 22,
+            platform: String::new(), protocols: Vec::new(), os: String::new(),
+            group_id, tags: Vec::new(), credential_verify_status: String::new(),
+        };
+        let tree = build_asset_tree(&groups, &[asset(1, 2), asset(2, 1)]);
+        assert_eq!(tree[0].assets.len(), 1, "the root group holds only its own asset");
+        assert_eq!(tree[0].children[0].assets.len(), 1);
+        assert_eq!(tree[0].total_assets(), 2);
+    }
+
+    /// An asset whose group is absent must stay reachable.
+    #[test]
+    fn an_asset_in_an_unknown_group_stays_visible() {
+        let groups = vec![oxideterm_rayops::AssetGroup {
+            id: 1, name: "prod".into(), parent_id: 0, sort_order: 0,
+            icon: String::new(), color: String::new(),
+        }];
+        let asset = oxideterm_rayops::Asset {
+            id: 9, hostname: "orphan".into(), ip: String::new(), port: 22,
+            platform: String::new(), protocols: Vec::new(), os: String::new(),
+            group_id: 404, tags: Vec::new(), credential_verify_status: String::new(),
+        };
+        let tree = build_asset_tree(&groups, &[asset]);
+        assert_eq!(tree.len(), 2, "an extra root node carries the orphan");
+        assert_eq!(tree[1].assets.len(), 1);
+        assert_eq!(tree[1].assets[0].hostname, "orphan");
+    }
+
+    /// A parent cycle must not recurse without end.
+    #[test]
+    fn a_cycle_does_not_recurse_forever() {
+        // Two groups that are each other's parent: unreachable from the root, so neither appears.
+        let groups = vec![
+            oxideterm_rayops::AssetGroup { id: 1, name: "a".into(), parent_id: 2, sort_order: 0, icon: String::new(), color: String::new() },
+            oxideterm_rayops::AssetGroup { id: 2, name: "b".into(), parent_id: 1, sort_order: 0, icon: String::new(), color: String::new() },
+        ];
+        let tree = build_asset_tree(&groups, &[]);
+        assert!(tree.is_empty(), "a cycle has no root, so the tree is empty rather than infinite");
 }
