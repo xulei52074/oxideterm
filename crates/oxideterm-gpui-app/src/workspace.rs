@@ -790,6 +790,8 @@ pub(crate) struct WorkspaceApp {
     /// Kept here rather than in the catalog: it is a view preference, not a fact about the
     /// deployment, and a refresh must not reset it.
     collapsed_rayops_groups: std::collections::HashSet<i64>,
+    /// Whether the whole managed-asset section is collapsed.
+    rayops_section_collapsed: bool,
     // A Telnet pane keeps only the stable profile owner needed for toolbar persistence.
     telnet_terminal_profile_ids: HashMap<TerminalSessionId, String>,
     // Non-SSH connection records outlive their current terminal or desktop surface.

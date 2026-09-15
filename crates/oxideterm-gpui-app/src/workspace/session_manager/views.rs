@@ -1145,6 +1145,10 @@ impl WorkspaceApp {
                     .id("session-manager-tree-root-drop-target")
                     .flex_1()
                     .min_h(px(0.0))
+                    // Capped so the managed-asset section below stays reachable. Without a cap the
+                    // list takes every remaining pixel and pushes that section past the bottom of
+                    // the view, which reads as the assets having disappeared.
+                    .max_h(px(SESSION_TREE_MAX_HEIGHT))
                     .drag_over::<SessionManagerDrag>(move |target, _drag, _window, _cx| {
                         target
                             .border_1()
@@ -1259,19 +1263,63 @@ impl WorkspaceApp {
             &self.rayops_catalog.groups,
             &self.rayops_catalog.assets,
         );
+        let collapsed = self.rayops_section_collapsed;
         section = section.child(
             div()
+                .id("rayops-section-header")
+                .flex()
+                .flex_row()
+                .gap_1()
+                .items_center()
                 .mx_2()
                 .mt_3()
                 .px_3()
-                .text_xs()
-                .text_color(rgb(theme.text_muted))
-                .child(self.i18n.t("ssh.rayops.managed_assets")),
+                .py_1()
+                .cursor_pointer()
+                .hover(|style| style.bg(rgb(theme.bg_hover)))
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
+                        this.rayops_section_collapsed = !this.rayops_section_collapsed;
+                        cx.notify();
+                    }),
+                )
+                .child(
+                    div()
+                        .w(px(10.0))
+                        .text_xs()
+                        .text_color(rgb(theme.text_muted))
+                        .child(if collapsed { "▸" } else { "▾" }),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(rgb(theme.text_heading))
+                        .child(self.i18n.t("ssh.rayops.managed_assets")),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(rgb(theme.text_muted))
+                        .child(self.rayops_catalog.assets.len().to_string()),
+                ),
         );
-        for node in &tree {
-            section = section.child(self.render_rayops_catalog_node(node, 0, theme, cx));
+        if collapsed {
+            return section.into_any_element();
         }
-        section.into_any_element()
+        // Bounded and scrollable: the estate can be hundreds of assets, and an unbounded section
+        // would push everything below it out of the view.
+        let mut body = div()
+            .id("rayops-section-body")
+            .flex()
+            .flex_col()
+            .w_full()
+            .max_h(px(RAYOPS_SECTION_MAX_HEIGHT))
+            .overflow_y_scroll();
+        for node in &tree {
+            body = body.child(self.render_rayops_catalog_node(node, 0, theme, cx));
+        }
+        section.child(body).into_any_element()
     }
 
     fn render_rayops_catalog_node(

@@ -68,6 +68,15 @@ const BG_ACTIVE_BORDER_HALF_ALPHA: u32 = 0x60; // Tauri border/50 after active b
 const SESSION_MANAGER_LIGHT_DIALOG_BACKDROP_ALPHA: u32 = 0x66; // Keep lightweight manager dialogs readable without heavy blur.
 const MANAGER_TOOLBAR_SEARCH_WIDTH: f32 = 384.0; // Tauri max-w-sm
 const MANAGER_ROW_TEXT_SIZE: f32 = 14.0;
+
+/// How tall the local connection tree may grow before it scrolls.
+///
+/// The managed-asset section is a sibling below it, so an uncapped tree would push that section
+/// past the bottom of the view, which reads as the assets having disappeared.
+pub(super) const SESSION_TREE_MAX_HEIGHT: f32 = 320.0;
+
+/// How tall the managed-asset section may grow before it scrolls.
+pub(super) const RAYOPS_SECTION_MAX_HEIGHT: f32 = 360.0;
 const MANAGER_ROW_META_TEXT_SIZE: f32 = 12.0;
 const MANAGER_TABLE_HEADER_TEXT_SIZE: f32 = 12.0;
 const MANAGER_ROW_ACTION_BUTTON: f32 = 24.0; // Tauri h-6 w-6

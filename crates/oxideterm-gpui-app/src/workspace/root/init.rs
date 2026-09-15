@@ -636,6 +636,7 @@ impl WorkspaceApp {
             rayops_terminal_sessions: std::collections::HashSet::new(),
             rayops_catalog: Default::default(),
             collapsed_rayops_groups: std::collections::HashSet::new(),
+            rayops_section_collapsed: false,
             telnet_terminal_profile_ids: HashMap::new(),
             standalone_connections: standalone_connections::StandaloneConnectionRegistry::default(),
             detached_local_terminals_popover_open: false,
