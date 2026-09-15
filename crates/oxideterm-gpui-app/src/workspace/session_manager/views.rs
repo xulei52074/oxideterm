@@ -1199,6 +1199,27 @@ impl WorkspaceApp {
         !self.rayops_catalog.assets.is_empty()
     }
 
+    /// What the session-manager search matches for a managed asset.
+    ///
+    /// The fields an operator would type to find a host: its name, its address, what it runs and
+    /// any label attached to it.
+    fn rayops_asset_search_text(asset: &oxideterm_rayops::Asset) -> String {
+        let mut text = asset.hostname.to_lowercase();
+        for part in [
+            asset.ip.as_str(),
+            asset.platform.as_str(),
+            asset.os.as_str(),
+        ] {
+            text.push(' ');
+            text.push_str(&part.to_lowercase());
+        }
+        for tag in &asset.tags {
+            text.push(' ');
+            text.push_str(&tag.to_lowercase());
+        }
+        text
+    }
+
     /// The managed-asset section: a sign-in prompt, a failure, or the grouped assets.
     fn render_rayops_catalog_section(&self, cx: &mut Context<Self>) -> AnyElement {
         use super::new_connection::rayops_catalog::RayOpsCatalogPhase;
@@ -1263,9 +1284,27 @@ impl WorkspaceApp {
                 .into_any_element();
         }
 
+        // The same query the local list uses, applied to the managed assets. Without it the
+        // search box silently ignored this half of the view, which reads as the assets being
+        // unsearchable rather than as the filter not applying to them.
+        let query = self
+            .session_manager
+            .read(cx)
+            .search_query
+            .trim()
+            .to_lowercase();
+        let visible: Vec<_> = self
+            .rayops_catalog
+            .assets
+            .iter()
+            .filter(|asset| query.is_empty() || Self::rayops_asset_search_text(asset).contains(&query))
+            .cloned()
+            .collect();
+        // A group with no match disappears with its assets, so the result is a short list rather
+        // than a list of empty headings.
         let tree = super::new_connection::rayops_state::build_asset_tree(
             &self.rayops_catalog.groups,
-            &self.rayops_catalog.assets,
+            &visible,
         );
         let collapsed = self.rayops_section_collapsed;
         section = section.child(
