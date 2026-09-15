@@ -125,6 +125,34 @@ impl WorkspaceApp {
         cx: &mut Context<Self>,
     ) -> AiOrchestratorRuntimeSnapshot {
         let scoped_session = tool_session_id.filter(|session| self.ai_runtime_context.read(cx).is_agent_scoped_session(session));
+        // Resolved before the target loop so every target can say whether it is the one the user
+        // is looking at. Without that flag the assistant had two plausible terminals and answered
+        // about both — it could not tell which one the conversation was about.
+        let active_node_id_for_targets = self
+            .active_ssh_node_id
+            .as_ref()
+            .map(|node_id| node_id.0.clone());
+        let active_session_id = self
+            .active_tab_id(cx)
+            .and_then(|active_tab_id| {
+                let tabs = self.tabs(cx);
+                let tab = tabs.iter().find(|tab| tab.id == active_tab_id)?;
+                let root = tab.root_pane.as_ref()?;
+                let mut pane_ids = Vec::new();
+                root.collect_pane_ids(&mut pane_ids);
+                pane_ids
+                    .into_iter()
+                    .find_map(|pane_id| root.session_id_for_pane(pane_id))
+            })
+            .map(|session_id| session_id.0.to_string())
+            .or_else(|| {
+                active_node_id_for_targets
+                    .as_ref()
+                    .and_then(|node_id| self.ssh_nodes.get(&NodeId::new(node_id.clone())))
+                    .and_then(|node| node.terminal_ids.first().copied())
+                    .map(|session_id| session_id.0.to_string())
+            });
+
         let mut targets = Vec::new();
         for connection in self.connection_store.connections() {
             let mut refs = BTreeMap::new();
@@ -424,10 +452,16 @@ impl WorkspaceApp {
                 };
                 // Enriches rather than replaces the transport metadata above: the terminal facts
                 // and the asset facts answer different questions.
+                // Says which terminal the conversation is about. The assistant otherwise had two
+                // plausible targets and answered about both, which cost a round trip and read as
+                // it not understanding the context.
+                let is_active_session =
+                    active_session_id.as_deref() == Some(session_id.0.to_string().as_str());
                 let metadata = match rayops_asset {
                     Some(asset) => {
                         let mut value = metadata;
                         if let Some(object) = value.as_object_mut() {
+                            object.insert("active".to_string(), serde_json::json!(is_active_session));
                             object.insert("managed".to_string(), serde_json::json!(true));
                             object.insert("managedBy".to_string(), serde_json::json!("RayOps"));
                             object.insert("assetId".to_string(), serde_json::json!(asset.id));
@@ -443,7 +477,15 @@ impl WorkspaceApp {
                         }
                         value
                     }
-                    None => metadata,
+                    None => {
+                        // The flag belongs to every terminal, not only a managed one: it is what
+                        // lets the assistant tell which of several open terminals the user means.
+                        let mut value = metadata;
+                        if let Some(object) = value.as_object_mut() {
+                            object.insert("active".to_string(), serde_json::json!(is_active_session));
+                        }
+                        value
+                    }
                 };
                 targets.push(AiOrchestratorTarget {
                     id: format!("terminal-session:{}", session_id.0),
@@ -620,29 +662,10 @@ impl WorkspaceApp {
             };
         }
         let settings = self.settings_store.settings();
-        let active_tab_ref = self.active_tab_id(cx)
-            .and_then(|active_tab_id| self.tabs(cx).iter().find(|tab| tab.id == active_tab_id));
         let active_node_id = self
             .active_ssh_node_id
             .as_ref()
             .map(|node_id| node_id.0.clone());
-        let active_session_id = active_tab_ref
-            .and_then(|tab| tab.root_pane.as_ref())
-            .and_then(|root| {
-                let mut pane_ids = Vec::new();
-                root.collect_pane_ids(&mut pane_ids);
-                pane_ids
-                    .into_iter()
-                    .find_map(|pane_id| root.session_id_for_pane(pane_id))
-            })
-            .map(|session_id| session_id.0.to_string())
-            .or_else(|| {
-                self.active_ssh_node_id
-                    .as_ref()
-                    .and_then(|node_id| self.ssh_nodes.get(node_id))
-                    .and_then(|node| node.terminal_ids.first().copied())
-                    .map(|session_id| session_id.0.to_string())
-            });
         let active_tab = self.active_tab_id(cx)
             .and_then(|active_tab_id| {
                 self.tabs(cx)
