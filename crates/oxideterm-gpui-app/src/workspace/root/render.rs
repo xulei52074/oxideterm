@@ -1000,6 +1000,10 @@ impl WorkspaceApp {
             .when(self.connection_form_state(cx).form.is_some(), |root| {
                 root.child(self.render_new_connection_modal(window, cx))
             })
+            .when(
+                self.connection_flow.read(cx).rayops.is_some(),
+                |root| root.child(self.render_rayops_connection_modal(window, cx)),
+            )
             .when_some(self.render_sftp_presentation_dialog(cx), |root, dialog| {
                 root.child(dialog)
             })

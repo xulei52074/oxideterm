@@ -188,3 +188,74 @@ pub(in crate::workspace) async fn open_rayops_connection(
 fn describe(error: oxideterm_rayops::Error) -> String {
     error.to_string()
 }
+
+/// Builds the control plane for a launch request.
+///
+/// Extracted so the login, the asset list and the ticket exchange all construct it the same way —
+/// a transport relaxation set on one path but not another would be a silent downgrade.
+fn control_plane(launch: &RayOpsLaunch) -> Result<oxideterm_rayops_net::ControlPlane, String> {
+    let mut config = oxideterm_rayops_net::ControlPlaneConfig::new(launch.base_url.clone());
+    config.insecure_tls = launch.insecure_tls;
+    config.allow_plaintext = launch.allow_plaintext;
+    oxideterm_rayops_net::ControlPlane::new(config).map_err(|e| e.to_string())
+}
+
+/// Logs in and returns the session.
+///
+/// Split from the asset list so the modal can show the login result before asking for assets: a
+/// failure here is about the deployment or the credentials, and mixing it with an empty asset list
+/// would make a wrong password look like an empty inventory.
+pub(in crate::workspace) async fn sign_in(
+    launch: RayOpsLaunch,
+) -> Result<oxideterm_rayops::Session, String> {
+    use oxideterm_rayops::{
+        LoginType, Secret, Transport, interpret_login, login_request,
+    };
+
+    let control = control_plane(&launch)?;
+    let request = login_request(
+        &launch.username,
+        &Secret::new(launch.password.to_string()),
+        LoginType::Local,
+    );
+    let response = control.transport.send(&request).await.map_err(describe)?;
+    interpret_login(&response).map_err(|e| e.to_string())
+}
+
+/// One page of assets for a session.
+pub(in crate::workspace) struct RayOpsAssetRequest {
+    pub base_url: String,
+    pub insecure_tls: bool,
+    pub allow_plaintext: bool,
+    pub token: oxideterm_rayops::Secret,
+    /// Empty means "list everything", which is what the gateway does when the keyword is absent.
+    pub keyword: String,
+    pub page: i64,
+    pub size: i64,
+}
+
+/// Fetches a page, using search when a keyword is present.
+pub(in crate::workspace) async fn fetch_assets(
+    request: RayOpsAssetRequest,
+) -> Result<oxideterm_rayops::AssetPage, String> {
+    use oxideterm_rayops::{
+        Transport, asset_search_request, assets_request, interpret_assets,
+    };
+
+    let control = control_plane(&RayOpsLaunch {
+        base_url: request.base_url,
+        asset_id: 0,
+        insecure_tls: request.insecure_tls,
+        allow_plaintext: request.allow_plaintext,
+        username: String::new(),
+        password: zeroize::Zeroizing::new(String::new()),
+    })?;
+    let keyword = request.keyword.trim();
+    let outbound = if keyword.is_empty() {
+        assets_request(&request.token, request.page, request.size)
+    } else {
+        asset_search_request(&request.token, keyword, request.page, request.size)
+    };
+    let response = control.transport.send(&outbound).await.map_err(describe)?;
+    interpret_assets(&response).map_err(|e| e.to_string())
+}

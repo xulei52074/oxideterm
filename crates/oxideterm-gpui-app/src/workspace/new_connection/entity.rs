@@ -78,6 +78,12 @@ impl ConnectionSelectAnchorStore {
 /// Owns connection-flow state that must survive independently of root rendering.
 pub(in crate::workspace) struct ConnectionFlowEntity {
     pub(in crate::workspace) form: ConnectionFormState,
+    /// The RayOps login and asset-picking flow, when one is open.
+    ///
+    /// Held here rather than on the workspace because it must outlive a repaint like the SSH form
+    /// does, and because both flows are modal and cannot be open at once — the owner check in
+    /// `modal_owner` relies on that.
+    pub(in crate::workspace) rayops: Option<super::rayops_state::RayOpsFlowState>,
     select_anchors: ConnectionSelectAnchorStore,
     ssh_worker_tx: delivery::ActiveDeliverySender<SshConnectionWorkerResult>,
     ssh_worker_rx: std::sync::mpsc::Receiver<SshConnectionWorkerResult>,
@@ -155,6 +161,7 @@ impl ConnectionFlowEntity {
 
         Self {
             form: ConnectionFormState::new(),
+            rayops: None,
             select_anchors: ConnectionSelectAnchorStore::default(),
             ssh_worker_tx,
             ssh_worker_rx,
