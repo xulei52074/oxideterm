@@ -242,7 +242,12 @@
       "empty": "没有找到资产。",
       "previous_page": "上一页",
       "next_page": "下一页",
-      "connecting": "连接中..."
+      "connecting": "连接中...",
+      "sign_in": "登录 RayOps",
+      "sign_in_hint": "登录后可查看被管资产",
+      "unreachable": "RayOps 不可达",
+      "retry_hint": "点击重试",
+      "managed_assets": "被管资产"
     }
   },
   "connections": {

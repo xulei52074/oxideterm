@@ -242,7 +242,12 @@
       "empty": "Nenhum ativo encontrado.",
       "previous_page": "Anterior",
       "next_page": "Próximo",
-      "connecting": "Conectando..."
+      "connecting": "Conectando...",
+      "sign_in": "Entrar no RayOps",
+      "sign_in_hint": "Entre para ver os ativos gerenciados",
+      "unreachable": "RayOps inacessível",
+      "retry_hint": "Clique para tentar novamente",
+      "managed_assets": "Ativos gerenciados"
     }
   }
 }

@@ -242,7 +242,12 @@
       "empty": "자산을 찾을 수 없습니다.",
       "previous_page": "이전",
       "next_page": "다음",
-      "connecting": "연결 중..."
+      "connecting": "연결 중...",
+      "sign_in": "RayOps 로그인",
+      "sign_in_hint": "로그인하면 관리 대상 자산이 표시됩니다",
+      "unreachable": "RayOps에 연결할 수 없음",
+      "retry_hint": "클릭하여 다시 시도",
+      "managed_assets": "관리 대상 자산"
     }
   }
 }

@@ -242,7 +242,12 @@
       "empty": "資産が見つかりません。",
       "previous_page": "前へ",
       "next_page": "次へ",
-      "connecting": "接続中..."
+      "connecting": "接続中...",
+      "sign_in": "RayOps にサインイン",
+      "sign_in_hint": "サインインすると管理対象の資産が表示されます",
+      "unreachable": "RayOps に接続できません",
+      "retry_hint": "クリックして再試行",
+      "managed_assets": "管理対象の資産"
     }
   }
 }

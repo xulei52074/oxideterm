@@ -242,7 +242,12 @@
       "empty": "沒有找到資產。",
       "previous_page": "上一頁",
       "next_page": "下一頁",
-      "connecting": "連線中..."
+      "connecting": "連線中...",
+      "sign_in": "登入 RayOps",
+      "sign_in_hint": "登入後可查看受管資產",
+      "unreachable": "RayOps 無法連線",
+      "retry_hint": "點擊重試",
+      "managed_assets": "受管資產"
     }
   },
   "connections": {

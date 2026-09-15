@@ -634,6 +634,7 @@ impl WorkspaceApp {
             detached_local_terminal_order: Vec::new(),
             serial_terminal_configs: HashMap::new(),
             rayops_terminal_sessions: std::collections::HashSet::new(),
+            rayops_catalog: Default::default(),
             telnet_terminal_profile_ids: HashMap::new(),
             standalone_connections: standalone_connections::StandaloneConnectionRegistry::default(),
             detached_local_terminals_popover_open: false,

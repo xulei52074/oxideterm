@@ -242,7 +242,12 @@
       "empty": "Keine Assets gefunden.",
       "previous_page": "Zurück",
       "next_page": "Weiter",
-      "connecting": "Verbindung wird hergestellt..."
+      "connecting": "Verbindung wird hergestellt...",
+      "sign_in": "RayOps-Anmeldung",
+      "sign_in_hint": "Anmelden, um verwaltete Assets anzuzeigen",
+      "unreachable": "RayOps nicht erreichbar",
+      "retry_hint": "Zum erneuten Versuch klicken",
+      "managed_assets": "Verwaltete Assets"
     }
   }
 }

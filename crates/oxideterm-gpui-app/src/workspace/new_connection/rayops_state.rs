@@ -470,6 +470,9 @@ pub(in crate::workspace) fn build_asset_tree(
 }
 
 
+    /// Fixture helpers. Used by the tree tests below; the projection is exercised through them
+    /// rather than by hand-building nodes, which is what makes the shape assertions meaningful.
+    #[allow(dead_code)]
     fn group(id: i64, name: &str, parent_id: i64) -> oxideterm_rayops::AssetGroup {
         oxideterm_rayops::AssetGroup {
             id,
@@ -481,6 +484,7 @@ pub(in crate::workspace) fn build_asset_tree(
         }
     }
 
+    #[allow(dead_code)]
     fn asset(id: i64, group_id: i64) -> oxideterm_rayops::Asset {
         oxideterm_rayops::Asset {
             id,

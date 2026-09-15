@@ -37,6 +37,12 @@ impl WorkspaceApp {
         );
         // A session for this deployment is reused rather than asked for again. The password is not
         // kept for this purpose — only the token is, and only for as long as the process runs.
+        // The workspace catalog is the authority on whether a session exists; the modal's own
+        // cache is a view of it. Checked first so a session adopted by another surface (the tree's
+        // sign-in entry) also skips this dialog's login step.
+        let catalog_signed_in = self.rayops_catalog.signed_in_for(&base_url);
+        let catalog_assets = self.rayops_catalog.assets.clone();
+        let catalog_groups = self.rayops_catalog.groups.clone();
         let reuse = self
             .connection_flow
             .read(cx)
@@ -44,7 +50,14 @@ impl WorkspaceApp {
             .as_ref()
             .filter(|cache| cache.base_url == base_url);
         let mut stale = false;
-        if let Some(cache) = reuse {
+        if catalog_signed_in {
+            state.token = self.rayops_catalog.token();
+            state.groups = catalog_groups;
+            state.assets = catalog_assets;
+            state.phase = RayOpsPhase::Browsing { loading: false };
+            // The catalog is refreshed on its own schedule, so what it holds may already be the
+            // newest copy; no extra fetch is forced here.
+        } else if let Some(cache) = reuse {
             state.token = Some(cache.token.clone());
             state.groups = cache.groups.clone();
             state.assets = cache.assets.clone();
@@ -84,7 +97,7 @@ impl WorkspaceApp {
             // box that cannot be typed into would be worse than an explicit external source.
             // Typed entry belongs with that wiring, in the same change.
             let password = if state.password.is_empty() {
-                super::super::rayops_flow::credential_from_environment()
+                super::rayops_catalog::credential_from_environment()
                     .map(|password| {
                         state.password = password.clone();
                         password
@@ -162,6 +175,17 @@ impl WorkspaceApp {
             cx.notify();
         });
         if logged_in {
+            // Hand the session to the workspace catalog, so the session manager and the picker read
+            // one copy and the user signs in once per run rather than once per surface.
+            let adopted = self.connection_flow.read(cx).rayops.as_ref().and_then(|state| {
+                state.token.clone().map(|token| (state.base_url.trim().to_owned(), token))
+            });
+            if let Some((base_url, token)) = adopted {
+                self.rayops_catalog.adopt_session(base_url, token);
+                // Filled immediately so the session-manager section has content without the user
+                // opening anything else.
+                self.refresh_rayops_catalog(cx);
+            }
             self.connection_flow.update(cx, |flow, _| {
                 let Some(state) = flow.rayops.as_ref() else {
                     return;

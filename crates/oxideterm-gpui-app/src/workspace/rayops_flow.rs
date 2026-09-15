@@ -37,25 +37,6 @@ impl std::fmt::Debug for RayOpsConnection {
     }
 }
 
-/// Reads the RayOps password from the environment.
-///
-/// A deliberate stand-in until the login form exists: a password must not be written to the
-/// settings file, and the alternative — a placeholder that does nothing — would make the entry
-/// point untestable end to end. The variable name matches the verification probe in the RayTerm
-/// repository so both use one documented source.
-pub(in crate::workspace) fn credential_from_environment() -> Result<zeroize::Zeroizing<String>, String> {
-    match std::env::var("RAYOPS_PASSWORD") {
-        Ok(value) if !value.is_empty() => Ok(zeroize::Zeroizing::new(value)),
-        Ok(_) => Err("RAYOPS_PASSWORD is set but empty".to_owned()),
-        Err(_) => Err(
-            "RAYOPS_PASSWORD is not set. The password is read from the environment because \
-             storing it would put a server credential in a settings file that is exported and \
-             synced."
-                .to_owned(),
-        ),
-    }
-}
-
 /// Logs in, prechecks, mints a ticket and opens the socket.
 ///
 /// Runs on the application's Tokio runtime. Every response goes through its `interpret_*`

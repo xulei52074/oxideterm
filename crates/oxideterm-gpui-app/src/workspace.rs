@@ -779,6 +779,12 @@ pub(crate) struct WorkspaceApp {
     /// alive when the session ends — a disconnect has to stay visible, and the default path
     /// closes the tab, which would make the failure disappear with it.
     rayops_terminal_sessions: std::collections::HashSet<TerminalSessionId>,
+    /// Who is signed in to RayOps and what the gateway says they can reach.
+    ///
+    /// On the workspace rather than in the connection-flow entity because more than one surface
+    /// reads it — the session manager tree and the picker — and because it must outlive the modal
+    /// that established it. Never persisted: see `RayOpsCatalog`.
+    rayops_catalog: crate::workspace::new_connection::rayops_catalog::RayOpsCatalog,
     // A Telnet pane keeps only the stable profile owner needed for toolbar persistence.
     telnet_terminal_profile_ids: HashMap<TerminalSessionId, String>,
     // Non-SSH connection records outlive their current terminal or desktop surface.

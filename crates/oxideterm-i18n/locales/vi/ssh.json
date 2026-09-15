@@ -242,7 +242,12 @@
       "empty": "Không tìm thấy tài sản nào.",
       "previous_page": "Trước",
       "next_page": "Tiếp",
-      "connecting": "Đang kết nối..."
+      "connecting": "Đang kết nối...",
+      "sign_in": "Đăng nhập RayOps",
+      "sign_in_hint": "Đăng nhập để xem tài sản được quản lý",
+      "unreachable": "Không kết nối được RayOps",
+      "retry_hint": "Nhấp để thử lại",
+      "managed_assets": "Tài sản được quản lý"
     }
   }
 }

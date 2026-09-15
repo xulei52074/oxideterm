@@ -242,7 +242,12 @@
       "empty": "Nessuna risorsa trovata.",
       "previous_page": "Precedente",
       "next_page": "Successivo",
-      "connecting": "Connessione..."
+      "connecting": "Connessione...",
+      "sign_in": "Accesso RayOps",
+      "sign_in_hint": "Accedi per vedere le risorse gestite",
+      "unreachable": "RayOps non raggiungibile",
+      "retry_hint": "Fai clic per riprovare",
+      "managed_assets": "Risorse gestite"
     }
   }
 }

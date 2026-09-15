@@ -1,6 +1,7 @@
 mod entity;
 mod form_entity;
 mod form_state;
+pub(in crate::workspace) mod rayops_catalog;
 pub(in crate::workspace) mod rayops_state;
 mod rayops_view;
 mod form_view;

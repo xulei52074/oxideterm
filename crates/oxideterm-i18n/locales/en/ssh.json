@@ -242,7 +242,12 @@
       "empty": "No assets found.",
       "previous_page": "Previous",
       "next_page": "Next",
-      "connecting": "Connecting..."
+      "connecting": "Connecting...",
+      "sign_in": "RayOps sign-in",
+      "sign_in_hint": "Sign in to see managed assets",
+      "unreachable": "RayOps unreachable",
+      "retry_hint": "Click to retry",
+      "managed_assets": "Managed assets"
     }
   },
   "connections": {

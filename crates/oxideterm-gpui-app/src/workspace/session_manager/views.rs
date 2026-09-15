@@ -1175,14 +1175,151 @@ impl WorkspaceApp {
                         // Close pointer-positioned menus before the virtual rows move.
                         this.close_session_row_menus(cx);
                     }))
-                    .child(if has_rows {
+                    .child(if has_rows || self.rayops_catalog_has_assets() {
                         list.into_any_element()
                     } else {
                         self.render_session_manager_empty_view(has_background, cx)
                             .into_any_element()
                     }),
             )
+            // Managed assets are appended below the local tree rather than merged into it. They
+            // are not local connections — they are not editable, not exportable and their
+            // authorization is checked when connected — so giving them their own section keeps
+            // that distinction visible instead of implying they are the same kind of thing.
+            .child(self.render_rayops_catalog_section(cx))
             .into_any_element()
+    }
+
+    /// Whether the catalog currently holds anything to show.
+    fn rayops_catalog_has_assets(&self) -> bool {
+        !self.rayops_catalog.assets.is_empty()
+    }
+
+    /// The managed-asset section: a sign-in prompt, a failure, or the grouped assets.
+    fn render_rayops_catalog_section(&self, cx: &mut Context<Self>) -> AnyElement {
+        use super::new_connection::rayops_catalog::RayOpsCatalogPhase;
+
+        let theme = self.tokens.ui;
+        let mut section = div().flex().flex_col().w_full();
+
+        if self.rayops_catalog.assets.is_empty() {
+            // Signed out and empty are different states, and the difference decides what the user
+            // should do: sign in, or wait and retry.
+            let (label, action) = match self.rayops_catalog.phase {
+                RayOpsCatalogPhase::SignedOut | RayOpsCatalogPhase::Expired => (
+                    self.i18n.t("ssh.rayops.sign_in"),
+                    self.i18n.t("ssh.rayops.sign_in_hint"),
+                ),
+                RayOpsCatalogPhase::Authenticating | RayOpsCatalogPhase::Refreshing => (
+                    self.i18n.t("ssh.rayops.connecting"),
+                    self.i18n.t("ssh.rayops.sign_in_hint"),
+                ),
+                RayOpsCatalogPhase::Disconnected => (
+                    self.i18n.t("ssh.rayops.unreachable"),
+                    self.i18n.t("ssh.rayops.retry_hint"),
+                ),
+                RayOpsCatalogPhase::Ready => (
+                    self.i18n.t("ssh.rayops.empty"),
+                    self.i18n.t("ssh.rayops.sign_in_hint"),
+                ),
+            };
+            let signed_out = matches!(
+                self.rayops_catalog.phase,
+                RayOpsCatalogPhase::SignedOut | RayOpsCatalogPhase::Expired
+            );
+            return section
+                .child(
+                    div()
+                        .id("rayops-catalog-entry")
+                        .mx_2()
+                        .my_1()
+                        .px_3()
+                        .py_2()
+                        .rounded_md()
+                        .bg(rgb(theme.bg_elevated))
+                        .cursor_pointer()
+                        .hover(|style| style.bg(rgb(theme.bg_hover)))
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(move |this, _: &gpui::MouseDownEvent, window, cx| {
+                                if signed_out {
+                                    this.open_rayops_connection(window, cx);
+                                } else {
+                                    this.refresh_rayops_catalog(cx);
+                                }
+                            }),
+                        )
+                        .child(div().text_sm().text_color(rgb(theme.text_heading)).child(label))
+                        .child(div().text_xs().text_color(rgb(theme.text_muted)).child(action)),
+                )
+                .into_any_element();
+        }
+
+        let tree = super::new_connection::rayops_state::build_asset_tree(
+            &self.rayops_catalog.groups,
+            &self.rayops_catalog.assets,
+        );
+        section = section.child(
+            div()
+                .mx_2()
+                .mt_3()
+                .px_3()
+                .text_xs()
+                .text_color(rgb(theme.text_muted))
+                .child(self.i18n.t("ssh.rayops.managed_assets")),
+        );
+        for node in &tree {
+            section = section.child(self.render_rayops_catalog_node(node, 0, theme, cx));
+        }
+        section.into_any_element()
+    }
+
+    fn render_rayops_catalog_node(
+        &self,
+        node: &super::new_connection::rayops_state::RayOpsTreeNode,
+        depth: usize,
+        theme: oxideterm_theme::AppUiColors,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let mut container = div().flex().flex_col().w_full();
+        if !node.group.name.is_empty() {
+            container = container.child(
+                div()
+                    .pl(px(12.0 + 12.0 * depth as f32))
+                    .py_1()
+                    .text_xs()
+                    .text_color(rgb(theme.text_muted))
+                    .child(format!("{} · {}", node.group.name, node.total_assets())),
+            );
+        }
+        for asset in &node.assets {
+            let id = asset.id;
+            let label = format!("{} ({})", asset.hostname, asset.ip);
+            container = container.child(
+                div()
+                    .id(("rayops-tree-asset", id as u64))
+                    .ml(px(12.0 + 12.0 * (depth + 1) as f32))
+                    .mr_2()
+                    .my(px(2.0))
+                    .px_3()
+                    .py_2()
+                    .rounded_md()
+                    .bg(rgb(theme.bg_elevated))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(rgb(theme.bg_hover)))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                            this.connect_rayops_catalog_asset(id, cx);
+                        }),
+                    )
+                    .child(div().text_sm().text_color(rgb(theme.text)).child(label)),
+            );
+        }
+        for child in &node.children {
+            container = container.child(self.render_rayops_catalog_node(child, depth + 1, theme, cx));
+        }
+        container.into_any_element()
     }
 
     pub(super) fn render_session_manager_view_actions(
