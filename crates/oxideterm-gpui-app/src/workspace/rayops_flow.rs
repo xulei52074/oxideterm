@@ -14,6 +14,8 @@ pub(in crate::workspace) struct RayOpsLaunch {
     pub base_url: String,
     pub asset_id: i64,
     pub insecure_tls: bool,
+    /// Whether the deployment may be plaintext. See `RayOpsSettings::allow_plaintext`.
+    pub allow_plaintext: bool,
     pub username: String,
     /// Read from the environment rather than stored. See `credential_from_environment`.
     pub password: zeroize::Zeroizing<String>,
@@ -72,6 +74,7 @@ pub(in crate::workspace) async fn open_rayops_connection(
 
     let mut config = ControlPlaneConfig::new(launch.base_url.clone());
     config.insecure_tls = launch.insecure_tls;
+    config.allow_plaintext = launch.allow_plaintext;
     let control = oxideterm_rayops_net::ControlPlane::new(config).map_err(|e| e.to_string())?;
 
     // --- authenticate -----------------------------------------------------------------

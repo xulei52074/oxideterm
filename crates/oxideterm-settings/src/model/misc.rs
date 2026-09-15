@@ -433,6 +433,14 @@ pub struct RayOpsSettings {
     /// The UI must warn before this can be turned on.
     #[serde(default)]
     pub insecure_tls: bool,
+    /// Permit an `http://` deployment.
+    ///
+    /// Off by default. Over plain HTTP the login password, the session token and the connection
+    /// ticket travel unencrypted, so an observer on the path can read them and then connect to a
+    /// managed asset as this user. Kept as an explicit choice so a deployment URL typed without
+    /// a scheme, or with `http`, does not silently downgrade the connection.
+    #[serde(default)]
+    pub allow_plaintext: bool,
     /// The asset the menu command opens.
     ///
     /// A stand-in until the asset picker exists: without it the entry point has nothing to
@@ -737,7 +745,7 @@ mod misc_tests {
             .collect();
         assert_eq!(
             keys,
-            vec!["baseUrl", "insecureTls", "assetId"],
+            vec!["baseUrl", "insecureTls", "allowPlaintext", "assetId"],
             "unexpected key under rayops"
         );
 

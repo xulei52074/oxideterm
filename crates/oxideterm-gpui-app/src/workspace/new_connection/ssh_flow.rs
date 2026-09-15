@@ -471,6 +471,7 @@ impl WorkspaceApp {
             base_url,
             asset_id: settings.asset_id,
             insecure_tls: settings.insecure_tls,
+            allow_plaintext: settings.allow_plaintext,
             username: std::env::var("RAYOPS_USERNAME").unwrap_or_else(|_| "admin".to_owned()),
             password,
         };
