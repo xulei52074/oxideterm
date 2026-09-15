@@ -344,15 +344,52 @@ impl WorkspaceApp {
                 let mut refs = BTreeMap::new();
                 refs.insert("sessionId".to_string(), session_id.0.to_string());
                 refs.insert("tabId".to_string(), tab.id.0.to_string());
+                // The managed asset behind this session, when there is one.
+                //
+                // Without it the assistant knew only that a terminal existed: not which machine,
+                // not what that machine runs, and not that the user was looking at it — so it
+                // answered about whichever target it could describe confidently. These facts come
+                // from the catalog the gateway returned, never from reading the screen.
+                let rayops_asset = if is_rayops_terminal {
+                    let title = tab.title.to_string();
+                    self.rayops_catalog
+                        .assets
+                        .iter()
+                        .find(|asset| {
+                            !asset.hostname.trim().is_empty() && title.contains(&asset.hostname)
+                        })
+                        .or_else(|| {
+                            self.rayops_catalog
+                                .assets
+                                .iter()
+                                .find(|asset| !asset.ip.is_empty() && title.contains(&asset.ip))
+                        })
+                } else {
+                    None
+                };
                 let label = if let Some(config) = serial_config {
                     format!("Serial {}", config.port_path)
                 } else if is_telnet_terminal {
                     format!("Telnet {}", tab.title)
+                } else if let Some(asset) = rayops_asset {
+                    // Names the host, so the target list itself says which machine this is.
+                    let platform = if asset.platform.trim().is_empty() {
+                        String::new()
+                    } else {
+                        format!(" · {}", asset.platform)
+                    };
+                    format!(
+                        "Managed asset {} ({}){platform}",
+                        asset.hostname, asset.ip
+                    )
                 } else if is_local_terminal {
                     format!("Local terminal {}", tab.title)
                 } else {
                     format!("SSH terminal {}", ai_short_id(&session_id.0.to_string()))
                 };
+                if let Some(asset) = rayops_asset {
+                    refs.insert("assetId".to_string(), asset.id.to_string());
+                }
                 let metadata = if let Some(config) = serial_config {
                     serde_json::json!({
                         "terminalType": terminal_type,
@@ -384,6 +421,29 @@ impl WorkspaceApp {
                         "paneId": pane_id.0,
                         "terminalType": terminal_type,
                     })
+                };
+                // Enriches rather than replaces the transport metadata above: the terminal facts
+                // and the asset facts answer different questions.
+                let metadata = match rayops_asset {
+                    Some(asset) => {
+                        let mut value = metadata;
+                        if let Some(object) = value.as_object_mut() {
+                            object.insert("managed".to_string(), serde_json::json!(true));
+                            object.insert("managedBy".to_string(), serde_json::json!("RayOps"));
+                            object.insert("assetId".to_string(), serde_json::json!(asset.id));
+                            object.insert("assetName".to_string(), serde_json::json!(asset.hostname));
+                            object.insert("host".to_string(), serde_json::json!(asset.ip));
+                            object.insert("port".to_string(), serde_json::json!(asset.port));
+                            object.insert("platform".to_string(), serde_json::json!(asset.platform));
+                            object.insert("os".to_string(), serde_json::json!(asset.os));
+                            object.insert(
+                                "protocols".to_string(),
+                                serde_json::json!(asset.protocols),
+                            );
+                        }
+                        value
+                    }
+                    None => metadata,
                 };
                 targets.push(AiOrchestratorTarget {
                     id: format!("terminal-session:{}", session_id.0),
