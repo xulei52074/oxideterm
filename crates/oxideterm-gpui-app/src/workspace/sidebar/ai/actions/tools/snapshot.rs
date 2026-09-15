@@ -324,10 +324,18 @@ impl WorkspaceApp {
                     session_kind == oxideterm_terminal::TerminalSessionKind::Serial;
                 let is_telnet_terminal =
                     session_kind == oxideterm_terminal::TerminalSessionKind::Telnet;
+                // A RayOps session carries `TabKind::LocalTerminal` — it owns no SSH node — but it
+                // is emphatically not this machine. Reporting it as one made the assistant describe
+                // a remote host as "the local macOS machine" and reach for the wrong platform's
+                // commands, so the empty tab kind is not what decides this.
+                let is_rayops_terminal = self.rayops_terminal_sessions.contains(&session_id);
+                let is_local_terminal = is_local_terminal && !is_rayops_terminal;
                 let terminal_type = if is_serial_terminal {
                     "serial"
                 } else if is_telnet_terminal {
                     "telnet"
+                } else if is_rayops_terminal {
+                    "rayops"
                 } else if is_local_terminal {
                     "local_terminal"
                 } else {
