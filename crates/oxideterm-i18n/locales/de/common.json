@@ -44,7 +44,9 @@
       "import_connections_hint": "SSH-Konfiguration und unterstützte App-Daten übernehmen",
       "open_session_manager": "Sitzungsverwaltung",
       "open_session_manager_hint": "Gespeicherte Verbindungen durchsuchen, bearbeiten und importieren",
-      "cloud_sync_hint": "Verschlüsselte Arbeitsbereichsdaten lokal oder im eigenen Dienst sichern"
+      "cloud_sync_hint": "Verschlüsselte Arbeitsbereichsdaten lokal oder im eigenen Dienst sichern",
+      "new_rayops_connection": "Neue RayOps-Verbindung",
+      "new_rayops_connection_hint": "Über das RayOps-Gateway verbinden und ein verwaltetes Asset wählen"
     },
     "connection_monitor": {
       "title": "Verbindungsmonitor"

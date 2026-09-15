@@ -44,7 +44,9 @@
       "import_connections_hint": "匯入 SSH 設定與支援應用程式的資料",
       "open_session_manager": "工作階段管理器",
       "open_session_manager_hint": "瀏覽、編輯與匯入已儲存連線",
-      "cloud_sync_hint": "將加密的工作區資料備份到本機或自建服務"
+      "cloud_sync_hint": "將加密的工作區資料備份到本機或自建服務",
+      "new_rayops_connection": "新增 RayOps 連線",
+      "new_rayops_connection_hint": "透過 RayOps 閘道連線並選擇受管資產"
     },
     "connection_monitor": {
       "title": "連線監控"

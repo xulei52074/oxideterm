@@ -44,7 +44,9 @@
       "import_connections_hint": "Nhập cấu hình SSH và dữ liệu từ ứng dụng được hỗ trợ",
       "open_session_manager": "Trình quản lý phiên",
       "open_session_manager_hint": "Duyệt, sửa và nhập các kết nối đã lưu",
-      "cloud_sync_hint": "Sao lưu dữ liệu không gian làm việc đã mã hóa cục bộ hoặc lên dịch vụ của bạn"
+      "cloud_sync_hint": "Sao lưu dữ liệu không gian làm việc đã mã hóa cục bộ hoặc lên dịch vụ của bạn",
+      "new_rayops_connection": "Kết nối RayOps mới",
+      "new_rayops_connection_hint": "Kết nối qua cổng RayOps và chọn tài sản được quản lý"
     },
     "connection_monitor": {
       "title": "Giám sát kết nối"

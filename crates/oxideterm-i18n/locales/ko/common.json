@@ -44,7 +44,9 @@
       "import_connections_hint": "SSH 설정과 지원되는 앱 데이터를 가져옵니다",
       "open_session_manager": "세션 관리자",
       "open_session_manager_hint": "저장된 연결 탐색, 편집 및 가져오기",
-      "cloud_sync_hint": "암호화된 작업 공간 데이터를 로컬 또는 자체 서비스에 백업"
+      "cloud_sync_hint": "암호화된 작업 공간 데이터를 로컬 또는 자체 서비스에 백업",
+      "new_rayops_connection": "새 RayOps 연결",
+      "new_rayops_connection_hint": "RayOps 게이트웨이를 통해 연결하고 관리 대상 자산 선택"
     },
     "connection_monitor": {
       "title": "연결 모니터"

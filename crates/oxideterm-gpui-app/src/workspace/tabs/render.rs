@@ -9,6 +9,9 @@ use gpui::StatefulInteractiveElement;
 #[derive(Clone, Copy)]
 enum WelcomeToolAction {
     NewConnection,
+    /// Opens the RayOps asset picker. A peer of `NewConnection` in the list because to the user it
+    /// is another way to reach a machine, even though the two flows share no code.
+    RayOpsConnection,
     LocalTerminal,
     ImportConnections,
     SessionManager,
@@ -1403,6 +1406,13 @@ impl WorkspaceApp {
             cx,
         ))
         .child(self.render_welcome_tool_row(
+            LucideIcon::Server,
+            "layout.empty.new_rayops_connection",
+            "layout.empty.new_rayops_connection_hint",
+            WelcomeToolAction::RayOpsConnection,
+            cx,
+        ))
+        .child(self.render_welcome_tool_row(
             LucideIcon::Terminal,
             "layout.empty.new_local_terminal",
             "layout.empty.new_local_terminal_hint",
@@ -1488,6 +1498,9 @@ impl WorkspaceApp {
                     match action {
                         WelcomeToolAction::NewConnection => {
                             this.open_new_connection_form(window, cx)
+                        }
+                        WelcomeToolAction::RayOpsConnection => {
+                            this.open_rayops_connection(window, cx);
                         }
                         WelcomeToolAction::LocalTerminal => {
                             let _ = this.create_local_terminal_tab(window, cx);

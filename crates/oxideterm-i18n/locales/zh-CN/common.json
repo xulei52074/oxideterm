@@ -44,7 +44,9 @@
       "import_connections_hint": "导入 SSH 配置和受支持应用的数据",
       "open_session_manager": "会话管理器",
       "open_session_manager_hint": "浏览、编辑和导入已保存连接",
-      "cloud_sync_hint": "将加密的工作区数据备份到本地或自建服务"
+      "cloud_sync_hint": "将加密的工作区数据备份到本地或自建服务",
+      "new_rayops_connection": "新建 RayOps 连接",
+      "new_rayops_connection_hint": "通过 RayOps 网关连接并选择被管资产"
     },
     "connection_monitor": {
       "title": "连接监控"

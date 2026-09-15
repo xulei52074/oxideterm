@@ -44,7 +44,9 @@
       "import_connections_hint": "Importe a configuração SSH e dados de aplicativos compatíveis",
       "open_session_manager": "Gerenciador de sessões",
       "open_session_manager_hint": "Navegue, edite e importe conexões salvas",
-      "cloud_sync_hint": "Faça backup dos dados criptografados localmente ou no seu próprio serviço"
+      "cloud_sync_hint": "Faça backup dos dados criptografados localmente ou no seu próprio serviço",
+      "new_rayops_connection": "Nova conexão RayOps",
+      "new_rayops_connection_hint": "Conectar pelo gateway RayOps e escolher um ativo gerenciado"
     },
     "connection_monitor": {
       "title": "Monitor de conexão"

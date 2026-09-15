@@ -44,7 +44,9 @@
       "import_connections_hint": "SSH 設定と対応アプリのデータを取り込みます",
       "open_session_manager": "セッションマネージャー",
       "open_session_manager_hint": "保存済み接続の閲覧、編集、インポート",
-      "cloud_sync_hint": "暗号化したワークスペースデータをローカルまたは独自サービスにバックアップ"
+      "cloud_sync_hint": "暗号化したワークスペースデータをローカルまたは独自サービスにバックアップ",
+      "new_rayops_connection": "RayOps 接続を新規作成",
+      "new_rayops_connection_hint": "RayOps ゲートウェイ経由で接続し、管理対象の資産を選択"
     },
     "connection_monitor": {
       "title": "接続モニター"
