@@ -28,17 +28,41 @@ impl WorkspaceApp {
         cx: &mut Context<Self>,
     ) {
         let settings = self.settings_store.settings().rayops.clone();
-        let state = RayOpsFlowState::from_settings(
-            settings.base_url.trim().to_owned(),
+        let base_url = settings.base_url.trim().to_owned();
+        let mut state = RayOpsFlowState::from_settings(
+            base_url.clone(),
             std::env::var("RAYOPS_USERNAME").unwrap_or_else(|_| "admin".to_owned()),
             settings.insecure_tls,
             settings.allow_plaintext,
         );
+        // A session for this deployment is reused rather than asked for again. The password is not
+        // kept for this purpose — only the token is, and only for as long as the process runs.
+        let reuse = self
+            .connection_flow
+            .read(cx)
+            .rayops_session
+            .as_ref()
+            .filter(|cache| cache.base_url == base_url);
+        let mut stale = false;
+        if let Some(cache) = reuse {
+            state.token = Some(cache.token.clone());
+            state.groups = cache.groups.clone();
+            state.assets = cache.assets.clone();
+            state.has_more = cache.has_more;
+            state.page.index = cache.page;
+            state.phase = RayOpsPhase::Browsing { loading: false };
+            // Nothing has been fetched since the process started, so the list may be behind the
+            // gateway. Saying so is cheaper than a wrong answer.
+            stale = !cache.assets.is_empty();
+        }
         self.connection_flow.update(cx, |flow, cx| {
             flow.rayops = Some(state);
             cx.notify();
         });
         let _ = window;
+        if stale {
+            self.reload_rayops_assets(cx);
+        }
     }
 
 
@@ -138,6 +162,22 @@ impl WorkspaceApp {
             cx.notify();
         });
         if logged_in {
+            self.connection_flow.update(cx, |flow, _| {
+                let Some(state) = flow.rayops.as_ref() else {
+                    return;
+                };
+                let Some(token) = state.token.clone() else {
+                    return;
+                };
+                flow.rayops_session = Some(super::rayops_state::RayOpsSessionCache {
+                    base_url: state.base_url.trim().to_owned(),
+                    token,
+                    groups: Vec::new(),
+                    assets: Vec::new(),
+                    has_more: false,
+                    page: 1,
+                });
+            });
             self.reload_rayops_assets(cx);
         }
     }
@@ -195,6 +235,20 @@ impl WorkspaceApp {
             state.phase = RayOpsPhase::Browsing { loading: false };
             cx.notify();
         });
+        // Mirror into the session cache so reopening the modal shows this catalog instead of
+        // fetching again.
+        self.connection_flow.update(cx, |flow, _| {
+            let Some(state) = flow.rayops.as_ref() else {
+                return;
+            };
+            let Some(cache) = flow.rayops_session.as_mut() else {
+                return;
+            };
+            cache.groups = state.groups.clone();
+            cache.assets = state.assets.clone();
+            cache.has_more = state.has_more;
+            cache.page = state.page.index;
+        });
     }
 
     /// Applies the outcome of the ticket exchange, opening a tab on success.
@@ -248,9 +302,9 @@ impl WorkspaceApp {
     pub(in crate::workspace) fn close_rayops_flow(&mut self, cx: &mut Context<Self>) {
         self.connection_flow.update(cx, |flow, cx| {
             if let Some(state) = flow.rayops.as_mut() {
-                // A cancelled attempt must not leave a live token or a typed password in memory
-                // until the entity happens to be dropped.
-                state.forget_credentials();
+                // The typed password goes, the session stays: it is what saves the user from
+                // authenticating on every visit. `forget_credentials` would drop both.
+                state.password = zeroize::Zeroizing::new(String::new());
             }
             flow.rayops = None;
             cx.notify();
@@ -429,7 +483,10 @@ impl WorkspaceApp {
             .flex()
             .flex_col()
             .gap_3()
-            .w(px(560.0))
+            .w(px(720.0))
+            // Bounded so the list can take the remainder and scroll. Without a bound the modal
+            // grows past the window and the buttons become unreachable.
+            .max_h(px(640.0))
             .p_5()
             .rounded_lg()
             .bg(rgb(theme.bg_card))
@@ -726,11 +783,14 @@ impl WorkspaceApp {
                     .flex_row()
                     .gap_2()
                     .items_center()
-                    .pl(px(12.0 * depth as f32))
-                    .pt_2()
+                    .mt_3()
+                    .pl(px(8.0 + 14.0 * depth as f32))
+                    .py_1()
                     .text_sm()
-                    .text_color(rgb(theme.text_muted))
-                    .child(format!("{} ({count})", node.group.name)),
+                    // The group name is the navigation affordance, so it reads stronger than the
+                    // muted metadata around it rather than blending into the list.
+                    .text_color(rgb(theme.text_heading))
+                    .child(format!("{} · {count}", node.group.name)),
             );
         }
         for asset in &node.assets {

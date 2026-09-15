@@ -84,6 +84,9 @@ pub(in crate::workspace) struct ConnectionFlowEntity {
     /// does, and because both flows are modal and cannot be open at once — the owner check in
     /// `modal_owner` relies on that.
     pub(in crate::workspace) rayops: Option<super::rayops_state::RayOpsFlowState>,
+    /// Survives the modal closing so the user authenticates once per run, not once per visit.
+    /// See `RayOpsSessionCache` for why it is not persisted.
+    pub(in crate::workspace) rayops_session: Option<super::rayops_state::RayOpsSessionCache>,
     select_anchors: ConnectionSelectAnchorStore,
     ssh_worker_tx: delivery::ActiveDeliverySender<SshConnectionWorkerResult>,
     ssh_worker_rx: std::sync::mpsc::Receiver<SshConnectionWorkerResult>,
@@ -162,6 +165,7 @@ impl ConnectionFlowEntity {
         Self {
             form: ConnectionFormState::new(),
             rayops: None,
+            rayops_session: None,
             select_anchors: ConnectionSelectAnchorStore::default(),
             ssh_worker_tx,
             ssh_worker_rx,

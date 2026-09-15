@@ -180,8 +180,11 @@ impl RayOpsFlowState {
 
     /// Forgets everything that must not outlive a single attempt.
     ///
-    /// Called when the flow ends for any reason — success, cancellation or failure — so a
-    /// cancelled attempt cannot leave a live token in memory until the entity is dropped.
+    /// The token deliberately survives a closed modal (see `RayOpsSessionCache`), so this is not
+    /// called on cancel. It exists for the case where the flow must be abandoned outright — the
+    /// deployment changed, or the gateway rejected the token — and is the one place that clears
+    /// both secrets at once.
+    #[allow(dead_code)]
     pub(in crate::workspace) fn forget_credentials(&mut self) {
         self.password = Zeroizing::new(String::new());
         self.token = None;
@@ -196,6 +199,40 @@ impl RayOpsFlowState {
     /// Whether a reply tagged `generation` is still the newest one.
     pub(in crate::workspace) fn is_current(&self, generation: u64) -> bool {
         generation == self.request_generation
+    }
+}
+
+
+/// An authenticated RayOps session and the catalog it produced.
+///
+/// Held by the workspace rather than by the modal, because the alternative is what the first
+/// version did: the token died with the dialog, so every visit asked for the password again. The
+/// session is per-run process state — never written anywhere — and the catalog is only ever as
+/// fresh as the last fetch, which the UI says out loud.
+pub(in crate::workspace) struct RayOpsSessionCache {
+    /// The deployment this session belongs to. A token for one deployment must not be offered to
+    /// another, so the URL is compared before the cache is reused.
+    pub(in crate::workspace) base_url: String,
+    pub(in crate::workspace) token: oxideterm_rayops::Secret,
+    /// Empty means never fetched, not "no assets".
+    pub(in crate::workspace) groups: Vec<oxideterm_rayops::AssetGroup>,
+    pub(in crate::workspace) assets: Vec<oxideterm_rayops::Asset>,
+    pub(in crate::workspace) has_more: bool,
+    /// Which page `assets` holds, so the next fetch continues from here.
+    pub(in crate::workspace) page: u32,
+}
+
+impl std::fmt::Debug for RayOpsSessionCache {
+    /// Prints the catalog without the token.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RayOpsSessionCache")
+            .field("base_url", &self.base_url)
+            .field("token", &"[REDACTED]")
+            .field("groups", &self.groups.len())
+            .field("assets", &self.assets.len())
+            .field("has_more", &self.has_more)
+            .field("page", &self.page)
+            .finish()
     }
 }
 
