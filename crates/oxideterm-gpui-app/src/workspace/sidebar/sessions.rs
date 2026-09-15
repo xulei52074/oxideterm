@@ -266,6 +266,60 @@ impl WorkspaceApp {
                 .iter()
                 .map(|record| self.standalone_active_session_sidebar_row(record, cx)),
         );
+        // RayOps sessions are listed beside them for the same reason: they are live terminals that
+        // own no SSH node, and a session the user is typing into belongs in the session list even
+        // though the router knows nothing about it.
+        rows.extend(self.rayops_active_session_sidebar_rows(cx));
+        rows
+    }
+
+    /// Live RayOps sessions, as sidebar rows.
+    ///
+    /// Readiness comes from the session's own lifecycle rather than from a node: a RayOps session
+    /// reports `Closed` when the gateway connection ends, which is exactly the disconnected state
+    /// the sidebar shows for an SSH node.
+    fn rayops_active_session_sidebar_rows(&self, cx: &App) -> Vec<ActiveSessionSidebarRow> {
+        let mut rows = Vec::new();
+        let tab_host = self.tab_host.read(cx);
+        for (session_id, location) in tab_host.terminal_locations() {
+            if !self.rayops_terminal_sessions.contains(&session_id) {
+                continue;
+            }
+            let Some(pane) = tab_host.panes().get(&location.pane_id) else {
+                continue;
+            };
+            let pane = pane.read(cx);
+            let title = pane.title().to_string();
+            let title = if title.trim().is_empty() {
+                format!("RayOps {session_id:?}")
+            } else {
+                title
+            };
+            // A RayOps session has no host of its own to report: the gateway owns the connection
+            // and the asset is identified by the title the user picked.
+            let readiness = terminal_lifecycle_readiness(&pane.lifecycle());
+            let row_id = format!("rayops-session-{session_id:?}");
+            rows.push(ActiveSessionSidebarRow {
+                node_id: NodeId::new(row_id.clone()),
+                parent_id: None,
+                saved_connection_id: None,
+                title: title.clone(),
+                host: String::new(),
+                username: String::new(),
+                port: 0,
+                node_view: ActiveSessionNode {
+                    id: row_id,
+                    title: title.clone(),
+                    port: 0,
+                    terminal_ids: vec![session_id],
+                    readiness,
+                },
+                depth: 0,
+                is_last: true,
+                has_children: false,
+                standalone_session: None,
+            });
+        }
         rows
     }
 

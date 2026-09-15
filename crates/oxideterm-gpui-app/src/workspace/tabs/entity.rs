@@ -724,6 +724,18 @@ impl WorkspaceTabHostEntity {
         Some(session_id)
     }
 
+    /// Every bound terminal session and where it lives.
+    ///
+    /// Used by surfaces that must list sessions the SSH node router does not know about: a RayOps
+    /// session owns no node, so the router-driven list cannot see it.
+    pub(in crate::workspace) fn terminal_locations(
+        &self,
+    ) -> impl Iterator<Item = (TerminalSessionId, TerminalLocation)> + '_ {
+        self.terminal_locations
+            .iter()
+            .map(|(session_id, location)| (*session_id, *location))
+    }
+
     pub(in crate::workspace) fn terminal_location(
         &self,
         session_id: TerminalSessionId,
