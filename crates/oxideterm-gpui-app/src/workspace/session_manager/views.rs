@@ -629,6 +629,9 @@ impl WorkspaceApp {
         let items = self.session_manager_display_items(cx);
         let view_mode = self.session_manager.read(cx).view_mode;
         if items.is_empty() && view_mode != SessionManagerViewMode::Tree {
+            // The managed-asset section is appended here too. Returning early without it made the
+            // assets disappear entirely when the local list was empty and the view was not the
+            // tree — they were never in these two modes, only in the tree's renderer.
             return div()
                 .size_full()
                 .flex()
@@ -644,14 +647,31 @@ impl WorkspaceApp {
                         .min_h(px(0.0))
                         .child(self.render_session_manager_empty_view(has_background, cx)),
                 )
+                .child(self.render_rayops_catalog_section(cx))
                 .into_any_element();
         }
         match view_mode {
+            // Both of these append the managed-asset section below their own content: the assets
+            // are reachable from every view mode, not only the tree.
             SessionManagerViewMode::Grid => {
-                self.render_session_manager_grid_view(items, window, has_background, cx)
+                let content = self.render_session_manager_grid_view(items, window, has_background, cx);
+                div()
+                    .size_full()
+                    .flex()
+                    .flex_col()
+                    .child(content)
+                    .child(self.render_rayops_catalog_section(cx))
+                    .into_any_element()
             }
             SessionManagerViewMode::List => {
-                self.render_session_manager_list_view(items, has_background, cx)
+                let content = self.render_session_manager_list_view(items, has_background, cx);
+                div()
+                    .size_full()
+                    .flex()
+                    .flex_col()
+                    .child(content)
+                    .child(self.render_rayops_catalog_section(cx))
+                    .into_any_element()
             }
             SessionManagerViewMode::Tree => {
                 self.render_session_manager_tree_view(items, has_background, cx)
