@@ -1393,6 +1393,13 @@ impl WorkspaceApp {
         if collapsed {
             return section.into_any_element();
         }
+        // Browsing files takes the whole section, for the same reason the details panel does: the
+        // sidebar is short, and a listing plus its actions cannot share it with the asset list.
+        if self.rayops_files.is_open() {
+            return section
+                .child(self.render_rayops_files(theme, cx))
+                .into_any_element();
+        }
         // Selecting an asset shows its details *instead of* the list, not below it. The sidebar is
         // short: appending the panel meant its action buttons landed past the bottom of the view,
         // so the asset could be inspected but not connected.
@@ -2012,6 +2019,34 @@ impl WorkspaceApp {
                             )
                             .child(self.i18n.t("ssh.form.connect")),
                     )
+                    // Offered only when the gateway advertises the capability: an asset that cannot
+                    // serve files is not shown an entry that would fail with
+                    // `asset does not support sftp`.
+                    .when(
+                        super::new_connection::rayops_files::asset_supports_files(asset),
+                        |row| {
+                            row.child(
+                                div()
+                                    .id("rayops-asset-files")
+                                    .px_3()
+                                    .py_1()
+                                    .rounded_md()
+                                    .bg(rgb(theme.bg_elevated))
+                                    .text_color(rgb(theme.text))
+                                    .cursor_pointer()
+                                    .hover(|style| style.bg(rgb(theme.bg_hover)))
+                                    .on_mouse_down(
+                                        MouseButton::Left,
+                                        cx.listener(
+                                            move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                                                this.open_rayops_files(asset_id, cx);
+                                            },
+                                        ),
+                                    )
+                                    .child(self.i18n.t("ssh.rayops.files_open")),
+                            )
+                        },
+                    )
                     .child(
                         div()
                             .id("rayops-asset-copy")
@@ -2035,6 +2070,289 @@ impl WorkspaceApp {
             );
         let _ = &mut panel;
         panel.into_any_element()
+    }
+
+    /// The managed-asset file view.
+    ///
+    /// Takes over the section the way the details panel does, so the sidebar's height is spent on
+    /// one thing at a time. The path row and the actions stay put and only the listing scrolls: an
+    /// action the user cannot reach is the same as no action.
+    fn render_rayops_files(
+        &self,
+        theme: oxideterm_theme::AppUiColors,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        use super::new_connection::rayops_files::{RayOpsFilePhase, parent_path};
+        use oxideterm_rayops::SftpEntryKind;
+
+        let state = &self.rayops_files;
+        let asset_name = state
+            .asset_id
+            .and_then(|id| self.rayops_catalog.assets.iter().find(|a| a.id == id))
+            .map(|asset| asset.hostname.clone())
+            .unwrap_or_default();
+
+        let header = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .justify_between()
+            .mx_2()
+            .mb_1()
+            .child(
+                div()
+                    .id("rayops-files-close")
+                    .px_2()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .text_xs()
+                    .text_color(rgb(theme.text_muted))
+                    .hover(|style| style.bg(rgb(theme.bg_hover)))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
+                            this.close_rayops_files(cx);
+                        }),
+                    )
+                    .child(format!("\u{2039} {}", self.i18n.t("ssh.rayops.files_back"))),
+            )
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(rgb(theme.text_heading))
+                    .child(format!("{} · {asset_name}", self.i18n.t("ssh.rayops.files_title"))),
+            );
+
+        // The path row carries the only navigation that is not an entry: going up. At the root
+        // there is nowhere to go, so the control is left out rather than shown doing nothing.
+        let mut path_row = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_2()
+            .mx_2()
+            .px_2()
+            .py_1()
+            .rounded_md()
+            .bg(rgb(theme.bg_sunken));
+        if parent_path(&state.path).is_some() {
+            path_row = path_row.child(
+                div()
+                    .id("rayops-files-up")
+                    .px_2()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .text_xs()
+                    .text_color(rgb(theme.text))
+                    .hover(|style| style.bg(rgb(theme.bg_hover)))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
+                            // Goes through the action rather than re-deriving the parent here, so
+                            // the rule for "where is up" lives in one place.
+                            this.rayops_files_go_up(cx);
+                        }),
+                    )
+                    .child(format!("↑ {}", self.i18n.t("ssh.rayops.files_up"))),
+            );
+        }
+        path_row = path_row.child(
+            div()
+                .flex_1()
+                .text_xs()
+                .text_color(rgb(theme.text_muted))
+                .child(state.path.clone()),
+        );
+
+        let mut listing = div()
+            .id("rayops-files-listing")
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_h_0()
+            .overflow_y_scroll();
+
+        if state.phase == RayOpsFilePhase::Loading {
+            listing = listing.child(
+                div()
+                    .mx_2()
+                    .my_1()
+                    .text_xs()
+                    .text_color(rgb(theme.text_muted))
+                    .child(self.i18n.t("ssh.rayops.connecting")),
+            );
+        } else if let Some(error) = state.error.clone() {
+            // The gateway's own message, shown as it arrived rather than replaced by a generic one.
+            listing = listing.child(
+                div()
+                    .mx_2()
+                    .my_1()
+                    .text_xs()
+                    .text_color(rgb(theme.error))
+                    .child(error),
+            );
+        } else if state.entries.is_empty() {
+            listing = listing.child(
+                div()
+                    .mx_2()
+                    .my_1()
+                    .text_xs()
+                    .text_color(rgb(theme.text_muted))
+                    .child(self.i18n.t("ssh.rayops.files_empty")),
+            );
+        }
+
+        for (index, entry) in state.entries.iter().enumerate() {
+            let selected = state.selected == Some(index);
+            let is_directory = entry.kind == SftpEntryKind::Directory;
+            let path = entry.path.clone();
+            listing = listing.child(
+                div()
+                    .id(("rayops-file-entry", index as u64))
+                    .mx_2()
+                    .my(px(1.0))
+                    .px_2()
+                    .py_0p5()
+                    .rounded_sm()
+                    .bg(rgb(if selected {
+                        theme.accent_secondary
+                    } else {
+                        theme.bg_elevated
+                    }))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(rgb(theme.bg_hover)))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                            // Clicking a folder means going into it; a file is selected instead,
+                            // because acting on a file is a separate, deliberate step.
+                            if is_directory {
+                                this.navigate_rayops_directory(path.clone(), cx);
+                            } else {
+                                this.select_rayops_file(index, cx);
+                            }
+                        }),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .w(px(10.0))
+                                    .text_xs()
+                                    .text_color(rgb(theme.text_muted))
+                                    .child(if is_directory { "▸" } else { "·" }),
+                            )
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .text_xs()
+                                    .text_color(rgb(theme.text))
+                                    .child(entry.name.clone()),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(rgb(theme.text_muted))
+                                    .child(if is_directory {
+                                        entry.mode.clone()
+                                    } else {
+                                        format!("{}  {}", entry.size, entry.mode)
+                                    }),
+                            ),
+                    ),
+            );
+        }
+
+        // Each control carries its own listener, so a control that looks unavailable is genuinely
+        // inert rather than merely styled that way. Renaming and creating a directory are absent
+        // because they need a name this view cannot yet collect, and a control that does nothing
+        // when pressed is worse than no control.
+        let has_file_selection = state
+            .selected_entry()
+            .is_some_and(|entry| entry.kind != SftpEntryKind::Directory);
+        let has_selection = state.selected_entry().is_some();
+
+        // One control in two states: the same look, with a listener only when it can act.
+        let control = |id: &'static str,
+                       label: String,
+                       enabled: bool,
+                       theme: oxideterm_theme::AppUiColors,
+                       handler: Option<
+            Box<dyn Fn(&mut Self, &gpui::MouseDownEvent, &mut gpui::Window, &mut Context<Self>) + 'static>,
+        >| {
+            let base = div()
+                .id(id)
+                .px_2()
+                .py_0p5()
+                .rounded_md()
+                .text_xs()
+                .bg(rgb(if enabled { theme.bg_elevated } else { theme.bg_sunken }))
+                .text_color(rgb(if enabled { theme.text } else { theme.text_muted }))
+                .child(label);
+            if let (true, Some(handler)) = (enabled, handler) {
+                base.cursor_pointer()
+                    .hover(|style| style.bg(rgb(theme.bg_hover)))
+                    .on_mouse_down(MouseButton::Left, cx.listener(handler))
+            } else {
+                base
+            }
+        };
+
+        let actions = div()
+            .flex()
+            .flex_row()
+            .gap_2()
+            .mx_2()
+            .my_2()
+            .child(control(
+                "rayops-files-refresh",
+                self.i18n.t("ssh.rayops.files_refresh"),
+                true,
+                theme,
+                Some(Box::new(|this, _, _, cx| this.reload_rayops_directory(cx))),
+            ))
+            .child(control(
+                "rayops-files-upload",
+                self.i18n.t("ssh.rayops.files_upload"),
+                true,
+                theme,
+                Some(Box::new(|this, _, _, cx| this.prompt_upload_rayops_file(cx))),
+            ))
+            .child(control(
+                "rayops-files-download",
+                self.i18n.t("ssh.rayops.files_download"),
+                has_file_selection,
+                theme,
+                Some(Box::new(|this, _, _, cx| {
+                    this.prompt_download_rayops_selected(cx)
+                })),
+            ))
+            .child(control(
+                "rayops-files-delete",
+                self.i18n.t("ssh.rayops.files_delete"),
+                has_selection,
+                theme,
+                Some(Box::new(|this, _, _, cx| this.delete_rayops_selected(cx))),
+            ));
+
+        div()
+            .flex()
+            .flex_col()
+            .w_full()
+            // Bounded so the header and the actions stay put and only the listing scrolls. Explicit
+            // rather than inherited: the section above has no definite height to resolve against.
+            .max_h(px(RAYOPS_SECTION_MAX_HEIGHT))
+            .flex_1()
+            .min_h_0()
+            .child(header)
+            .child(path_row)
+            .child(listing)
+            .child(actions)
+            .into_any_element()
     }
 
     pub(super) fn render_session_manager_view_actions(

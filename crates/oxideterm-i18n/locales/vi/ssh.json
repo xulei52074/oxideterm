@@ -289,7 +289,21 @@
       "precheck_denied": "Bị quản trị từ chối",
       "precheck_failed": "Kiểm tra quản trị thất bại",
       "tag_untagged": "Không có thẻ",
-      "back_to_list": "Quay lại danh sách"
+      "back_to_list": "Quay lại danh sách",
+      "files_title": "Tệp",
+      "files_back": "Quay lại tài sản",
+      "files_up": "Lên trên",
+      "files_empty": "Thư mục này trống",
+      "files_download": "Tải xuống",
+      "files_upload": "Tải lên",
+      "files_delete": "Xóa",
+      "files_open": "Tệp",
+      "files_unsupported": "Tài sản này không hỗ trợ truyền tệp",
+      "files_no_session": "Đăng nhập RayOps trước",
+      "files_directory_download": "Không thể tải thư mục xuống như một tệp",
+      "files_choose_folder": "Chọn thư mục để lưu",
+      "files_choose_file": "Chọn tệp để tải lên",
+      "files_refresh": "Làm mới"
     }
   }
 }

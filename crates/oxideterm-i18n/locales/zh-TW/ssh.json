@@ -289,7 +289,21 @@
       "precheck_denied": "已被治理策略拒絕",
       "precheck_failed": "治理檢查失敗",
       "tag_untagged": "未加標籤",
-      "back_to_list": "返回清單"
+      "back_to_list": "返回清單",
+      "files_title": "檔案",
+      "files_back": "返回資產",
+      "files_up": "上一層",
+      "files_empty": "空目錄",
+      "files_download": "下載",
+      "files_upload": "上傳",
+      "files_delete": "刪除",
+      "files_open": "檔案",
+      "files_unsupported": "該資產不支援檔案傳輸",
+      "files_no_session": "需要先登入 RayOps",
+      "files_directory_download": "目錄不能作為單一檔案下載",
+      "files_choose_folder": "選擇儲存位置",
+      "files_choose_file": "選擇要上傳的檔案",
+      "files_refresh": "重新整理"
     }
   },
   "connections": {

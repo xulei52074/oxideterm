@@ -289,7 +289,21 @@
       "precheck_denied": "Negado pela governança",
       "precheck_failed": "Falha na verificação de governança",
       "tag_untagged": "Sem tag",
-      "back_to_list": "Voltar à lista"
+      "back_to_list": "Voltar à lista",
+      "files_title": "Arquivos",
+      "files_back": "Voltar aos ativos",
+      "files_up": "Acima",
+      "files_empty": "Este diretório está vazio",
+      "files_download": "Baixar",
+      "files_upload": "Enviar",
+      "files_delete": "Excluir",
+      "files_open": "Arquivos",
+      "files_unsupported": "Este ativo não suporta transferência de arquivos",
+      "files_no_session": "Entre no RayOps primeiro",
+      "files_directory_download": "Um diretório não pode ser baixado como um único arquivo",
+      "files_choose_folder": "Escolha uma pasta de destino",
+      "files_choose_file": "Escolha um arquivo para enviar",
+      "files_refresh": "Atualizar"
     }
   }
 }

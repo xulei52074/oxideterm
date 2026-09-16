@@ -289,7 +289,21 @@
       "precheck_denied": "已被治理策略拒绝",
       "precheck_failed": "治理检查失败",
       "tag_untagged": "未打标签",
-      "back_to_list": "返回列表"
+      "back_to_list": "返回列表",
+      "files_title": "文件",
+      "files_back": "返回资产",
+      "files_up": "上一级",
+      "files_empty": "空目录",
+      "files_download": "下载",
+      "files_upload": "上传",
+      "files_delete": "删除",
+      "files_open": "文件",
+      "files_unsupported": "该资产不支持文件传输",
+      "files_no_session": "需要先登录 RayOps",
+      "files_directory_download": "目录不能作为单个文件下载",
+      "files_choose_folder": "选择保存位置",
+      "files_choose_file": "选择要上传的文件",
+      "files_refresh": "刷新"
     }
   },
   "connections": {

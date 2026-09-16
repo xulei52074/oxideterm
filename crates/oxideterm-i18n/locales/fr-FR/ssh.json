@@ -289,7 +289,21 @@
       "precheck_denied": "Refusé par la gouvernance",
       "precheck_failed": "Échec du contrôle de gouvernance",
       "tag_untagged": "Sans étiquette",
-      "back_to_list": "Retour à la liste"
+      "back_to_list": "Retour à la liste",
+      "files_title": "Fichiers",
+      "files_back": "Retour aux ressources",
+      "files_up": "Niveau supérieur",
+      "files_empty": "Ce dossier est vide",
+      "files_download": "Télécharger",
+      "files_upload": "Envoyer",
+      "files_delete": "Supprimer",
+      "files_open": "Fichiers",
+      "files_unsupported": "Cette ressource ne prend pas en charge le transfert de fichiers",
+      "files_no_session": "Connectez-vous d’abord à RayOps",
+      "files_directory_download": "Un dossier ne peut pas être téléchargé comme un seul fichier",
+      "files_choose_folder": "Choisir un dossier de destination",
+      "files_choose_file": "Choisir un fichier à envoyer",
+      "files_refresh": "Actualiser"
     }
   }
 }

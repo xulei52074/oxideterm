@@ -289,7 +289,21 @@
       "precheck_denied": "Negato dalla governance",
       "precheck_failed": "Verifica di governance non riuscita",
       "tag_untagged": "Senza tag",
-      "back_to_list": "Torna alla lista"
+      "back_to_list": "Torna alla lista",
+      "files_title": "File",
+      "files_back": "Torna alle risorse",
+      "files_up": "Su",
+      "files_empty": "Questa cartella è vuota",
+      "files_download": "Scarica",
+      "files_upload": "Carica",
+      "files_delete": "Elimina",
+      "files_open": "File",
+      "files_unsupported": "Questa risorsa non supporta il trasferimento di file",
+      "files_no_session": "Accedi prima a RayOps",
+      "files_directory_download": "Una cartella non può essere scaricata come singolo file",
+      "files_choose_folder": "Scegli una cartella di destinazione",
+      "files_choose_file": "Scegli un file da caricare",
+      "files_refresh": "Aggiorna"
     }
   }
 }

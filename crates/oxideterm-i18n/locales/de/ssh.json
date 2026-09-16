@@ -289,7 +289,21 @@
       "precheck_denied": "Von der Governance abgelehnt",
       "precheck_failed": "Governance-Prüfung fehlgeschlagen",
       "tag_untagged": "Ohne Tag",
-      "back_to_list": "Zurück zur Liste"
+      "back_to_list": "Zurück zur Liste",
+      "files_title": "Dateien",
+      "files_back": "Zurück zu Assets",
+      "files_up": "Übergeordnet",
+      "files_empty": "Dieses Verzeichnis ist leer",
+      "files_download": "Herunterladen",
+      "files_upload": "Hochladen",
+      "files_delete": "Löschen",
+      "files_open": "Dateien",
+      "files_unsupported": "Dieses Asset unterstützt keine Dateiübertragung",
+      "files_no_session": "Zuerst bei RayOps anmelden",
+      "files_directory_download": "Ein Verzeichnis kann nicht als einzelne Datei heruntergeladen werden",
+      "files_choose_folder": "Zielordner wählen",
+      "files_choose_file": "Datei zum Hochladen wählen",
+      "files_refresh": "Aktualisieren"
     }
   }
 }

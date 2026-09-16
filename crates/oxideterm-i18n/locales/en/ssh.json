@@ -289,7 +289,21 @@
       "precheck_denied": "Denied by governance",
       "precheck_failed": "Governance check failed",
       "tag_untagged": "Untagged",
-      "back_to_list": "Back to list"
+      "back_to_list": "Back to list",
+      "files_title": "Files",
+      "files_back": "Back to assets",
+      "files_up": "Up",
+      "files_empty": "This directory is empty",
+      "files_download": "Download",
+      "files_upload": "Upload",
+      "files_delete": "Delete",
+      "files_open": "Files",
+      "files_unsupported": "This asset does not support file transfer",
+      "files_no_session": "Sign in to RayOps first",
+      "files_directory_download": "A directory cannot be downloaded as one file",
+      "files_choose_folder": "Choose a folder to save into",
+      "files_choose_file": "Choose a file to upload",
+      "files_refresh": "Refresh"
     }
   },
   "connections": {

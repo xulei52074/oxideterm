@@ -289,7 +289,21 @@
       "precheck_denied": "거버넌스에 의해 거부됨",
       "precheck_failed": "거버넌스 확인 실패",
       "tag_untagged": "태그 없음",
-      "back_to_list": "목록으로 돌아가기"
+      "back_to_list": "목록으로 돌아가기",
+      "files_title": "파일",
+      "files_back": "자산으로 돌아가기",
+      "files_up": "위로",
+      "files_empty": "이 디렉터리는 비어 있습니다",
+      "files_download": "다운로드",
+      "files_upload": "업로드",
+      "files_delete": "삭제",
+      "files_open": "파일",
+      "files_unsupported": "이 자산은 파일 전송을 지원하지 않습니다",
+      "files_no_session": "먼저 RayOps에 로그인하세요",
+      "files_directory_download": "디렉터리는 단일 파일로 다운로드할 수 없습니다",
+      "files_choose_folder": "저장할 폴더 선택",
+      "files_choose_file": "업로드할 파일 선택",
+      "files_refresh": "새로 고침"
     }
   }
 }

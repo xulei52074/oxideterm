@@ -289,7 +289,21 @@
       "precheck_denied": "ガバナンスにより拒否されました",
       "precheck_failed": "ガバナンス確認に失敗しました",
       "tag_untagged": "タグなし",
-      "back_to_list": "リストに戻る"
+      "back_to_list": "リストに戻る",
+      "files_title": "ファイル",
+      "files_back": "資産に戻る",
+      "files_up": "上へ",
+      "files_empty": "このディレクトリは空です",
+      "files_download": "ダウンロード",
+      "files_upload": "アップロード",
+      "files_delete": "削除",
+      "files_open": "ファイル",
+      "files_unsupported": "この資産はファイル転送に対応していません",
+      "files_no_session": "先に RayOps へサインインしてください",
+      "files_directory_download": "ディレクトリは単一ファイルとしてダウンロードできません",
+      "files_choose_folder": "保存先フォルダを選択",
+      "files_choose_file": "アップロードするファイルを選択",
+      "files_refresh": "更新"
     }
   }
 }

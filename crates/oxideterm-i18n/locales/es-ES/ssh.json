@@ -289,7 +289,21 @@
       "precheck_denied": "Denegado por la gobernanza",
       "precheck_failed": "Falló la comprobación de gobernanza",
       "tag_untagged": "Sin etiqueta",
-      "back_to_list": "Volver a la lista"
+      "back_to_list": "Volver a la lista",
+      "files_title": "Archivos",
+      "files_back": "Volver a los recursos",
+      "files_up": "Subir",
+      "files_empty": "Este directorio está vacío",
+      "files_download": "Descargar",
+      "files_upload": "Subir",
+      "files_delete": "Eliminar",
+      "files_open": "Archivos",
+      "files_unsupported": "Este recurso no admite transferencia de archivos",
+      "files_no_session": "Inicia sesión en RayOps primero",
+      "files_directory_download": "Un directorio no se puede descargar como un solo archivo",
+      "files_choose_folder": "Elige una carpeta de destino",
+      "files_choose_file": "Elige un archivo para subir",
+      "files_refresh": "Actualizar"
     }
   }
 }
