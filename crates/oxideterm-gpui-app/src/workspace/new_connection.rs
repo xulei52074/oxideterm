@@ -3,6 +3,11 @@ mod form_entity;
 mod form_state;
 pub(in crate::workspace) mod rayops_catalog;
 pub(in crate::workspace) mod rayops_state;
+// The file source is complete and tested, but nothing calls it until the file view is rendered,
+// so every item in it currently reads as dead code. The allowance is scoped to this module and
+// must be removed with the file view, which is the caller that gives these items their purpose.
+#[allow(dead_code)]
+pub(in crate::workspace) mod rayops_files;
 mod rayops_view;
 mod form_view;
 mod host_key_dialog;

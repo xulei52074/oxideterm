@@ -800,6 +800,11 @@ pub(crate) struct WorkspaceApp {
         crate::workspace::new_connection::rayops_state::RayOpsAssetDetailsState,
     /// Narrowing applied to the managed-asset list, on top of the search text.
     rayops_asset_filters: crate::workspace::new_connection::rayops_state::RayOpsAssetFilters,
+    /// The managed asset being browsed for files, and what its last listing returned.
+    ///
+    /// View state, like the details panel: the catalog holds what the gateway said about assets,
+    /// and which directory the user is looking at is not a fact about the deployment.
+    rayops_files: crate::workspace::new_connection::rayops_files::RayOpsFileState,
     /// How the managed-asset list is grouped.
     rayops_asset_view_mode: crate::workspace::new_connection::rayops_state::RayOpsAssetViewMode,
     // A Telnet pane keeps only the stable profile owner needed for toolbar persistence.

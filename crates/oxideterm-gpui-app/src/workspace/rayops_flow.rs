@@ -268,3 +268,124 @@ pub(in crate::workspace) async fn fetch_asset_groups(
     let response = control.transport.send(&request).await.map_err(describe)?;
     interpret_asset_groups(&response).map_err(|e| e.to_string())
 }
+
+/// Where a file operation runs, and the credential it presents.
+///
+/// The catalog's token is reused rather than signing in again: opening a directory must not
+/// re-authenticate, and every extra login is another credential use for the gateway to audit.
+pub(in crate::workspace) struct RayOpsFileRequest {
+    pub base_url: String,
+    pub insecure_tls: bool,
+    pub allow_plaintext: bool,
+    pub token: oxideterm_rayops::Secret,
+    pub asset_id: i64,
+}
+
+impl RayOpsFileRequest {
+    fn control_plane(&self) -> Result<oxideterm_rayops_net::ControlPlane, String> {
+        let mut config = oxideterm_rayops_net::ControlPlaneConfig::new(self.base_url.clone());
+        config.insecure_tls = self.insecure_tls;
+        config.allow_plaintext = self.allow_plaintext;
+        oxideterm_rayops_net::ControlPlane::new(config).map_err(|e| e.to_string())
+    }
+}
+
+/// Lists one directory on a managed asset.
+pub(in crate::workspace) async fn list_rayops_directory(
+    request: RayOpsFileRequest,
+    path: String,
+) -> Result<oxideterm_rayops::SftpListing, String> {
+    use oxideterm_rayops::{Transport, interpret_sftp_entries, sftp_browse_request};
+    let control = request.control_plane()?;
+    let built = sftp_browse_request(&request.token, request.asset_id, &path);
+    let response = control.transport.send(&built).await.map_err(describe)?;
+    interpret_sftp_entries(&response).map_err(describe)
+}
+
+/// Reads one file from a managed asset.
+///
+/// The whole file is returned rather than a stream: the gateway answers a download as a single
+/// response, so there is nothing to stream from yet. A future channel-based transport is what would
+/// change this, and it is why the signature returns owned bytes instead of a reader.
+pub(in crate::workspace) async fn download_rayops_file(
+    request: RayOpsFileRequest,
+    path: String,
+) -> Result<Vec<u8>, String> {
+    use oxideterm_rayops::{Transport, interpret_sftp_download, sftp_download_request};
+    let control = request.control_plane()?;
+    let built = sftp_download_request(&request.token, request.asset_id, &path);
+    let response = control.transport.send(&built).await.map_err(describe)?;
+    interpret_sftp_download(&response).map_err(describe)
+}
+
+/// Sends a local file to a managed asset.
+///
+/// `local_path` is streamed by the transport; the bytes never pass through this function.
+pub(in crate::workspace) async fn upload_rayops_file(
+    request: RayOpsFileRequest,
+    directory: String,
+    relative_path: String,
+    local_path: std::path::PathBuf,
+) -> Result<(), String> {
+    use oxideterm_rayops::{
+        Endpoint, Transport, interpret_sftp_acknowledgement, sftp_upload_request,
+    };
+    let Some(file_name) = local_path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+    else {
+        return Err("the file to upload has no name".to_owned());
+    };
+    let control = request.control_plane()?;
+    let built = sftp_upload_request(
+        &request.token,
+        request.asset_id,
+        &directory,
+        &relative_path,
+        local_path,
+        &file_name,
+    );
+    let response = control.transport.send(&built).await.map_err(describe)?;
+    interpret_sftp_acknowledgement(&response, Endpoint::SftpUpload).map_err(describe)
+}
+
+/// Creates one directory on a managed asset.
+pub(in crate::workspace) async fn create_rayops_directory(
+    request: RayOpsFileRequest,
+    path: String,
+) -> Result<(), String> {
+    use oxideterm_rayops::{Endpoint, Transport, interpret_sftp_acknowledgement, sftp_mkdir_request};
+    let control = request.control_plane()?;
+    let built = sftp_mkdir_request(&request.token, request.asset_id, &path);
+    let response = control.transport.send(&built).await.map_err(describe)?;
+    interpret_sftp_acknowledgement(&response, Endpoint::SftpMkdir).map_err(describe)
+}
+
+/// Deletes one entry on a managed asset.
+pub(in crate::workspace) async fn delete_rayops_entry(
+    request: RayOpsFileRequest,
+    path: String,
+) -> Result<(), String> {
+    use oxideterm_rayops::{
+        Endpoint, Transport, interpret_sftp_acknowledgement, sftp_delete_request,
+    };
+    let control = request.control_plane()?;
+    let built = sftp_delete_request(&request.token, request.asset_id, &path);
+    let response = control.transport.send(&built).await.map_err(describe)?;
+    interpret_sftp_acknowledgement(&response, Endpoint::SftpDelete).map_err(describe)
+}
+
+/// Renames one entry on a managed asset.
+pub(in crate::workspace) async fn rename_rayops_entry(
+    request: RayOpsFileRequest,
+    old_path: String,
+    new_path: String,
+) -> Result<(), String> {
+    use oxideterm_rayops::{
+        Endpoint, Transport, interpret_sftp_acknowledgement, sftp_rename_request,
+    };
+    let control = request.control_plane()?;
+    let built = sftp_rename_request(&request.token, request.asset_id, &old_path, &new_path);
+    let response = control.transport.send(&built).await.map_err(describe)?;
+    interpret_sftp_acknowledgement(&response, Endpoint::SftpRename).map_err(describe)
+}
