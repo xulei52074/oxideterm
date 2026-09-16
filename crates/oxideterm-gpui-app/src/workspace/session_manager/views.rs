@@ -2223,10 +2223,12 @@ impl WorkspaceApp {
                     .hover(|style| style.bg(rgb(theme.bg_hover)))
                     .on_mouse_down(
                         MouseButton::Left,
-                        cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
-                            // Clicking a folder means going into it; a file is selected instead,
-                            // because acting on a file is a separate, deliberate step.
-                            if is_directory {
+                        cx.listener(move |this, event: &gpui::MouseDownEvent, _window, cx| {
+                            // Single click selects, double click opens — the convention every file
+                            // manager uses, and the only one that works here: a directory that
+                            // opened on the first click could never be selected, so it could never
+                            // be the target of a download.
+                            if is_directory && event.click_count >= 2 {
                                 this.navigate_rayops_directory(path.clone(), cx);
                             } else {
                                 this.select_rayops_file(index, cx);

@@ -1196,6 +1196,28 @@ impl WorkspaceApp {
     /// `None` for a node-backed session: those reach their host through the node registry, which a
     /// RayOps session has no entry in.
     fn rayops_row_asset(&self, row: &ActiveSessionSidebarRow) -> Option<(i64, bool)> {
+        // TEMPORARY DIAGNOSTIC: the session-menu SFTP entry falls through to the node path at
+        // runtime even though this branch exists, so the state that decides it has to be observed
+        // rather than reasoned about. Remove once the cause is known.
+        {
+            use std::io::Write as _;
+            if let Some(home) = std::env::var_os("HOME") {
+                let path = std::path::PathBuf::from(home)
+                    .join(".oxideterm")
+                    .join("rayops-menu-diag.log");
+                if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path)
+                {
+                    let _ = writeln!(
+                        file,
+                        "row title={:?} node_id={:?} terminal_session_id={:?} map_len={}",
+                        row.title,
+                        row.node_id.0,
+                        row.terminal_session_id,
+                        self.rayops_session_assets.len(),
+                    );
+                }
+            }
+        }
         let session_id = row.terminal_session_id?;
         let asset_id = *self.rayops_session_assets.get(&session_id)?;
         let supported = self
