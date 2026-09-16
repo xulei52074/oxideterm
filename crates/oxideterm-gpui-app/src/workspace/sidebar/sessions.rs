@@ -76,6 +76,13 @@ fn session_status_can_remove_from_sidebar(status: ActiveSessionStatus) -> bool {
     )
 }
 
+fn rayops_asset_id_for_signature(
+    session_id: Option<TerminalSessionId>,
+    assets: &HashMap<TerminalSessionId, i64>,
+) -> Option<i64> {
+    session_id.and_then(|session_id| assets.get(&session_id).copied())
+}
+
 impl WorkspaceApp {
     /// Keeps clickable session labels from competing with their control's pointer interaction.
     fn render_session_control_label(
@@ -516,6 +523,11 @@ impl WorkspaceApp {
         row.is_last.hash(&mut hasher);
         row.has_children.hash(&mut hasher);
         row.standalone_session.hash(&mut hasher);
+        // The action listener captures the asset id, so a newly completed RayOps connection must
+        // invalidate the cached row and rebuild the listener with the mapping now available.
+        row.terminal_session_id.hash(&mut hasher);
+        rayops_asset_id_for_signature(row.terminal_session_id, &self.rayops_session_assets)
+            .hash(&mut hasher);
         self.expanded_ssh_nodes
             .contains(&row.node_id)
             .hash(&mut hasher);
@@ -1196,28 +1208,6 @@ impl WorkspaceApp {
     /// `None` for a node-backed session: those reach their host through the node registry, which a
     /// RayOps session has no entry in.
     fn rayops_row_asset(&self, row: &ActiveSessionSidebarRow) -> Option<(i64, bool)> {
-        // TEMPORARY DIAGNOSTIC: the session-menu SFTP entry falls through to the node path at
-        // runtime even though this branch exists, so the state that decides it has to be observed
-        // rather than reasoned about. Remove once the cause is known.
-        {
-            use std::io::Write as _;
-            if let Some(home) = std::env::var_os("HOME") {
-                let path = std::path::PathBuf::from(home)
-                    .join(".oxideterm")
-                    .join("rayops-menu-diag.log");
-                if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path)
-                {
-                    let _ = writeln!(
-                        file,
-                        "row title={:?} node_id={:?} terminal_session_id={:?} map_len={}",
-                        row.title,
-                        row.node_id.0,
-                        row.terminal_session_id,
-                        self.rayops_session_assets.len(),
-                    );
-                }
-            }
-        }
         let session_id = row.terminal_session_id?;
         let asset_id = *self.rayops_session_assets.get(&session_id)?;
         let supported = self
@@ -1395,9 +1385,10 @@ impl WorkspaceApp {
                 ));
                 // Read through the copied session id rather than borrowing the whole row: earlier fields
                 // of `row` are moved by this point.
-                let rayops_asset_id = row
-                    .terminal_session_id
-                    .and_then(|session_id| self.rayops_session_assets.get(&session_id).copied());
+                let rayops_asset_id = rayops_asset_id_for_signature(
+                    row.terminal_session_id,
+                    &self.rayops_session_assets,
+                );
                 let listener = cx.listener({
                     let node_id = node_id.clone();
                     move |this, _event, window, cx| {
@@ -2237,5 +2228,24 @@ impl WorkspaceApp {
                 ring: false,
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rayops_asset_mapping_changes_the_sidebar_row_signature_input() {
+        let session_id = TerminalSessionId(7);
+        let mut assets = HashMap::new();
+
+        assert_eq!(rayops_asset_id_for_signature(Some(session_id), &assets), None);
+
+        assets.insert(session_id, 42);
+        assert_eq!(
+            rayops_asset_id_for_signature(Some(session_id), &assets),
+            Some(42)
+        );
     }
 }
