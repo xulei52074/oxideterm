@@ -455,6 +455,12 @@ impl crate::workspace::WorkspaceApp {
                                 // Recorded so the session row's actions can reach the asset: this
                                 // session owns no SSH node for the registry to resolve.
                                 this.rayops_session_assets.insert(session_id, asset_id);
+                                // Notified *after* the insert, and this is not cosmetic: the row's
+                                // menu captures the asset id when it renders, so a render that
+                                // happened between the tab opening and this insert would capture
+                                // `None` and send every later click down the SSH path — which is
+                                // exactly what happened before this line existed.
+                                cx.notify();
                             }
                             Err(error) => this.notify_rayops_error(error.to_string(), cx),
                         }

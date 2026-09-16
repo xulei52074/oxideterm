@@ -307,6 +307,9 @@ impl WorkspaceApp {
                 ) {
                     Ok(session_id) => {
                         self.rayops_session_assets.insert(session_id, asset_id);
+                        // Notified after the insert; see the note in `rayops_catalog.rs` for why the
+                        // order matters.
+                        cx.notify();
                     }
                     Err(error) => self.notify_rayops_error(error.to_string(), cx),
                 }
