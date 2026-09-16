@@ -303,7 +303,8 @@
       "files_directory_download": "A directory cannot be downloaded as one file",
       "files_choose_folder": "Choose a folder to save into",
       "files_choose_file": "Choose a file to upload",
-      "files_refresh": "Refresh"
+      "files_refresh": "Refresh",
+      "files_skipped_entries": "Skipped entries"
     }
   },
   "connections": {

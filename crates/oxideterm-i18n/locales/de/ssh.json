@@ -303,7 +303,8 @@
       "files_directory_download": "Ein Verzeichnis kann nicht als einzelne Datei heruntergeladen werden",
       "files_choose_folder": "Zielordner wählen",
       "files_choose_file": "Datei zum Hochladen wählen",
-      "files_refresh": "Aktualisieren"
+      "files_refresh": "Aktualisieren",
+      "files_skipped_entries": "Übersprungene Einträge"
     }
   }
 }

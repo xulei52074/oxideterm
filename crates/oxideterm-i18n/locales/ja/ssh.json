@@ -303,7 +303,8 @@
       "files_directory_download": "ディレクトリは単一ファイルとしてダウンロードできません",
       "files_choose_folder": "保存先フォルダを選択",
       "files_choose_file": "アップロードするファイルを選択",
-      "files_refresh": "更新"
+      "files_refresh": "更新",
+      "files_skipped_entries": "スキップした項目"
     }
   }
 }

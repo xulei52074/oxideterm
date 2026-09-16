@@ -303,7 +303,8 @@
       "files_directory_download": "Không thể tải thư mục xuống như một tệp",
       "files_choose_folder": "Chọn thư mục để lưu",
       "files_choose_file": "Chọn tệp để tải lên",
-      "files_refresh": "Làm mới"
+      "files_refresh": "Làm mới",
+      "files_skipped_entries": "Mục đã bỏ qua"
     }
   }
 }

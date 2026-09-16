@@ -303,7 +303,8 @@
       "files_directory_download": "Un dossier ne peut pas être téléchargé comme un seul fichier",
       "files_choose_folder": "Choisir un dossier de destination",
       "files_choose_file": "Choisir un fichier à envoyer",
-      "files_refresh": "Actualiser"
+      "files_refresh": "Actualiser",
+      "files_skipped_entries": "Entrées ignorées"
     }
   }
 }

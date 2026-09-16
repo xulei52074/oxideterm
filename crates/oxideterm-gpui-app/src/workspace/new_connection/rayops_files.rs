@@ -319,6 +319,10 @@ impl crate::workspace::WorkspaceApp {
     }
 
     /// Downloads the selected entry to `local_path`.
+    ///
+    /// A file is fetched as one response; a directory is walked. The gateway offers neither a
+    /// recursive nor an archive endpoint, so the walk is this client's job — many round trips
+    /// rather than one, which is why the result reports how many files it took.
     pub(in crate::workspace) fn download_rayops_selected(
         &mut self,
         local_path: std::path::PathBuf,
@@ -327,29 +331,48 @@ impl crate::workspace::WorkspaceApp {
         let Some(asset_id) = self.rayops_files.asset_id else {
             return;
         };
-        let Some(remote_path) = self
-            .rayops_files
-            .selected_entry()
-            .map(|entry| entry.path.clone())
-        else {
+        let Some(entry) = self.rayops_files.selected_entry().cloned() else {
             return;
         };
-        // A directory cannot be fetched as one file, and the gateway would answer with an error
-        // document. Refusing here keeps the failure explainable.
-        if self
-            .rayops_files
-            .selected_entry()
-            .is_some_and(|entry| entry.kind == oxideterm_rayops::SftpEntryKind::Directory)
-        {
-            self.notify_rayops_error(self.i18n.t("ssh.rayops.files_directory_download"), cx);
-            return;
-        }
         let Some(request) = self.rayops_file_request(asset_id) else {
             return;
         };
+        let is_directory = entry.kind == oxideterm_rayops::SftpEntryKind::Directory;
+        let remote_path = entry.path.clone();
 
         let runtime = self.forwarding_runtime.clone();
         let task = cx.spawn(async move |this, cx| {
+            if is_directory {
+                let outcome = runtime
+                    .spawn(super::super::rayops_flow::download_rayops_tree(
+                        request,
+                        remote_path,
+                        local_path.clone(),
+                    ))
+                    .await;
+                let _ = this.update_in(cx, |this, _window, cx| match outcome {
+                    Ok(Ok(summary)) => {
+                        // Skipped entries are reported, not silently dropped: a partial download
+                        // that looks complete is worse than one that says what it left out.
+                        if !summary.skipped.is_empty() {
+                            this.notify_rayops_error(
+                                format!(
+                                    "{}: {}",
+                                    this.i18n.t("ssh.rayops.files_skipped_entries"),
+                                    summary.skipped.join(", ")
+                                ),
+                                cx,
+                            );
+                        }
+                    }
+                    Ok(Err(message)) => this.notify_rayops_error(message, cx),
+                    Err(join) => {
+                        this.notify_rayops_error(format!("the RayOps download failed: {join}"), cx)
+                    }
+                });
+                return;
+            }
+
             let outcome = runtime
                 .spawn(super::super::rayops_flow::download_rayops_file(
                     request,

@@ -303,7 +303,8 @@
       "files_directory_download": "目录不能作为单个文件下载",
       "files_choose_folder": "选择保存位置",
       "files_choose_file": "选择要上传的文件",
-      "files_refresh": "刷新"
+      "files_refresh": "刷新",
+      "files_skipped_entries": "以下条目已跳过"
     }
   },
   "connections": {

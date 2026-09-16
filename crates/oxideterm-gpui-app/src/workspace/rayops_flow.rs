@@ -389,3 +389,81 @@ pub(in crate::workspace) async fn rename_rayops_entry(
     let response = control.transport.send(&built).await.map_err(describe)?;
     interpret_sftp_acknowledgement(&response, Endpoint::SftpRename).map_err(describe)
 }
+
+/// What a recursive download brought back.
+#[derive(Debug, Default, Eq, PartialEq)]
+pub(in crate::workspace) struct RayOpsTreeDownload {
+    pub files: usize,
+    pub directories: usize,
+    /// Paths that were listed but not fetched, with the reason. Reported rather than dropped:
+    /// a partial download that looks complete is worse than one that says what it skipped.
+    pub skipped: Vec<String>,
+}
+
+/// Downloads a directory and everything under it.
+///
+/// The gateway has no recursive or archive endpoint, so the walk happens here: list, descend,
+/// fetch each file. It is many calls rather than one, which is why the count is reported — the cost
+/// of this shape is the number of round trips, and the caller should be able to see it.
+///
+/// Entries this client cannot fetch as files — symlinks, devices, sockets — are collected into
+/// `skipped` and **not** followed. Following a symlink is how a recursive walk ends up looping
+/// forever or escaping the directory the user asked for.
+pub(in crate::workspace) async fn download_rayops_tree(
+    request: RayOpsFileRequest,
+    remote_root: String,
+    local_root: std::path::PathBuf,
+) -> Result<RayOpsTreeDownload, String> {
+    use oxideterm_rayops::{
+        SftpEntryKind, Transport, interpret_sftp_download, interpret_sftp_entries,
+        sftp_browse_request, sftp_download_request,
+    };
+
+    // One control plane for the whole walk: building a client per file would add a connection
+    // setup to every entry in the tree.
+    let control = request.control_plane()?;
+    let mut summary = RayOpsTreeDownload::default();
+    let mut queue = vec![(remote_root, local_root)];
+
+    while let Some((remote_dir, local_dir)) = queue.pop() {
+        std::fs::create_dir_all(&local_dir)
+            .map_err(|error| format!("cannot create {}: {error}", local_dir.display()))?;
+        summary.directories += 1;
+
+        let listing = control
+            .transport
+            .send(&sftp_browse_request(&request.token, request.asset_id, &remote_dir))
+            .await
+            .map_err(describe)?;
+        let listing = interpret_sftp_entries(&listing).map_err(describe)?;
+
+        for entry in listing.entries {
+            match entry.kind {
+                SftpEntryKind::Directory => {
+                    queue.push((entry.path.clone(), local_dir.join(&entry.name)));
+                }
+                SftpEntryKind::File => {
+                    let response = control
+                        .transport
+                        .send(&sftp_download_request(
+                            &request.token,
+                            request.asset_id,
+                            &entry.path,
+                        ))
+                        .await
+                        .map_err(describe)?;
+                    let bytes = interpret_sftp_download(&response).map_err(describe)?;
+                    let target = local_dir.join(&entry.name);
+                    std::fs::write(&target, &bytes)
+                        .map_err(|error| format!("cannot write {}: {error}", target.display()))?;
+                    summary.files += 1;
+                }
+                SftpEntryKind::Other => {
+                    summary.skipped.push(entry.path.clone());
+                }
+            }
+        }
+    }
+
+    Ok(summary)
+}

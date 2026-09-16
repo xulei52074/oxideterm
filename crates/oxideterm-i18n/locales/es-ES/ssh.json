@@ -303,7 +303,8 @@
       "files_directory_download": "Un directorio no se puede descargar como un solo archivo",
       "files_choose_folder": "Elige una carpeta de destino",
       "files_choose_file": "Elige un archivo para subir",
-      "files_refresh": "Actualizar"
+      "files_refresh": "Actualizar",
+      "files_skipped_entries": "Entradas omitidas"
     }
   }
 }

@@ -303,7 +303,8 @@
       "files_directory_download": "Una cartella non può essere scaricata come singolo file",
       "files_choose_folder": "Scegli una cartella di destinazione",
       "files_choose_file": "Scegli un file da caricare",
-      "files_refresh": "Aggiorna"
+      "files_refresh": "Aggiorna",
+      "files_skipped_entries": "Voci saltate"
     }
   }
 }

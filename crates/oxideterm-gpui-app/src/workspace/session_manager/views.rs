@@ -2271,9 +2271,9 @@ impl WorkspaceApp {
         // inert rather than merely styled that way. Renaming and creating a directory are absent
         // because they need a name this view cannot yet collect, and a control that does nothing
         // when pressed is worse than no control.
-        let has_file_selection = state
-            .selected_entry()
-            .is_some_and(|entry| entry.kind != SftpEntryKind::Directory);
+        // Enabled for a directory as well as a file: a directory is walked and fetched entry by
+        // entry, so it is a download the action can carry out rather than one it must refuse.
+        let has_downloadable_selection = state.selected_entry().is_some();
         let has_selection = state.selected_entry().is_some();
 
         // One control in two states: the same look, with a listener only when it can act.
@@ -2325,7 +2325,7 @@ impl WorkspaceApp {
             .child(control(
                 "rayops-files-download",
                 self.i18n.t("ssh.rayops.files_download"),
-                has_file_selection,
+                has_downloadable_selection,
                 theme,
                 Some(Box::new(|this, _, _, cx| {
                     this.prompt_download_rayops_selected(cx)

@@ -303,7 +303,8 @@
       "files_directory_download": "디렉터리는 단일 파일로 다운로드할 수 없습니다",
       "files_choose_folder": "저장할 폴더 선택",
       "files_choose_file": "업로드할 파일 선택",
-      "files_refresh": "새로 고침"
+      "files_refresh": "새로 고침",
+      "files_skipped_entries": "건너뛴 항목"
     }
   }
 }
