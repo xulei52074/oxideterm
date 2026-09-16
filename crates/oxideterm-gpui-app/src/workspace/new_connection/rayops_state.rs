@@ -488,6 +488,10 @@ pub(in crate::workspace) fn build_asset_tree(
 
     #[allow(dead_code)]
     fn asset(id: i64, group_id: i64) -> oxideterm_rayops::Asset {
+        // Listed in full rather than with `..Default::default()`. `Asset` deliberately has no
+        // `Default`: a zeroed asset is indistinguishable from a real machine with no hostname, and
+        // one reachable silent default is exactly the degradation this codebase avoids. The
+        // compiler forcing this fixture to name every field is the price.
         oxideterm_rayops::Asset {
             id,
             hostname: format!("h{id}"),
@@ -499,6 +503,23 @@ pub(in crate::workspace) fn build_asset_tree(
             group_id,
             tags: Vec::new(),
             credential_verify_status: String::new(),
+            credential_id: None,
+            credential_name: None,
+            credential_source: None,
+            credential_status: None,
+            credential_verify_message: None,
+            credential_verified_at: None,
+            username: None,
+            auth_type: None,
+            has_password: false,
+            has_private_key: false,
+            has_passphrase: false,
+            sudo_mode: None,
+            has_sudo_password: false,
+            cpu: None,
+            memory: None,
+            disk: None,
+            status: None,
         }
     }
 
