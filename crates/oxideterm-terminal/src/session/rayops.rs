@@ -379,58 +379,7 @@ async fn rayops_socket_task(
                     let _ = worker_tx.send_control(RayOpsWorkerEvent::Ended);
                     return;
                 };
-                // TEMPORARY DIAGNOSTIC: records what the gateway actually sends, and what this
-                // client concluded from it. The build does not write tracing output, so the record
-                // goes to a file beside the log. Remove once the premature session end is
-                // understood.
-                let inbound_kind = match &event {
-                    oxideterm_rayops::InboundEvent::Text(_) => "text",
-                    oxideterm_rayops::InboundEvent::Binary(_) => "binary",
-                    oxideterm_rayops::InboundEvent::Ping(_) => "ping",
-                    oxideterm_rayops::InboundEvent::Pong(_) => "pong",
-                    oxideterm_rayops::InboundEvent::Closed { .. } => "closed",
-                };
-                let payload_preview = match &event {
-                    oxideterm_rayops::InboundEvent::Text(bytes)
-                    | oxideterm_rayops::InboundEvent::Binary(bytes) => {
-                        String::from_utf8_lossy(&bytes[..bytes.len().min(160)]).to_string()
-                    }
-                    oxideterm_rayops::InboundEvent::Closed { code, reason } => {
-                        format!("code={code:?} reason={reason:?}")
-                    }
-                    _ => String::new(),
-                };
                 let (events, outbound) = state.handle(event);
-                {
-                    use std::io::Write as _;
-                    if let Some(home) = std::env::var_os("HOME") {
-                        let path = std::path::PathBuf::from(home)
-                            .join(".oxideterm")
-                            .join("rayops-frames.log");
-                        if let Ok(mut file) = std::fs::OpenOptions::new()
-                            .create(true)
-                            .append(true)
-                            .open(path)
-                        {
-                            let concluded: Vec<&str> = events
-                                .iter()
-                                .map(|event| match event {
-                                    oxideterm_rayops::SessionEvent::Output(_) => "output",
-                                    oxideterm_rayops::SessionEvent::Established { .. } => "established",
-                                    oxideterm_rayops::SessionEvent::Error { .. } => "ERROR",
-                                    oxideterm_rayops::SessionEvent::Ended { .. } => "ENDED",
-                                    oxideterm_rayops::SessionEvent::SessionInfo { .. } => "info",
-                                })
-                                .collect();
-                            let _ = writeln!(
-                                file,
-                                "in={inbound_kind} phase={:?} -> {:?} | {payload_preview}",
-                                state.phase(),
-                                concluded,
-                            );
-                        }
-                    }
-                }
 
                 // The handshake carried the geometry, but the gateway's own `TERMINAL_INIT` is
                 // what sets the PTY size authoritatively. Sending it once, right after the

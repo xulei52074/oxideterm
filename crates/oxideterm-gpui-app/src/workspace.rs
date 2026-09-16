@@ -792,6 +792,21 @@ pub(crate) struct WorkspaceApp {
     collapsed_rayops_groups: std::collections::HashSet<i64>,
     /// Whether the whole managed-asset section is collapsed.
     rayops_section_collapsed: bool,
+    /// Which managed asset the details panel is showing, and how far its precheck got.
+    ///
+    /// View state, so it lives here rather than in `RayOpsCatalog`: the catalog holds what the
+    /// gateway said, and selection and precheck progress are not facts about the deployment.
+    rayops_asset_details:
+        crate::workspace::new_connection::rayops_state::RayOpsAssetDetailsState,
+    /// Narrowing applied to the managed-asset list, on top of the search text.
+    rayops_asset_filters: crate::workspace::new_connection::rayops_state::RayOpsAssetFilters,
+    /// How the managed-asset list is grouped.
+    rayops_asset_view_mode: crate::workspace::new_connection::rayops_state::RayOpsAssetViewMode,
+    /// Recently connected assets, newest first.
+    ///
+    /// Ids only, in memory, never persisted. An id that is no longer in the catalog cannot be
+    /// rendered as an asset, because the name, host and platform for it would have to be invented.
+    rayops_recent_asset_ids: Vec<i64>,
     // A Telnet pane keeps only the stable profile owner needed for toolbar persistence.
     telnet_terminal_profile_ids: HashMap<TerminalSessionId, String>,
     // Non-SSH connection records outlive their current terminal or desktop surface.

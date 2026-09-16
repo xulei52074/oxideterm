@@ -242,6 +242,207 @@ impl std::fmt::Debug for RayOpsSessionCache {
     }
 }
 
+/// What is known about an asset's own gateway state.
+///
+/// Presentation only. It says nothing about whether a connection will be permitted — that is
+/// decided by the gateway's precheck at connect time.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(in crate::workspace) enum RayOpsAssetStatus {
+    Online,
+    /// Reserved for a state this client recognises as not usable. Nothing currently maps here:
+    /// the gateway's status codes are not in the frozen contract, so a code this client does not
+    /// understand is reported as `Unknown` rather than guessed into "offline".
+    #[allow(dead_code)]
+    Offline,
+    Unknown,
+}
+
+/// Whether this client has any reason to expect a connection to work.
+///
+/// Derived from what the gateway last reported, never from an attempt. `Connectable` means only
+/// that nothing is known against the asset: authorization, approval and reachability are all
+/// settled by the server when the user actually connects.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub(in crate::workspace) enum RayOpsAssetAvailability {
+    Connectable,
+    CredentialVerificationFailed,
+    /// Reserved for outcomes the catalog cannot express, because only a precheck produces them.
+    #[allow(dead_code)]
+    ApprovalRequired,
+    #[allow(dead_code)]
+    Unauthorized,
+    #[allow(dead_code)]
+    PrecheckFailed,
+    /// The gateway did not verify the credential, so this client has no basis to claim either way.
+    Unknown,
+}
+
+/// How the gateway's own state field maps for display.
+///
+/// `1` is the gateway model's default and the only value observed across a full estate, so it is
+/// the only one mapped. Any other code — including a missing field — reports `Unknown`: their
+/// meanings are not in the frozen contract, and labelling an unknown code "offline" would assert
+/// something this client has not established.
+pub(in crate::workspace) fn asset_status(asset: &oxideterm_rayops::Asset) -> RayOpsAssetStatus {
+    match asset.status {
+        Some(1) => RayOpsAssetStatus::Online,
+        _ => RayOpsAssetStatus::Unknown,
+    }
+}
+
+/// What the gateway's last credential verification implies for display.
+///
+/// Deliberately does not consult `credential_status`: that code is undocumented and unvarying in
+/// the observed estate, so it cannot distinguish anything.
+pub(in crate::workspace) fn asset_availability(
+    asset: &oxideterm_rayops::Asset,
+) -> RayOpsAssetAvailability {
+    match asset.credential_verify_status.as_str() {
+        "success" => RayOpsAssetAvailability::Connectable,
+        "failed" => RayOpsAssetAvailability::CredentialVerificationFailed,
+        // `unsupported`, empty, and anything unrecognised: the gateway did not verify, so neither
+        // will this client claim a result.
+        _ => RayOpsAssetAvailability::Unknown,
+    }
+}
+
+/// How the managed-asset list is grouped.
+///
+/// The gateway's own tree is the default because it is the operator's own organisation. The other
+/// modes are views over the same assets, not a replacement: nothing here changes what the gateway
+/// files an asset under.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(in crate::workspace) enum RayOpsAssetViewMode {
+    #[default]
+    GatewayGroup,
+    Platform,
+    OperatingSystem,
+    Tag,
+    ConnectionStatus,
+}
+
+impl RayOpsAssetViewMode {
+    /// The modes offered in the UI, in presentation order.
+    pub(in crate::workspace) const ALL: [Self; 5] = [
+        Self::GatewayGroup,
+        Self::Platform,
+        Self::OperatingSystem,
+        Self::Tag,
+        Self::ConnectionStatus,
+    ];
+
+    /// The i18n key naming this mode.
+    pub(in crate::workspace) fn label_key(self) -> &'static str {
+        match self {
+            Self::GatewayGroup => "ssh.rayops.view_gateway_group",
+            Self::Platform => "ssh.rayops.view_platform",
+            Self::OperatingSystem => "ssh.rayops.view_os",
+            Self::Tag => "ssh.rayops.view_tag",
+            Self::ConnectionStatus => "ssh.rayops.view_status",
+        }
+    }
+}
+
+/// Narrowing applied on top of the text query.
+///
+/// Each field is optional so that adding a filter cannot silently change what an existing one
+/// matches.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(in crate::workspace) struct RayOpsAssetFilters {
+    pub platform: Option<String>,
+    pub availability: Option<RayOpsAssetAvailability>,
+    pub protocol: Option<String>,
+    /// Every listed tag must be present. Requiring all of them is the narrower reading, and a
+    /// filter that silently widened would show assets the user asked to exclude.
+    pub tags: Vec<String>,
+}
+
+/// Whether an asset is offered by the text query and the active filters.
+///
+/// Free of UI state so the matching rule can be tested directly; a rule reachable only through a
+/// rendered list cannot be asserted.
+pub(in crate::workspace) fn filter_rayops_assets<'a>(
+    assets: &'a [oxideterm_rayops::Asset],
+    query: &str,
+    filters: &RayOpsAssetFilters,
+) -> Vec<&'a oxideterm_rayops::Asset> {
+    let query = query.trim().to_lowercase();
+    assets
+        .iter()
+        .filter(|asset| query.is_empty() || rayops_asset_search_text(asset).contains(&query))
+        .filter(|asset| match filters.platform.as_deref() {
+            Some(platform) => asset.platform.eq_ignore_ascii_case(platform),
+            None => true,
+        })
+        .filter(|asset| match filters.availability {
+            Some(availability) => asset_availability(asset) == availability,
+            None => true,
+        })
+        .filter(|asset| match filters.protocol.as_deref() {
+            Some(protocol) => asset
+                .protocols
+                .iter()
+                .any(|candidate| candidate.eq_ignore_ascii_case(protocol)),
+            None => true,
+        })
+        .filter(|asset| {
+            filters.tags.iter().all(|wanted| {
+                asset
+                    .tags
+                    .iter()
+                    .any(|tag| tag.eq_ignore_ascii_case(wanted))
+            })
+        })
+        .collect()
+}
+
+/// The text a search matches against.
+///
+/// The fields an operator would type to find a machine: what it is called, where it is, what it
+/// runs, and any label attached to it. Defined once so the picker and the session manager cannot
+/// drift apart on what "search" means.
+pub(in crate::workspace) fn rayops_asset_search_text(asset: &oxideterm_rayops::Asset) -> String {
+    let mut text = asset.hostname.to_lowercase();
+    for part in [asset.ip.as_str(), asset.platform.as_str(), asset.os.as_str()] {
+        text.push(' ');
+        text.push_str(&part.to_lowercase());
+    }
+    for protocol in &asset.protocols {
+        text.push(' ');
+        text.push_str(&protocol.to_lowercase());
+    }
+    for tag in &asset.tags {
+        text.push(' ');
+        text.push_str(&tag.to_lowercase());
+    }
+    text
+}
+
+/// Which asset the details panel is showing, and how far its precheck has got.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(in crate::workspace) struct RayOpsAssetDetailsState {
+    pub selected_asset_id: Option<i64>,
+    /// Collapsed by default: the gateway's verification message is diagnostic detail, and showing
+    /// it for every asset would bury the fields that locate the machine.
+    pub verification_message_expanded: bool,
+    pub precheck: RayOpsPrecheckUiState,
+}
+
+/// The state of the governance precheck the details panel drives.
+///
+/// `Allowed` is a precheck outcome only, not a session: the ticket exchange and the handshake
+/// happen afterwards and can still fail.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(in crate::workspace) enum RayOpsPrecheckUiState {
+    #[default]
+    Idle,
+    Checking,
+    Allowed,
+    ApprovalRequired { reason: String },
+    Denied { reason: String },
+    Failed { message: String },
+}
+
 #[cfg(test)]
 mod rayops_state_tests {
     use super::*;
@@ -306,6 +507,190 @@ mod rayops_state_tests {
         assert!(pending.message().contains("Approval required"));
         assert!(pending.message().contains("A-1"));
         assert_ne!(denied.message(), pending.message());
+    }
+
+    /// A richer asset than [`asset`], because the filter rules read fields that fixture leaves bare.
+    fn described_asset(
+        id: i64,
+        hostname: &str,
+        ip: &str,
+        platform: &str,
+        os: &str,
+        protocols: &[&str],
+        tags: &[&str],
+        verify: &str,
+    ) -> oxideterm_rayops::Asset {
+        let mut asset = asset(id, 1);
+        asset.hostname = hostname.to_owned();
+        asset.ip = ip.to_owned();
+        asset.platform = platform.to_owned();
+        asset.os = os.to_owned();
+        asset.protocols = protocols.iter().map(|p| (*p).to_owned()).collect();
+        asset.tags = tags.iter().map(|t| (*t).to_owned()).collect();
+        asset.credential_verify_status = verify.to_owned();
+        asset.status = Some(1);
+        asset
+    }
+
+    /// Only the code that has actually been observed maps to a state.
+    ///
+    /// The gateway sends `1` for every asset in a full estate and documents nothing else, so any
+    /// other code must stay `Unknown`. Mapping an unknown code to `Offline` would tell the user a
+    /// machine is down on no evidence.
+    #[test]
+    fn an_unrecognised_status_code_is_not_reported_as_offline() {
+        let mut online = asset(1, 1);
+        online.status = Some(1);
+        assert_eq!(asset_status(&online), RayOpsAssetStatus::Online);
+
+        for code in [Some(0), Some(2), None] {
+            let mut unknown = asset(2, 1);
+            unknown.status = code;
+            assert_eq!(
+                asset_status(&unknown),
+                RayOpsAssetStatus::Unknown,
+                "status {code:?} has no documented meaning and must not be guessed"
+            );
+        }
+    }
+
+    /// Availability follows the gateway's credential verification, including its "no answer" case.
+    #[test]
+    fn availability_follows_credential_verification() {
+        let mut asset = asset(1, 1);
+
+        asset.credential_verify_status = "success".to_owned();
+        assert_eq!(asset_availability(&asset), RayOpsAssetAvailability::Connectable);
+
+        asset.credential_verify_status = "failed".to_owned();
+        assert_eq!(
+            asset_availability(&asset),
+            RayOpsAssetAvailability::CredentialVerificationFailed
+        );
+
+        // `unsupported` means the gateway did not verify, and an absent field means it said
+        // nothing. Neither is evidence for or against, so neither becomes `Connectable`.
+        for status in ["unsupported", "", "something-new"] {
+            asset.credential_verify_status = status.to_owned();
+            assert_eq!(
+                asset_availability(&asset),
+                RayOpsAssetAvailability::Unknown,
+                "verification status {status:?} is not a positive result"
+            );
+        }
+    }
+
+    /// The query reaches every field an operator would type, and excludes what it should not match.
+    #[test]
+    fn the_query_matches_the_fields_that_identify_a_machine() {
+        let assets = vec![
+            described_asset(
+                1, "backup-prod-01", "192.168.24.41", "linux", "CentOS 7 (64-bit)",
+                &["ssh", "sftp"], &["production", "backup"], "success",
+            ),
+            described_asset(
+                2, "win-file-02", "192.168.24.81", "windows", "Windows Server 2019 (64-bit)",
+                &["rdp", "smb"], &["office"], "failed",
+            ),
+        ];
+        let no_filters = RayOpsAssetFilters::default();
+        let matches = |query: &str| {
+            filter_rayops_assets(&assets, query, &no_filters)
+                .into_iter()
+                .map(|asset| asset.id)
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(matches("backup"), vec![1], "hostname");
+        assert_eq!(matches("24.81"), vec![2], "ip");
+        assert_eq!(matches("windows"), vec![2], "platform and os");
+        assert_eq!(matches("centos"), vec![1], "os");
+        assert_eq!(matches("production"), vec![1], "tag");
+        assert_eq!(matches("sftp"), vec![1], "protocol");
+        assert_eq!(matches("BACKUP"), vec![1], "case is not significant");
+        assert!(matches("nothing-matches-this").is_empty());
+        // An empty query keeps everything rather than filtering it all out.
+        assert_eq!(matches("   ").len(), 2);
+    }
+
+    /// Each filter narrows, and none of them widen.
+    #[test]
+    fn filters_narrow_the_list_without_widening_it() {
+        let assets = vec![
+            described_asset(
+                1, "backup-prod-01", "192.168.24.41", "linux", "CentOS 7 (64-bit)",
+                &["ssh", "sftp"], &["production", "backup"], "success",
+            ),
+            described_asset(
+                2, "win-file-02", "192.168.24.81", "windows", "Windows Server 2019 (64-bit)",
+                &["rdp", "smb"], &["office"], "failed",
+            ),
+            described_asset(
+                3, "db-03", "192.168.24.42", "linux", "CentOS 7 (64-bit)",
+                &["ssh"], &["production"], "unsupported",
+            ),
+        ];
+        let ids = |filters: &RayOpsAssetFilters| {
+            filter_rayops_assets(&assets, "", filters)
+                .into_iter()
+                .map(|asset| asset.id)
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(
+            ids(&RayOpsAssetFilters {
+                platform: Some("linux".to_owned()),
+                ..Default::default()
+            }),
+            vec![1, 3]
+        );
+        assert_eq!(
+            ids(&RayOpsAssetFilters {
+                availability: Some(RayOpsAssetAvailability::CredentialVerificationFailed),
+                ..Default::default()
+            }),
+            vec![2]
+        );
+        assert_eq!(
+            ids(&RayOpsAssetFilters {
+                protocol: Some("sftp".to_owned()),
+                ..Default::default()
+            }),
+            vec![1]
+        );
+        assert_eq!(
+            ids(&RayOpsAssetFilters {
+                tags: vec!["production".to_owned()],
+                ..Default::default()
+            }),
+            vec![1, 3]
+        );
+        // Every listed tag must be present: a filter that widened to "any tag" would offer assets
+        // the user asked to exclude.
+        assert_eq!(
+            ids(&RayOpsAssetFilters {
+                tags: vec!["production".to_owned(), "backup".to_owned()],
+                ..Default::default()
+            }),
+            vec![1]
+        );
+        // Filters combine rather than replacing one another.
+        assert_eq!(
+            ids(&RayOpsAssetFilters {
+                platform: Some("linux".to_owned()),
+                tags: vec!["production".to_owned()],
+                ..Default::default()
+            }),
+            vec![1, 3]
+        );
+        assert!(ids(&RayOpsAssetFilters {
+            platform: Some("windows".to_owned()),
+            protocol: Some("ssh".to_owned()),
+            ..Default::default()
+        })
+        .is_empty());
+        // No filters keeps the whole list.
+        assert_eq!(ids(&RayOpsAssetFilters::default()).len(), 3);
     }
 }
 
