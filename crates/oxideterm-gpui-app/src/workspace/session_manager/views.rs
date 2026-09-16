@@ -1214,6 +1214,41 @@ impl WorkspaceApp {
             .into_any_element()
     }
 
+    /// Every group id the managed-asset section can show under the current grouping.
+    ///
+    /// Built from the unfiltered catalog so "collapse all" also reaches the synthetic groups of the
+    /// alternate groupings, not only the gateway's. A stale id in the collapsed set is harmless:
+    /// the set is only ever consulted for ids that are on screen.
+    fn rayops_group_ids(&self) -> Vec<i64> {
+        fn collect(
+            node: &super::new_connection::rayops_state::RayOpsTreeNode,
+            out: &mut Vec<i64>,
+        ) {
+            out.push(node.group.id);
+            for child in &node.children {
+                collect(child, out);
+            }
+        }
+        let labels = super::new_connection::rayops_state::RayOpsGroupLabels {
+            unknown: self.i18n.t("ssh.rayops.unknown"),
+            untagged: self.i18n.t("ssh.rayops.tag_untagged"),
+            verified: self.i18n.t("ssh.rayops.credential_verified"),
+            verification_failed: self.i18n.t("ssh.rayops.credential_failed"),
+            unverified: self.i18n.t("ssh.rayops.credential_unverified"),
+        };
+        let tree = super::new_connection::rayops_state::group_assets_by(
+            self.rayops_asset_view_mode,
+            &self.rayops_catalog.groups,
+            &self.rayops_catalog.assets,
+            &labels,
+        );
+        let mut ids = Vec::new();
+        for node in &tree {
+            collect(node, &mut ids);
+        }
+        ids
+    }
+
     /// Whether the catalog currently holds anything to show.
     fn rayops_catalog_has_assets(&self) -> bool {
         !self.rayops_catalog.assets.is_empty()
@@ -2035,6 +2070,12 @@ impl WorkspaceApp {
                             manager.expanded_groups = groups;
                             cx.notify();
                         });
+                        // The managed assets are a section of this same view, so "expand all" that
+                        // skipped them would leave part of the tree collapsed with no other control
+                        // offering to open it.
+                        this.collapsed_rayops_groups.clear();
+                        this.rayops_section_collapsed = false;
+                        cx.notify();
                         cx.stop_propagation();
                     }),
                     cx,
@@ -2048,6 +2089,11 @@ impl WorkspaceApp {
                             manager.expanded_groups.clear();
                             cx.notify();
                         });
+                        for group_id in this.rayops_group_ids() {
+                            this.collapsed_rayops_groups.insert(group_id);
+                        }
+                        this.rayops_section_collapsed = true;
+                        cx.notify();
                         cx.stop_propagation();
                     }),
                     cx,
