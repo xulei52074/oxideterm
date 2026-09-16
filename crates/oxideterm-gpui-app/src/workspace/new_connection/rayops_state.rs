@@ -443,6 +443,108 @@ pub(in crate::workspace) enum RayOpsPrecheckUiState {
     Failed { message: String },
 }
 
+/// Labels the view supplies for groups the gateway did not name.
+///
+/// Passed in rather than resolved here so this module stays free of the localisation layer: the
+/// grouping is a pure transformation and the words for it belong to the view.
+pub(in crate::workspace) struct RayOpsGroupLabels {
+    pub unknown: String,
+    pub untagged: String,
+    pub verified: String,
+    pub verification_failed: String,
+    pub unverified: String,
+}
+
+/// Groups assets by the chosen dimension rather than by the gateway's tree.
+///
+/// A view over the same assets, not a second source of truth: the gateway still decides what an
+/// asset is filed under, and `GatewayGroup` returns exactly its tree. Synthetic groups carry
+/// negative ids so they can never be mistaken for a gateway group id in the collapsed-state set.
+pub(in crate::workspace) fn group_assets_by(
+    mode: RayOpsAssetViewMode,
+    groups: &[oxideterm_rayops::AssetGroup],
+    assets: &[oxideterm_rayops::Asset],
+    labels: &RayOpsGroupLabels,
+) -> Vec<RayOpsTreeNode> {
+    if mode == RayOpsAssetViewMode::GatewayGroup {
+        return build_asset_tree(groups, assets);
+    }
+
+    use std::collections::BTreeMap;
+    // Ordered by label so the grouping is stable between refreshes; a hash map would reshuffle
+    // the sections every time the catalog was rebuilt.
+    let mut buckets: BTreeMap<String, Vec<oxideterm_rayops::Asset>> = BTreeMap::new();
+    let label_for = |value: &str, fallback: &str| {
+        if value.trim().is_empty() {
+            fallback.to_owned()
+        } else {
+            value.to_owned()
+        }
+    };
+
+    for asset in assets {
+        match mode {
+            RayOpsAssetViewMode::Platform => {
+                buckets
+                    .entry(label_for(&asset.platform, &labels.unknown))
+                    .or_default()
+                    .push(asset.clone());
+            }
+            RayOpsAssetViewMode::OperatingSystem => {
+                buckets
+                    .entry(label_for(&asset.os, &labels.unknown))
+                    .or_default()
+                    .push(asset.clone());
+            }
+            RayOpsAssetViewMode::ConnectionStatus => {
+                let label = match asset_availability(asset) {
+                    RayOpsAssetAvailability::Connectable => labels.verified.clone(),
+                    RayOpsAssetAvailability::CredentialVerificationFailed => {
+                        labels.verification_failed.clone()
+                    }
+                    _ => labels.unverified.clone(),
+                };
+                buckets.entry(label).or_default().push(asset.clone());
+            }
+            RayOpsAssetViewMode::Tag => {
+                // An asset with several tags appears under each: that is what grouping by tag
+                // means, and hiding the duplicates would hide the asset from a tag it carries.
+                if asset.tags.is_empty() {
+                    buckets
+                        .entry(labels.untagged.clone())
+                        .or_default()
+                        .push(asset.clone());
+                } else {
+                    for tag in &asset.tags {
+                        buckets
+                            .entry(tag.clone())
+                            .or_default()
+                            .push(asset.clone());
+                    }
+                }
+            }
+            RayOpsAssetViewMode::GatewayGroup => unreachable!("handled above"),
+        }
+    }
+
+    buckets
+        .into_iter()
+        .enumerate()
+        .map(|(index, (name, assets))| RayOpsTreeNode {
+            group: oxideterm_rayops::AssetGroup {
+                id: -(index as i64) - 1,
+                name,
+                parent_id: 0,
+                sort_order: index as i64,
+                icon: String::new(),
+                color: String::new(),
+            },
+            children: Vec::new(),
+            assets,
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod rayops_state_tests {
     use super::*;
@@ -692,6 +794,74 @@ mod rayops_state_tests {
         // No filters keeps the whole list.
         assert_eq!(ids(&RayOpsAssetFilters::default()).len(), 3);
     }
+
+    /// The alternate groupings are views over the same assets, and cannot be mistaken for the
+    /// gateway's own tree.
+    #[test]
+    fn alternate_groupings_do_not_collide_with_the_gateway_tree() {
+        use std::collections::BTreeSet;
+
+        let assets = vec![
+            described_asset(
+                1, "a", "10.0.0.1", "linux", "CentOS 7", &["ssh"], &["prod", "db"], "success",
+            ),
+            described_asset(
+                2, "b", "10.0.0.2", "windows", "Windows Server 2019", &["rdp"], &[], "failed",
+            ),
+        ];
+        let gateway_groups = vec![oxideterm_rayops::AssetGroup {
+            id: 1,
+            name: "prod".to_owned(),
+            parent_id: 0,
+            sort_order: 0,
+            icon: String::new(),
+            color: String::new(),
+        }];
+        let labels = RayOpsGroupLabels {
+            unknown: "<unknown>".to_owned(),
+            untagged: "<untagged>".to_owned(),
+            verified: "verified".to_owned(),
+            verification_failed: "failed".to_owned(),
+            unverified: "unverified".to_owned(),
+        };
+
+        // Grouping by platform separates the two, and by status separates them differently — the
+        // point being that the dimension, not the gateway, decides the sections.
+        let by_platform = group_assets_by(RayOpsAssetViewMode::Platform, &gateway_groups, &assets, &labels);
+        let platform_names: Vec<_> = by_platform.iter().map(|n| n.group.name.as_str()).collect();
+        assert_eq!(platform_names, vec!["linux", "windows"]);
+
+        let by_status =
+            group_assets_by(RayOpsAssetViewMode::ConnectionStatus, &gateway_groups, &assets, &labels);
+        let status_names: Vec<_> = by_status.iter().map(|n| n.group.name.as_str()).collect();
+        assert_eq!(status_names, vec!["failed", "verified"]);
+
+        // A tag view shows a multi-tag asset under each of its tags, and an untagged one under the
+        // fallback label — dropping either would hide an asset the user is looking for.
+        let by_tag = group_assets_by(RayOpsAssetViewMode::Tag, &gateway_groups, &assets, &labels);
+        let tag_names: Vec<_> = by_tag.iter().map(|n| n.group.name.as_str()).collect();
+        assert_eq!(tag_names, vec!["<untagged>", "db", "prod"]);
+        let tagged_total: usize = by_tag.iter().map(|n| n.assets.len()).sum();
+        assert_eq!(tagged_total, 3, "the two-tag asset appears twice by design");
+
+        // Synthetic groups must never reuse a gateway id, or collapsing one would collapse the
+        // other.
+        let gateway_ids: BTreeSet<i64> = gateway_groups.iter().map(|g| g.id).collect();
+        for node in by_platform.iter().chain(by_status.iter()).chain(by_tag.iter()) {
+            assert!(
+                !gateway_ids.contains(&node.group.id),
+                "synthetic group {} collides with a gateway group id",
+                node.group.id
+            );
+        }
+
+        // The default still hands back the gateway's own tree, unaltered.
+        let by_gateway =
+            group_assets_by(RayOpsAssetViewMode::GatewayGroup, &gateway_groups, &assets, &labels);
+        assert_eq!(by_gateway.len(), 1);
+        assert_eq!(by_gateway[0].group.id, 1);
+        assert_eq!(by_gateway[0].total_assets(), 2);
+    }
 }
 
 /// One editable field in the RayOps modal.
@@ -762,6 +932,24 @@ impl RayOpsTreeNode {
     /// Every asset in this subtree, including this group's own.
     pub(in crate::workspace) fn total_assets(&self) -> usize {
         self.assets.len() + self.children.iter().map(Self::total_assets).sum::<usize>()
+    }
+
+    /// How many assets in this subtree have nothing known against them.
+    ///
+    /// A catalog-level hint, not an authorization: an asset counted here still goes through the
+    /// gateway's precheck when it is actually connected. The count sits beside the total so an
+    /// operator can see that part of a group needs attention before opening it.
+    pub(in crate::workspace) fn connectable_assets(&self) -> usize {
+        let own = self
+            .assets
+            .iter()
+            .filter(|asset| asset_availability(asset) == RayOpsAssetAvailability::Connectable)
+            .count();
+        own + self
+            .children
+            .iter()
+            .map(Self::connectable_assets)
+            .sum::<usize>()
     }
 }
 

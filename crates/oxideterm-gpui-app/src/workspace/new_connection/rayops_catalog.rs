@@ -10,6 +10,7 @@
 // the gateway has revoked, must surface as "signed out" rather than as a stale list.
 
 use gpui::Context;
+use super::rayops_state::RayOpsPrecheckUiState;
 use std::time::{Duration, Instant};
 use zeroize::Zeroizing;
 
@@ -395,9 +396,6 @@ impl crate::workspace::WorkspaceApp {
         asset_id: i64,
         cx: &mut Context<Self>,
     ) {
-        let Some(token) = self.rayops_catalog.token() else {
-            return;
-        };
         let settings = self.settings_store.settings().rayops.clone();
         let base_url = self.rayops_catalog.base_url.clone();
         if base_url.is_empty() {
@@ -430,7 +428,13 @@ impl crate::workspace::WorkspaceApp {
         let runtime = self.forwarding_runtime.clone();
         let terminal_options = oxideterm_connections::ConnectionTerminalOptions::default();
         let generation = self.rayops_catalog.next_generation();
-        let _ = token;
+
+        // The connect flow performs the governance precheck itself, so its progress is reported
+        // here rather than by running a second precheck of our own. A separate precheck would ask
+        // the gateway the same question twice and add a click between the answer and acting on it.
+        self.rayops_asset_details.selected_asset_id = Some(asset_id);
+        self.rayops_asset_details.precheck = RayOpsPrecheckUiState::Checking;
+        cx.notify();
 
         let task = cx.spawn(async move |this, cx| {
             let outcome = runtime
@@ -439,6 +443,7 @@ impl crate::workspace::WorkspaceApp {
             let _ = this.update_in(cx, |this, window, cx| {
                 match outcome {
                     Ok(Ok(connection)) => {
+                        this.set_rayops_precheck(RayOpsPrecheckUiState::Allowed, cx);
                         if let Err(error) = this.create_rayops_terminal_tab(
                             title,
                             connection.socket,
@@ -453,6 +458,23 @@ impl crate::workspace::WorkspaceApp {
                         // A refusal is the one failure the catalog has to act on, because keeping a
                         // token the gateway will keep rejecting makes every retry fail the same way.
                         let lowered = message.to_ascii_lowercase();
+                        // The governance outcomes arrive as text; recovering the distinction here is
+                        // what lets the panel say "wait for approval" instead of "denied", which are
+                        // different instructions.
+                        let state = if lowered.contains("approval is required") {
+                            RayOpsPrecheckUiState::ApprovalRequired {
+                                reason: message.clone(),
+                            }
+                        } else if lowered.contains("denied") {
+                            RayOpsPrecheckUiState::Denied {
+                                reason: message.clone(),
+                            }
+                        } else {
+                            RayOpsPrecheckUiState::Failed {
+                                message: message.clone(),
+                            }
+                        };
+                        this.set_rayops_precheck(state, cx);
                         if lowered.contains("denied") || lowered.contains("approval") {
                             this.rayops_catalog.report_failure(RayOpsCatalogError {
                                 message: message.clone(),
@@ -463,6 +485,12 @@ impl crate::workspace::WorkspaceApp {
                         this.notify_rayops_error(message, cx);
                     }
                     Err(join) => {
+                        this.set_rayops_precheck(
+                            RayOpsPrecheckUiState::Failed {
+                                message: format!("the RayOps connection failed: {join}"),
+                            },
+                            cx,
+                        );
                         this.notify_rayops_error(format!("the RayOps connection failed: {join}"), cx)
                     }
                 }
@@ -470,6 +498,12 @@ impl crate::workspace::WorkspaceApp {
             });
         });
         task.detach();
+    }
+
+    /// Records a precheck outcome and repaints the panel that shows it.
+    fn set_rayops_precheck(&mut self, state: RayOpsPrecheckUiState, cx: &mut Context<Self>) {
+        self.rayops_asset_details.precheck = state;
+        cx.notify();
     }
 }
 

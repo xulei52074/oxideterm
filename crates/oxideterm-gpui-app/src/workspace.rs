@@ -802,11 +802,6 @@ pub(crate) struct WorkspaceApp {
     rayops_asset_filters: crate::workspace::new_connection::rayops_state::RayOpsAssetFilters,
     /// How the managed-asset list is grouped.
     rayops_asset_view_mode: crate::workspace::new_connection::rayops_state::RayOpsAssetViewMode,
-    /// Recently connected assets, newest first.
-    ///
-    /// Ids only, in memory, never persisted. An id that is no longer in the catalog cannot be
-    /// rendered as an asset, because the name, host and platform for it would have to be invented.
-    rayops_recent_asset_ids: Vec<i64>,
     // A Telnet pane keeps only the stable profile owner needed for toolbar persistence.
     telnet_terminal_profile_ids: HashMap<TerminalSessionId, String>,
     // Non-SSH connection records outlive their current terminal or desktop surface.
