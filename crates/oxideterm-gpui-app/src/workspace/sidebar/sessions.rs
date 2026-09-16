@@ -23,6 +23,12 @@ struct StandaloneActiveSession {
 #[derive(Clone)]
 pub(in crate::workspace) struct ActiveSessionSidebarRow {
     node_id: NodeId,
+    /// The terminal session this row represents, when it is one.
+    ///
+    /// A RayOps session owns no SSH node, so its `node_id` is synthetic and cannot be resolved
+    /// against the node registry. This is what lets a row action reach the session — and through
+    /// it the managed asset — instead of the registry.
+    terminal_session_id: Option<oxideterm_workspace::TerminalSessionId>,
     parent_id: Option<NodeId>,
     saved_connection_id: Option<String>,
     title: String,
@@ -242,6 +248,9 @@ impl WorkspaceApp {
                 };
                 Some(ActiveSessionSidebarRow {
                     node_id,
+                    // A node-backed session is reachable through the registry, so it needs no
+                    // session mapping here.
+                    terminal_session_id: None,
                     parent_id: flat_node.parent_id.map(NodeId::new),
                     saved_connection_id: node.saved_connection_id.clone(),
                     title: node.title.clone(),
@@ -301,6 +310,9 @@ impl WorkspaceApp {
             let row_id = format!("rayops-session-{session_id:?}");
             rows.push(ActiveSessionSidebarRow {
                 node_id: NodeId::new(row_id.clone()),
+                // The asset mapping is keyed by this session, so the row carries it: a synthetic
+                // `node_id` cannot be resolved against the node registry.
+                terminal_session_id: Some(session_id),
                 parent_id: None,
                 saved_connection_id: None,
                 title: title.clone(),
@@ -382,6 +394,7 @@ impl WorkspaceApp {
         let row_id = format!("standalone-connection-{}", record.id);
         ActiveSessionSidebarRow {
             node_id: NodeId::new(row_id.clone()),
+            terminal_session_id: None,
             parent_id: None,
             saved_connection_id: None,
             title: record.title.clone(),
@@ -413,6 +426,7 @@ impl WorkspaceApp {
         let row_id = format!("standalone-connection-{}", record.id);
         ActiveSessionSidebarRow {
             node_id: NodeId::new(row_id.clone()),
+            terminal_session_id: None,
             parent_id: None,
             saved_connection_id: None,
             title: record.title.clone(),
@@ -1177,6 +1191,22 @@ impl WorkspaceApp {
             .into_any_element()
     }
 
+    /// The managed asset a session row belongs to, and whether it can serve files.
+    ///
+    /// `None` for a node-backed session: those reach their host through the node registry, which a
+    /// RayOps session has no entry in.
+    fn rayops_row_asset(&self, row: &ActiveSessionSidebarRow) -> Option<(i64, bool)> {
+        let session_id = row.terminal_session_id?;
+        let asset_id = *self.rayops_session_assets.get(&session_id)?;
+        let supported = self
+            .rayops_catalog
+            .assets
+            .iter()
+            .find(|asset| asset.id == asset_id)
+            .is_some_and(crate::workspace::new_connection::rayops_files::asset_supports_files);
+        Some((asset_id, supported))
+    }
+
     pub(in crate::workspace) fn render_active_session_focus_actions(
         &self,
         row: &ActiveSessionSidebarRow,
@@ -1197,16 +1227,29 @@ impl WorkspaceApp {
             ),
             {
                 let node_id = row.node_id.clone();
-                self.render_active_session_focus_action_chip(
-                    LucideIcon::FolderOpen,
-                    self.i18n.t("sessions.tree.actions.sftp"),
-                    SessionActionVariant::Primary,
-                    cx.listener(move |this, _event, window, cx| {
-                        this.open_sftp_tab(node_id.clone(), window, cx);
-                        cx.stop_propagation();
-                    }),
-                    cx,
-                )
+                let rayops = self.rayops_row_asset(row);
+                // A managed asset the gateway does not advertise as serving files is not offered
+                // the entry: it would only fail with `asset does not support sftp`.
+                if rayops.is_some_and(|(_, supported)| !supported) {
+                    div().into_any_element()
+                } else {
+                    let asset_id = rayops.map(|(asset_id, _)| asset_id);
+                    self.render_active_session_focus_action_chip(
+                        LucideIcon::FolderOpen,
+                        self.i18n.t("sessions.tree.actions.sftp"),
+                        SessionActionVariant::Primary,
+                        cx.listener(move |this, _event, window, cx| {
+                            match asset_id {
+                                // A RayOps session owns no SSH node, so an SFTP tab could not
+                                // reach its asset. The gateway's file API is what serves it.
+                                Some(asset_id) => this.open_rayops_files(asset_id, cx),
+                                None => this.open_sftp_tab(node_id.clone(), window, cx),
+                            }
+                            cx.stop_propagation();
+                        }),
+                        cx,
+                    )
+                }
             },
             {
                 let node_id = row.node_id.clone();
@@ -1328,10 +1371,19 @@ impl WorkspaceApp {
                     listener,
                     cx,
                 ));
+                // Read through the copied session id rather than borrowing the whole row: earlier fields
+                // of `row` are moved by this point.
+                let rayops_asset_id = row
+                    .terminal_session_id
+                    .and_then(|session_id| self.rayops_session_assets.get(&session_id).copied());
                 let listener = cx.listener({
                     let node_id = node_id.clone();
                     move |this, _event, window, cx| {
-                        this.open_sftp_tab(node_id.clone(), window, cx);
+                        match rayops_asset_id {
+                            // Same reason as the focus menu: no SSH node to open a tab against.
+                            Some(asset_id) => this.open_rayops_files(asset_id, cx),
+                            None => this.open_sftp_tab(node_id.clone(), window, cx),
+                        }
                         cx.stop_propagation();
                     }
                 });

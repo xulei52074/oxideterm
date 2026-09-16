@@ -800,6 +800,12 @@ pub(crate) struct WorkspaceApp {
         crate::workspace::new_connection::rayops_state::RayOpsAssetDetailsState,
     /// Narrowing applied to the managed-asset list, on top of the search text.
     rayops_asset_filters: crate::workspace::new_connection::rayops_state::RayOpsAssetFilters,
+    /// Which managed asset each RayOps terminal session belongs to.
+    ///
+    /// A RayOps session owns no SSH node, so the sidebar row carries a synthetic node id that the
+    /// node registry cannot resolve. This is what lets an action on that row — the SFTP entry in
+    /// the session menu — reach the asset instead of the registry.
+    rayops_session_assets: HashMap<TerminalSessionId, i64>,
     /// The managed asset being browsed for files, and what its last listing returned.
     ///
     /// View state, like the details panel: the catalog holds what the gateway said about assets,

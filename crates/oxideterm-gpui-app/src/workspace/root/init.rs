@@ -640,6 +640,7 @@ impl WorkspaceApp {
             rayops_asset_details: Default::default(),
             rayops_asset_filters: Default::default(),
             rayops_files: Default::default(),
+            rayops_session_assets: HashMap::new(),
             rayops_asset_view_mode: Default::default(),
             telnet_terminal_profile_ids: HashMap::new(),
             standalone_connections: standalone_connections::StandaloneConnectionRegistry::default(),

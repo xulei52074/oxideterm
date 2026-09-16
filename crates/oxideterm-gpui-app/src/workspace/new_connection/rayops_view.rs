@@ -279,6 +279,7 @@ impl WorkspaceApp {
     fn apply_rayops_connect_outcome(
         &mut self,
         generation: u64,
+        asset_id: i64,
         title: String,
         terminal_options: ConnectionTerminalOptions,
         outcome: Result<Result<super::super::rayops_flow::RayOpsConnection, String>, tokio::task::JoinError>,
@@ -297,14 +298,17 @@ impl WorkspaceApp {
                 // The flow ends here: the session owns the socket now, and the token has no
                 // further use, so it is dropped with the state.
                 self.close_rayops_flow(cx);
-                if let Err(error) = self.create_rayops_terminal_tab(
+                match self.create_rayops_terminal_tab(
                     title,
                     connection.socket,
                     terminal_options,
                     window,
                     cx,
                 ) {
-                    self.notify_rayops_error(error.to_string(), cx);
+                    Ok(session_id) => {
+                        self.rayops_session_assets.insert(session_id, asset_id);
+                    }
+                    Err(error) => self.notify_rayops_error(error.to_string(), cx),
                 }
             }
             Err(block) => {
@@ -486,6 +490,7 @@ impl WorkspaceApp {
             let _ = this.update_in(cx, |this, window, cx| {
                 this.apply_rayops_connect_outcome(
                     generation,
+                    asset_id,
                     title,
                     terminal_options,
                     outcome,

@@ -444,14 +444,19 @@ impl crate::workspace::WorkspaceApp {
                 match outcome {
                     Ok(Ok(connection)) => {
                         this.set_rayops_precheck(RayOpsPrecheckUiState::Allowed, cx);
-                        if let Err(error) = this.create_rayops_terminal_tab(
+                        match this.create_rayops_terminal_tab(
                             title,
                             connection.socket,
                             terminal_options,
                             window,
                             cx,
                         ) {
-                            this.notify_rayops_error(error.to_string(), cx);
+                            Ok(session_id) => {
+                                // Recorded so the session row's actions can reach the asset: this
+                                // session owns no SSH node for the registry to resolve.
+                                this.rayops_session_assets.insert(session_id, asset_id);
+                            }
+                            Err(error) => this.notify_rayops_error(error.to_string(), cx),
                         }
                     }
                     Ok(Err(message)) => {
