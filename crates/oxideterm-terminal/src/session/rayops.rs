@@ -769,8 +769,9 @@ mod rayops_session_tests {
     /// One session plus the two ends of its fake transport.
     struct Harness {
         session: TerminalSession,
-        /// Push frames toward the session.
-        inbound: tokio::sync::mpsc::UnboundedSender<oxideterm_rayops::InboundEvent>,
+        /// Push frames toward the session. An `Option` so a test can drop the only sender, which
+        /// is what an abrupt disconnect looks like from the session's side.
+        inbound: Option<tokio::sync::mpsc::UnboundedSender<oxideterm_rayops::InboundEvent>>,
         /// Everything the session wrote.
         written: crossbeam_channel::Receiver<oxideterm_rayops::OutboundEvent>,
         runtime: Arc<Runtime>,
@@ -795,7 +796,7 @@ mod rayops_session_tests {
             });
             Self {
                 session,
-                inbound: inbound_tx,
+                inbound: Some(inbound_tx),
                 written: written_rx,
                 runtime,
             }
@@ -804,6 +805,8 @@ mod rayops_session_tests {
         /// Sends one text frame and waits for the session to consume it.
         fn send(&self, payload: &str) {
             self.inbound
+                .as_ref()
+                .expect("the harness still holds the inbound channel")
                 .send(oxideterm_rayops::InboundEvent::Text(payload.as_bytes().to_vec()))
                 .expect("the session is alive");
         }
@@ -951,30 +954,44 @@ mod rayops_session_tests {
     }
 
     #[test]
-    fn cancelling_a_read_ends_the_session_without_replaying_input() {
-        // A disconnect must surface as a closed session, and nothing may be re-sent: replaying
-        // input could re-execute a command that already ran.
+    fn an_abrupt_disconnect_ends_the_session_without_replaying_input() {
+        // Two things are being asserted, and they are different: an abrupt disconnect must surface
+        // as a closed session, and the input must not be sent again — replaying it could re-execute
+        // a command that already ran.
+        //
+        // Only *input* is forbidden after the end. The transport still writes a close frame, which
+        // is not a replay, so asserting "nothing was written" would forbid correct behaviour.
         let mut harness = Harness::new();
         harness.send(r#"{"id":"koko-1","type":"CONNECT"}"#);
         harness.wait_for("established", |h| {
             h.runtime.block_on(async { tokio::task::yield_now().await });
             h.written.try_recv().is_ok()
         });
-        let _ = harness.session.write_input(b"echo hi\n");
+        harness
+            .session
+            .write_input(b"echo hi\n")
+            .expect("the session accepts input while it runs");
         harness.wait_for("the input frame", |h| {
             h.runtime.block_on(async { tokio::task::yield_now().await });
             h.written.try_recv().is_ok()
         });
 
-        // Dropping the sender is an abrupt disconnect from the session's point of view.
-        let inbound = harness.inbound.clone();
-        drop(inbound);
-        drop(harness.inbound.clone());
-        harness.session.shutdown();
-        assert_eq!(harness.session.lifecycle(), TerminalLifecycle::Closed);
+        // Dropping the only sender fails the socket's read, which is the abrupt disconnect. Without
+        // taking the sender out of the harness this would drop a clone and disconnect nothing.
+        drop(harness.inbound.take());
+        harness.wait_for("the session to end", session_closed);
+
+        let mut replayed = Vec::new();
+        while let Ok(event) = harness.written.try_recv() {
+            if let oxideterm_rayops::OutboundEvent::Frame(json) = &event
+                && json.contains("echo hi")
+            {
+                replayed.push(json.clone());
+            }
+        }
         assert!(
-            harness.written.try_recv().is_err(),
-            "nothing may be replayed after the session ends"
+            replayed.is_empty(),
+            "input must not be replayed after the session ends: {replayed:?}"
         );
     }
 }

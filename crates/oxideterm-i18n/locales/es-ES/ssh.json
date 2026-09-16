@@ -288,7 +288,8 @@
       "precheck_approval_required": "Se requiere aprobación antes de conectar",
       "precheck_denied": "Denegado por la gobernanza",
       "precheck_failed": "Falló la comprobación de gobernanza",
-      "tag_untagged": "Sin etiqueta"
+      "tag_untagged": "Sin etiqueta",
+      "back_to_list": "Volver a la lista"
     }
   }
 }

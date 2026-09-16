@@ -288,7 +288,8 @@
       "precheck_approval_required": "Approval is required before connecting",
       "precheck_denied": "Denied by governance",
       "precheck_failed": "Governance check failed",
-      "tag_untagged": "Untagged"
+      "tag_untagged": "Untagged",
+      "back_to_list": "Back to list"
     }
   },
   "connections": {

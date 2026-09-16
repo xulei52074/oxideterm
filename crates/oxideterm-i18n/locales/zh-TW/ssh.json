@@ -288,7 +288,8 @@
       "precheck_approval_required": "需要核准後才能連線",
       "precheck_denied": "已被治理策略拒絕",
       "precheck_failed": "治理檢查失敗",
-      "tag_untagged": "未加標籤"
+      "tag_untagged": "未加標籤",
+      "back_to_list": "返回清單"
     }
   },
   "connections": {

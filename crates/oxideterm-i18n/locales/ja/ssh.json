@@ -288,7 +288,8 @@
       "precheck_approval_required": "接続には承認が必要です",
       "precheck_denied": "ガバナンスにより拒否されました",
       "precheck_failed": "ガバナンス確認に失敗しました",
-      "tag_untagged": "タグなし"
+      "tag_untagged": "タグなし",
+      "back_to_list": "リストに戻る"
     }
   }
 }

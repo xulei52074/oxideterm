@@ -288,7 +288,8 @@
       "precheck_approval_required": "Cần phê duyệt trước khi kết nối",
       "precheck_denied": "Bị quản trị từ chối",
       "precheck_failed": "Kiểm tra quản trị thất bại",
-      "tag_untagged": "Không có thẻ"
+      "tag_untagged": "Không có thẻ",
+      "back_to_list": "Quay lại danh sách"
     }
   }
 }

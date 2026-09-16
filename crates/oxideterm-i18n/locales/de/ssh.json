@@ -288,7 +288,8 @@
       "precheck_approval_required": "Vor dem Verbinden ist eine Genehmigung erforderlich",
       "precheck_denied": "Von der Governance abgelehnt",
       "precheck_failed": "Governance-Prüfung fehlgeschlagen",
-      "tag_untagged": "Ohne Tag"
+      "tag_untagged": "Ohne Tag",
+      "back_to_list": "Zurück zur Liste"
     }
   }
 }

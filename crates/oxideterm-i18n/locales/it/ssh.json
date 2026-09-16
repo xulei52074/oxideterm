@@ -288,7 +288,8 @@
       "precheck_approval_required": "È necessaria un'approvazione prima di connettersi",
       "precheck_denied": "Negato dalla governance",
       "precheck_failed": "Verifica di governance non riuscita",
-      "tag_untagged": "Senza tag"
+      "tag_untagged": "Senza tag",
+      "back_to_list": "Torna alla lista"
     }
   }
 }

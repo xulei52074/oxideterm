@@ -1358,6 +1358,14 @@ impl WorkspaceApp {
         if collapsed {
             return section.into_any_element();
         }
+        // Selecting an asset shows its details *instead of* the list, not below it. The sidebar is
+        // short: appending the panel meant its action buttons landed past the bottom of the view,
+        // so the asset could be inspected but not connected.
+        if self.rayops_asset_details.selected_asset_id.is_some() {
+            return section
+                .child(self.render_rayops_asset_details(theme, cx))
+                .into_any_element();
+        }
         // Grouping choice, as chips rather than a menu: five short options fit on one row, and a
         // menu would add a click to an action the user may take repeatedly while looking for a
         // machine.
@@ -1422,12 +1430,7 @@ impl WorkspaceApp {
         for node in &tree {
             body = body.child(self.render_rayops_catalog_node(node, 0, theme, cx));
         }
-        // The panel sits below the list rather than over it: the list is where assets are found and
-        // the panel is what a found asset is checked in, so both stay visible at once.
-        section
-            .child(body)
-            .child(self.render_rayops_asset_details(theme, cx))
-            .into_any_element()
+        section.child(body).into_any_element()
     }
 
     fn render_rayops_catalog_node(
@@ -1650,29 +1653,82 @@ impl WorkspaceApp {
         cx.notify();
     }
 
-    /// The details of the selected asset, or an empty element when none is selected.
+    /// The details of the selected asset.
     ///
-    /// Reads the catalog rather than a copy of the selection, so a refresh cannot leave the panel
-    /// describing an asset the gateway no longer reports.
+    /// Replaces the list while an asset is selected. Appending it below the list pushed its action
+    /// buttons past the bottom of the sidebar, so the asset could be inspected but not connected;
+    /// taking the whole section keeps every field and the actions reachable.
+    ///
+    /// Laid out as cards of one-line rows: a label-over-value stack spread nine fields over more
+    /// height than the view has.
     fn render_rayops_asset_details(
         &self,
         theme: oxideterm_theme::AppUiColors,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        use super::new_connection::rayops_state::{asset_availability, RayOpsAssetAvailability};
+        use super::new_connection::rayops_state::{
+            asset_availability, RayOpsAssetAvailability, RayOpsAssetStatus, asset_status,
+            RayOpsPrecheckUiState,
+        };
 
-        let Some(selected_id) = self.rayops_asset_details.selected_asset_id else {
+        let Some(asset) = self
+            .rayops_asset_details
+            .selected_asset_id
+            .and_then(|id| self.rayops_catalog.assets.iter().find(|a| a.id == id))
+        else {
+            // A refresh dropped the selection. Rendering nothing returns the user to the list
+            // rather than leaving details on screen for an asset the gateway no longer reports.
             return div().into_any_element();
         };
-        let Some(asset) = self
-            .rayops_catalog
-            .assets
-            .iter()
-            .find(|asset| asset.id == selected_id)
-        else {
-            // A refresh dropped it. Saying nothing is better than leaving stale details on screen
-            // for an asset the gateway no longer reports.
-            return div().into_any_element();
+        let asset_id = asset.id;
+
+        let unknown = self.i18n.t("ssh.rayops.unknown");
+        let optional = |value: &Option<String>| value.clone().unwrap_or_else(|| unknown.clone());
+
+        // One line per field: the label is a fixed gutter so the values line up, and the value
+        // takes the rest and wraps rather than being clipped.
+        let row = |label_key: &str, value: String| {
+            div()
+                .flex()
+                .flex_row()
+                .items_start()
+                .gap_2()
+                .py_0p5()
+                .child(
+                    div()
+                        .w(px(84.0))
+                        .flex_shrink_0()
+                        .text_xs()
+                        .text_color(rgb(theme.text_muted))
+                        .child(self.i18n.t(label_key)),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .text_xs()
+                        .text_color(rgb(theme.text))
+                        .child(value),
+                )
+        };
+        let card = |title_key: &str, body: gpui::Div| {
+            div()
+                .flex()
+                .flex_col()
+                .mx_2()
+                .mb_2()
+                .px_2()
+                .py_1()
+                .rounded_md()
+                .bg(rgb(theme.bg_card))
+                .border_1()
+                .border_color(rgb(theme.border))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(rgb(theme.text_heading))
+                        .child(self.i18n.t(title_key)),
+                )
+                .child(body)
         };
 
         let group_name = self
@@ -1683,40 +1739,58 @@ impl WorkspaceApp {
             .map(|group| group.name.clone())
             .unwrap_or_else(|| self.i18n.t("ssh.rayops.unknown"));
 
-        let unknown = || self.i18n.t("ssh.rayops.unknown");
-        let optional = |value: &Option<String>| value.clone().unwrap_or_else(unknown);
+        let identity = div()
+            .flex()
+            .flex_col()
+            .child(row("ssh.rayops.field_address", asset.ip.clone()))
+            .child(row("ssh.rayops.field_port", asset.port.to_string()))
+            .child(row("ssh.rayops.field_group", group_name));
 
-        // Rendered as label over value so the panel stays readable at the sidebar's width.
-        let field = |label_key: &str, value: String| {
-            div()
-                .flex()
-                .flex_col()
-                .py_1()
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(rgb(theme.text_muted))
-                        .child(self.i18n.t(label_key)),
-                )
-                .child(div().text_sm().text_color(rgb(theme.text)).child(value))
-        };
-        let section = |title_key: &str, body: gpui::Div| {
-            div()
-                .flex()
-                .flex_col()
-                .gap_1()
-                .mt_2()
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(rgb(theme.text_heading))
-                        .child(self.i18n.t(title_key)),
-                )
-                .child(body)
-        };
+        let connection = div()
+            .flex()
+            .flex_col()
+            .child(row(
+                "ssh.rayops.field_protocols",
+                if asset.protocols.is_empty() {
+                    self.i18n.t("ssh.rayops.unknown")
+                } else {
+                    asset.protocols.join(", ")
+                },
+            ))
+            .child(row("ssh.rayops.field_username", optional(&asset.username)))
+            .child(row("ssh.rayops.field_auth_type", optional(&asset.auth_type)))
+            .child(row("ssh.rayops.field_sudo_mode", optional(&asset.sudo_mode)));
 
-        let availability = asset_availability(asset);
-        let (credential_key, credential_color) = match availability {
+        // The unit is stated beside the number rather than assumed: the gateway does not document
+        // it, and a confidently wrong unit is worse than a stated one.
+        let resource = |value: &Option<i64>, unit: &str| match value {
+            Some(value) => format!("{value} {unit}"),
+            None => self.i18n.t("ssh.rayops.unknown"),
+        };
+        let system = div()
+            .flex()
+            .flex_col()
+            .child(row(
+                "ssh.rayops.field_asset_status",
+                match asset_status(asset) {
+                    RayOpsAssetStatus::Online => self.i18n.t("ssh.rayops.credential_verified"),
+                    RayOpsAssetStatus::Offline => self.i18n.t("ssh.rayops.credential_failed"),
+                    RayOpsAssetStatus::Unknown => self.i18n.t("ssh.rayops.unknown"),
+                },
+            ))
+            .child(row(
+                "ssh.rayops.field_os",
+                if asset.os.is_empty() {
+                    self.i18n.t("ssh.rayops.unknown")
+                } else {
+                    asset.os.clone()
+                },
+            ))
+            .child(row("ssh.rayops.field_cpu", resource(&asset.cpu, "vCPU")))
+            .child(row("ssh.rayops.field_memory", resource(&asset.memory, "MB")))
+            .child(row("ssh.rayops.field_disk", resource(&asset.disk, "GB")));
+
+        let (credential_key, credential_color) = match asset_availability(asset) {
             RayOpsAssetAvailability::Connectable => {
                 ("ssh.rayops.credential_verified", theme.success)
             }
@@ -1725,112 +1799,51 @@ impl WorkspaceApp {
             }
             _ => ("ssh.rayops.credential_unverified", theme.text_muted),
         };
-
-        let mut identity = div().flex().flex_col();
-        identity = identity.child(field("ssh.rayops.field_address", asset.ip.clone()));
-        identity = identity.child(field("ssh.rayops.field_port", asset.port.to_string()));
-        identity = identity.child(field("ssh.rayops.field_group", group_name));
-
-        let mut connection = div().flex().flex_col();
-        connection = connection.child(field(
-            "ssh.rayops.field_protocols",
-            if asset.protocols.is_empty() {
-                self.i18n.t("ssh.rayops.unknown")
-            } else {
-                asset.protocols.join(", ")
-            },
-        ));
-        connection = connection.child(field("ssh.rayops.field_username", optional(&asset.username)));
-        connection =
-            connection.child(field("ssh.rayops.field_auth_type", optional(&asset.auth_type)));
-        connection =
-            connection.child(field("ssh.rayops.field_sudo_mode", optional(&asset.sudo_mode)));
-
-        // Numbers are shown with the unit stated beside them rather than baked into the value: the
-        // gateway does not document the unit, and a wrong unit is worse than a stated assumption.
-        let resource = |value: &Option<i64>, unit: &str| match value {
-            Some(value) => format!("{value} {unit}"),
-            None => self.i18n.t("ssh.rayops.unknown"),
-        };
-        let mut system = div().flex().flex_col();
-        system = system.child(field("ssh.rayops.field_asset_status", {
-            use super::new_connection::rayops_state::{asset_status, RayOpsAssetStatus};
-            match asset_status(asset) {
-                RayOpsAssetStatus::Online => self.i18n.t("ssh.rayops.credential_verified"),
-                RayOpsAssetStatus::Offline => self.i18n.t("ssh.rayops.credential_failed"),
-                RayOpsAssetStatus::Unknown => self.i18n.t("ssh.rayops.unknown"),
-            }
-        }));
-        system = system.child(field(
-            "ssh.rayops.field_os",
-            if asset.os.is_empty() {
-                self.i18n.t("ssh.rayops.unknown")
-            } else {
-                asset.os.clone()
-            },
-        ));
-        system = system.child(field("ssh.rayops.field_cpu", resource(&asset.cpu, "vCPU")));
-        system = system.child(field("ssh.rayops.field_memory", resource(&asset.memory, "MB")));
-        system = system.child(field("ssh.rayops.field_disk", resource(&asset.disk, "GB")));
-
-        let mut governance = div().flex().flex_col();
-        governance = governance.child(
-            div()
-                .flex()
-                .flex_col()
-                .py_1()
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(rgb(theme.text_muted))
-                        .child(self.i18n.t("ssh.rayops.credential_status_label")),
-                )
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(rgb(credential_color))
-                        .child(self.i18n.t(credential_key)),
-                ),
-        );
+        let mut governance = div()
+            .flex()
+            .flex_col()
+            .child(row("ssh.rayops.credential_status_label", String::new()))
+            .child(
+                div()
+                    .pl(px(92.0))
+                    .pb_1()
+                    .text_xs()
+                    .text_color(rgb(credential_color))
+                    .child(self.i18n.t(credential_key)),
+            );
         if let Some(name) = asset.credential_name.clone() {
-            governance =
-                governance.child(field("ssh.rayops.credential_identifier", name));
+            governance = governance.child(row("ssh.rayops.credential_identifier", name));
         }
         if let Some(verified_at) = asset.credential_verified_at.clone() {
-            governance = governance.child(field("ssh.rayops.verified_at", verified_at));
+            governance = governance.child(row("ssh.rayops.verified_at", verified_at));
         }
         // The gateway's own wording, collapsed by default: it is diagnostic detail, and showing it
         // for every asset would bury the fields that identify the machine.
         if let Some(message) = asset.credential_verify_message.clone() {
-            let expanded = self.rayops_asset_details.verification_message_expanded;
             governance = governance.child(
                 div()
-                    .flex()
-                    .flex_col()
-                    .py_1()
-                    .child(
-                        div()
-                            .id("rayops-verification-message-toggle")
-                            .cursor_pointer()
-                            .text_xs()
-                            .text_color(rgb(theme.accent))
-                            .on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
-                                    this.toggle_rayops_verification_message(cx);
-                                }),
-                            )
-                            .child(self.i18n.t("ssh.rayops.view_verification_message")),
+                    .id("rayops-verification-message-toggle")
+                    .mt_1()
+                    .cursor_pointer()
+                    .text_xs()
+                    .text_color(rgb(theme.accent))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
+                            this.toggle_rayops_verification_message(cx);
+                        }),
                     )
-                    .when(expanded, |block| {
-                        block.child(
-                            div()
-                                .text_xs()
-                                .text_color(rgb(theme.text_muted))
-                                .child(message),
-                        )
-                    }),
+                    .child(self.i18n.t("ssh.rayops.view_verification_message")),
             );
+            if self.rayops_asset_details.verification_message_expanded {
+                governance = governance.child(
+                    div()
+                        .mt_1()
+                        .text_xs()
+                        .text_color(rgb(theme.text_muted))
+                        .child(message),
+                );
+            }
         }
         // States plainly that the credential itself is not here, so a label like
         // "生产 root 密码" is not read as something this client holds.
@@ -1842,14 +1855,15 @@ impl WorkspaceApp {
                 .child(self.i18n.t("ssh.rayops.credential_managed_notice")),
         );
 
-        let precheck = {
-            use super::new_connection::rayops_state::RayOpsPrecheckUiState;
-            let (key, color, detail) = match &self.rayops_asset_details.precheck {
+        let (precheck_key, precheck_color, precheck_detail) =
+            match &self.rayops_asset_details.precheck {
                 RayOpsPrecheckUiState::Idle => ("ssh.rayops.precheck_idle", theme.text_muted, None),
                 RayOpsPrecheckUiState::Checking => {
                     ("ssh.rayops.precheck_checking", theme.text_muted, None)
                 }
-                RayOpsPrecheckUiState::Allowed => ("ssh.rayops.precheck_allowed", theme.success, None),
+                RayOpsPrecheckUiState::Allowed => {
+                    ("ssh.rayops.precheck_allowed", theme.success, None)
+                }
                 RayOpsPrecheckUiState::ApprovalRequired { reason } => {
                     ("ssh.rayops.precheck_approval_required", theme.warning, Some(reason))
                 }
@@ -1860,53 +1874,54 @@ impl WorkspaceApp {
                     ("ssh.rayops.precheck_failed", theme.error, Some(message))
                 }
             };
-            let mut block = div()
-                .flex()
-                .flex_col()
-                .mt_2()
-                .child(div().text_sm().text_color(rgb(color)).child(self.i18n.t(key)));
-            if let Some(detail) = detail {
-                block = block.child(
-                    div()
-                        .text_xs()
-                        .text_color(rgb(theme.text_muted))
-                        .child(detail.clone()),
-                );
-            }
-            block
-        };
-
-        let mut panel = div()
-            .id("rayops-asset-details")
+        let mut precheck = div()
             .flex()
             .flex_col()
             .mx_2()
-            .mt_2()
-            .mb_3()
-            .px_3()
-            .py_2()
-            .rounded_md()
-            .bg(rgb(theme.bg_card))
-            .border_1()
-            .border_color(rgb(theme.border))
+            .mb_2()
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(rgb(precheck_color))
+                    .child(self.i18n.t(precheck_key)),
+            );
+        if let Some(detail) = precheck_detail {
+            precheck = precheck.child(
+                div()
+                    .text_xs()
+                    .text_color(rgb(theme.text_muted))
+                    .child(detail.clone()),
+            );
+        }
+
+        // Only the identifier, never the credential, which this client does not have.
+        let identifier = format!("RayOps asset {asset_id} {} {}", asset.hostname, asset.ip);
+        let mut panel = div()
+            .flex()
+            .flex_col()
+            .w_full()
+            // Bounded so the header and the action row stay put and only the cards scroll: an
+            // action the user cannot reach is the same as no action. The bound is explicit rather
+            // than inherited, because the section above has no definite height for a flex child to
+            // resolve against.
+            .max_h(px(RAYOPS_SECTION_MAX_HEIGHT))
+            .flex_1()
+            .min_h_0()
             .child(
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
                     .justify_between()
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(rgb(theme.text_heading))
-                            .child(self.i18n.t("ssh.rayops.asset_details")),
-                    )
+                    .mx_2()
+                    .mb_1()
                     .child(
                         div()
                             .id("rayops-asset-details-close")
                             .px_2()
                             .rounded_md()
                             .cursor_pointer()
+                            .text_xs()
                             .text_color(rgb(theme.text_muted))
                             .hover(|style| style.bg(rgb(theme.bg_hover)))
                             .on_mouse_down(
@@ -1915,62 +1930,75 @@ impl WorkspaceApp {
                                     this.close_rayops_asset_details(cx);
                                 }),
                             )
-                            .child("✕"),
+                            .child(format!("\u{2039} {}", self.i18n.t("ssh.rayops.back_to_list"))),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(rgb(theme.text_heading))
+                            .child(self.i18n.t("ssh.rayops.asset_details")),
                     ),
             )
-            .child(section("ssh.rayops.identity", identity))
-            .child(section("ssh.rayops.connection", connection))
-            .child(section("ssh.rayops.system", system))
-            .child(section("ssh.rayops.governance", governance))
-            .child(precheck);
-
-        let identifier = format!("RayOps asset {} {} {}", asset.id, asset.hostname, asset.ip);
-        panel = panel.child(
-            div()
-                .flex()
-                .flex_row()
-                .gap_2()
-                .mt_3()
-                .child(
-                    div()
-                        .id("rayops-asset-connect")
-                        .px_3()
-                        .py_1()
-                        .rounded_md()
-                        .bg(rgb(theme.accent))
-                        .text_color(rgb(theme.accent_text))
-                        .cursor_pointer()
-                        .on_mouse_down(
-                            MouseButton::Left,
-                            cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
-                                this.connect_rayops_catalog_asset(selected_id, cx);
-                            }),
-                        )
-                        .child(self.i18n.t("ssh.form.connect")),
-                )
-                // Copies only the identifier. Never the credential, which this client does not have.
-                .child(
-                    div()
-                        .id("rayops-asset-copy")
-                        .px_3()
-                        .py_1()
-                        .rounded_md()
-                        .bg(rgb(theme.bg_elevated))
-                        .text_color(rgb(theme.text))
-                        .cursor_pointer()
-                        .hover(|style| style.bg(rgb(theme.bg_hover)))
-                        .on_mouse_down(
-                            MouseButton::Left,
-                            cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
-                                let _ = this;
-                                cx.write_to_clipboard(gpui::ClipboardItem::new_string(
-                                    identifier.clone(),
-                                ));
-                            }),
-                        )
-                        .child(self.i18n.t("ssh.rayops.copy_identifier")),
-                ),
-        );
+            .child(
+                div()
+                    .id("rayops-asset-details-body")
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .child(card("ssh.rayops.identity", identity))
+                    .child(card("ssh.rayops.connection", connection))
+                    .child(card("ssh.rayops.system", system))
+                    .child(card("ssh.rayops.governance", governance)),
+            )
+            .child(precheck)
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap_2()
+                    .mx_2()
+                    .mb_2()
+                    .child(
+                        div()
+                            .id("rayops-asset-connect")
+                            .px_3()
+                            .py_1()
+                            .rounded_md()
+                            .bg(rgb(theme.accent))
+                            .text_color(rgb(theme.accent_text))
+                            .cursor_pointer()
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                                    this.connect_rayops_catalog_asset(asset_id, cx);
+                                }),
+                            )
+                            .child(self.i18n.t("ssh.form.connect")),
+                    )
+                    .child(
+                        div()
+                            .id("rayops-asset-copy")
+                            .px_3()
+                            .py_1()
+                            .rounded_md()
+                            .bg(rgb(theme.bg_elevated))
+                            .text_color(rgb(theme.text))
+                            .cursor_pointer()
+                            .hover(|style| style.bg(rgb(theme.bg_hover)))
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |_this, _: &gpui::MouseDownEvent, _window, cx| {
+                                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(
+                                        identifier.clone(),
+                                    ));
+                                }),
+                            )
+                            .child(self.i18n.t("ssh.rayops.copy_identifier")),
+                    ),
+            );
+        let _ = &mut panel;
         panel.into_any_element()
     }
 
