@@ -390,6 +390,26 @@ pub(in crate::workspace) async fn rename_rayops_entry(
     interpret_sftp_acknowledgement(&response, Endpoint::SftpRename).map_err(describe)
 }
 
+/// Refuses an entry name that could place a write outside `parent`.
+///
+/// The name arrives from the gateway. Even for a gateway this client trusts, joining a
+/// remote-supplied name onto a local path without checking it hands the *destination* of every
+/// write to the remote side: `..`, `../x`, an absolute path, or a name containing a separator
+/// would each escape the directory the user chose.
+///
+/// A name that is not a single ordinary path component is refused rather than normalised.
+/// Rewriting it would silently accept something this client does not understand, and the user
+/// would never learn that the listing was not what it appeared to be.
+fn safe_local_child(parent: &std::path::Path, name: &str) -> Option<std::path::PathBuf> {
+    let mut components = std::path::Path::new(name).components();
+    match (components.next(), components.next()) {
+        // Exactly one `Normal` component, and nothing after it: this rejects "", ".", "..",
+        // "/abs", "a/b", and "a/../b" without needing to enumerate those spellings.
+        (Some(std::path::Component::Normal(_)), None) => Some(parent.join(name)),
+        _ => None,
+    }
+}
+
 /// What a recursive download brought back.
 #[derive(Debug, Default, Eq, PartialEq)]
 pub(in crate::workspace) struct RayOpsTreeDownload {
@@ -440,7 +460,10 @@ pub(in crate::workspace) async fn download_rayops_tree(
         for entry in listing.entries {
             match entry.kind {
                 SftpEntryKind::Directory => {
-                    queue.push((entry.path.clone(), local_dir.join(&entry.name)));
+                    match safe_local_child(&local_dir, &entry.name) {
+                        Some(child) => queue.push((entry.path.clone(), child)),
+                        None => summary.skipped.push(entry.path.clone()),
+                    }
                 }
                 SftpEntryKind::File => {
                     let response = control
@@ -453,7 +476,11 @@ pub(in crate::workspace) async fn download_rayops_tree(
                         .await
                         .map_err(describe)?;
                     let bytes = interpret_sftp_download(&response).map_err(describe)?;
-                    let target = local_dir.join(&entry.name);
+                    // Refused names are reported rather than written somewhere unexpected.
+                    let Some(target) = safe_local_child(&local_dir, &entry.name) else {
+                        summary.skipped.push(entry.path.clone());
+                        continue;
+                    };
                     std::fs::write(&target, &bytes)
                         .map_err(|error| format!("cannot write {}: {error}", target.display()))?;
                     summary.files += 1;
@@ -466,4 +493,71 @@ pub(in crate::workspace) async fn download_rayops_tree(
     }
 
     Ok(summary)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    /// A remote-supplied name must never be able to place a write outside the chosen directory.
+    ///
+    /// Every case here is a way the gateway — or anything that can answer for it — could redirect
+    /// the destination of a download. The assertion is on the resolved path, not merely on
+    /// "some value came back": a check that returned `Some(root.join("../x"))` would pass a
+    /// `is_some()` assertion and still write outside the root.
+    #[test]
+    fn a_remote_name_cannot_escape_the_download_directory() {
+        let root = Path::new("/tmp/rayterm-download");
+
+        for hostile in [
+            "..",
+            ".",
+            "",
+            "../escape.txt",
+            "../../escape.txt",
+            "sub/../../escape.txt",
+            "/etc/passwd",
+            "sub/file.txt",
+            "./file.txt",
+        ] {
+            assert_eq!(
+                safe_local_child(root, hostile),
+                None,
+                "{hostile:?} must be refused, not resolved"
+            );
+        }
+
+        // An ordinary name is joined, and stays under the root.
+        let joined = safe_local_child(root, "report.csv").expect("an ordinary name is accepted");
+        assert_eq!(joined, root.join("report.csv"));
+        assert!(joined.starts_with(root));
+
+        // A dotfile is an ordinary component, not the `.` traversal.
+        assert_eq!(
+            safe_local_child(root, ".bashrc"),
+            Some(root.join(".bashrc"))
+        );
+        // A name that merely contains dots is ordinary too.
+        assert_eq!(
+            safe_local_child(root, "archive.tar.gz"),
+            Some(root.join("archive.tar.gz"))
+        );
+    }
+
+    /// Component parsing follows the host platform, and that is the correct behaviour.
+    ///
+    /// On Unix a backslash is an ordinary filename character, so `a\b` is one component and is
+    /// safe here; on Windows the same string is two components and is refused by the same check.
+    /// Asserting a fixed answer for it would encode one platform's rule as the contract.
+    #[test]
+    fn separator_handling_follows_the_platform() {
+        let root = Path::new("/tmp/rayterm-download");
+        let resolved = safe_local_child(root, r"a\b");
+        if cfg!(windows) {
+            assert_eq!(resolved, None);
+        } else {
+            assert_eq!(resolved, Some(root.join(r"a\b")));
+        }
+    }
 }
