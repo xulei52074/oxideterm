@@ -1254,7 +1254,14 @@ impl WorkspaceApp {
                             match asset_id {
                                 // A RayOps session owns no SSH node, so an SFTP tab could not
                                 // reach its asset. The gateway's file API is what serves it.
-                                Some(asset_id) => this.open_rayops_files(asset_id, cx),
+                                Some(asset_id) => {
+                                    // The file view renders inside the session manager, so that
+                                    // surface has to be brought forward. Setting the state alone
+                                    // leaves the user looking at a panel that does not show it,
+                                    // which is indistinguishable from the control doing nothing.
+                                    this.open_session_manager_tab(window, cx);
+                                    this.open_rayops_files(asset_id, cx);
+                                }
                                 None => this.open_sftp_tab(node_id.clone(), window, cx),
                             }
                             cx.stop_propagation();
@@ -1394,7 +1401,11 @@ impl WorkspaceApp {
                     move |this, _event, window, cx| {
                         match rayops_asset_id {
                             // Same reason as the focus menu: no SSH node to open a tab against.
-                            Some(asset_id) => this.open_rayops_files(asset_id, cx),
+                            Some(asset_id) => {
+                                // Same reason too: the file view lives in the session manager.
+                                this.open_session_manager_tab(window, cx);
+                                this.open_rayops_files(asset_id, cx);
+                            }
                             None => this.open_sftp_tab(node_id.clone(), window, cx),
                         }
                         cx.stop_propagation();
