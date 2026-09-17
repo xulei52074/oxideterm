@@ -76,7 +76,13 @@ const MANAGER_ROW_TEXT_SIZE: f32 = 14.0;
 pub(super) const SESSION_TREE_MAX_HEIGHT: f32 = 320.0;
 
 /// How tall the managed-asset section may grow before it scrolls.
-pub(super) const RAYOPS_SECTION_MAX_HEIGHT: f32 = 360.0;
+/// How tall the managed-asset area may grow, including the file view.
+///
+/// Bounded rather than unbounded: the area is a sibling of the flexed content above it and has no
+/// definite height of its own, so an unbounded child grows past the panel and clips its own action
+/// row — the controls end up outside the visible region, which is the same as not having them.
+/// Raised from 360 so a listing shows a useful number of rows rather than one or two.
+pub(super) const RAYOPS_SECTION_MAX_HEIGHT: f32 = 520.0;
 const MANAGER_ROW_META_TEXT_SIZE: f32 = 12.0;
 const MANAGER_TABLE_HEADER_TEXT_SIZE: f32 = 12.0;
 const MANAGER_ROW_ACTION_BUTTON: f32 = 24.0; // Tauri h-6 w-6

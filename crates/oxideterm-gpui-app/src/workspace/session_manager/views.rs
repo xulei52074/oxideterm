@@ -2389,9 +2389,10 @@ impl WorkspaceApp {
             .flex()
             .flex_col()
             .w_full()
-            // Fills the section rather than a fixed cap: a hard 360px left the listing showing one
-            // or two rows in a panel with room for many more, which reads as an empty view rather
-            // than a short one. The header and the actions stay put and only the listing scrolls.
+            // Bounded, with the listing as the part that flexes: without a bound the panel grew
+            // past the sidebar and clipped its own action row, so the controls sat outside the
+            // visible region. The bound is generous enough for a useful number of rows.
+            .max_h(px(RAYOPS_SECTION_MAX_HEIGHT))
             .flex_1()
             .min_h_0()
             .child(header)
