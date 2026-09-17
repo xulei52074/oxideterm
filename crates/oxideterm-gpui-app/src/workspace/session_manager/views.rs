@@ -2092,11 +2092,12 @@ impl WorkspaceApp {
             .map(|asset| asset.hostname.clone())
             .unwrap_or_default();
 
+        // Left-aligned as one block rather than split to both edges: the title names the asset
+        // being browsed, so it belongs with the way back rather than reading as a second,
+        // unrelated navigation.
         let header = div()
             .flex()
-            .flex_row()
-            .items_center()
-            .justify_between()
+            .flex_col()
             .mx_2()
             .mb_1()
             .child(
@@ -2119,8 +2120,14 @@ impl WorkspaceApp {
             .child(
                 div()
                     .text_xs()
+                    .text_color(rgb(theme.text_muted))
+                    .child(self.i18n.t("ssh.rayops.files_title")),
+            )
+            .child(
+                div()
+                    .text_sm()
                     .text_color(rgb(theme.text_heading))
-                    .child(format!("{} · {asset_name}", self.i18n.t("ssh.rayops.files_title"))),
+                    .child(asset_name.clone()),
             );
 
         // The path row carries the only navigation that is not an entry: going up. At the root
@@ -2241,13 +2248,22 @@ impl WorkspaceApp {
                             .flex_row()
                             .items_center()
                             .gap_2()
-                            .child(
-                                div()
-                                    .w(px(10.0))
-                                    .text_xs()
-                                    .text_color(rgb(theme.text_muted))
-                                    .child(if is_directory { "▸" } else { "·" }),
-                            )
+                            // An icon rather than a glyph: which entries are directories is the
+                            // first thing the eye needs, and it is the one distinction a listing
+                            // cannot leave to the name.
+                            .child(Self::render_lucide_icon(
+                                if is_directory {
+                                    LucideIcon::Folder
+                                } else {
+                                    LucideIcon::File
+                                },
+                                12.0,
+                                if is_directory {
+                                    rgb(theme.accent)
+                                } else {
+                                    rgb(theme.text_muted)
+                                },
+                            ))
                             .child(
                                 div()
                                     .flex_1()
@@ -2255,14 +2271,17 @@ impl WorkspaceApp {
                                     .text_color(rgb(theme.text))
                                     .child(entry.name.clone()),
                             )
+                            // Size only, right-aligned. The permission string is gone from the row:
+                            // it is long, it is rarely the reason to pick a file, and it was
+                            // squeezing the name into a narrow column.
                             .child(
                                 div()
                                     .text_xs()
                                     .text_color(rgb(theme.text_muted))
                                     .child(if is_directory {
-                                        entry.mode.clone()
+                                        String::new()
                                     } else {
-                                        format!("{}  {}", entry.size, entry.mode)
+                                        human_readable_size(entry.size)
                                     }),
                             ),
                     ),
@@ -2279,7 +2298,12 @@ impl WorkspaceApp {
         let has_selection = state.selected_entry().is_some();
 
         // One control in two states: the same look, with a listener only when it can act.
+        //
+        // Icon-only: four text labels in a sidebar this narrow spent the width on words and left
+        // the listing the smaller share. Each carries a tooltip, so the icon is not the only way
+        // to find out what it does.
         let control = |id: &'static str,
+                       icon: LucideIcon,
                        label: String,
                        enabled: bool,
                        theme: oxideterm_theme::AppUiColors,
@@ -2288,13 +2312,29 @@ impl WorkspaceApp {
         >| {
             let base = div()
                 .id(id)
-                .px_2()
-                .py_0p5()
+                .p_1()
                 .rounded_md()
-                .text_xs()
                 .bg(rgb(if enabled { theme.bg_elevated } else { theme.bg_sunken }))
-                .text_color(rgb(if enabled { theme.text } else { theme.text_muted }))
-                .child(label);
+                .tooltip({
+                    let tokens = self.tokens;
+                    move |_window, cx| {
+                        oxideterm_gpui_ui::tooltip::tooltip_view(
+                            tokens,
+                            label.clone(),
+                            None,
+                            cx,
+                        )
+                    }
+                })
+                .child(Self::render_lucide_icon(
+                    icon,
+                    14.0,
+                    if enabled {
+                        rgb(theme.text)
+                    } else {
+                        rgb(theme.text_muted)
+                    },
+                ));
             if let (true, Some(handler)) = (enabled, handler) {
                 base.cursor_pointer()
                     .hover(|style| style.bg(rgb(theme.bg_hover)))
@@ -2312,6 +2352,7 @@ impl WorkspaceApp {
             .my_2()
             .child(control(
                 "rayops-files-refresh",
+                LucideIcon::RefreshCw,
                 self.i18n.t("ssh.rayops.files_refresh"),
                 true,
                 theme,
@@ -2319,6 +2360,7 @@ impl WorkspaceApp {
             ))
             .child(control(
                 "rayops-files-upload",
+                LucideIcon::FolderInput,
                 self.i18n.t("ssh.rayops.files_upload"),
                 true,
                 theme,
@@ -2326,6 +2368,7 @@ impl WorkspaceApp {
             ))
             .child(control(
                 "rayops-files-download",
+                LucideIcon::Download,
                 self.i18n.t("ssh.rayops.files_download"),
                 has_downloadable_selection,
                 theme,
@@ -2335,6 +2378,7 @@ impl WorkspaceApp {
             ))
             .child(control(
                 "rayops-files-delete",
+                LucideIcon::Trash2,
                 self.i18n.t("ssh.rayops.files_delete"),
                 has_selection,
                 theme,
@@ -2345,9 +2389,9 @@ impl WorkspaceApp {
             .flex()
             .flex_col()
             .w_full()
-            // Bounded so the header and the actions stay put and only the listing scrolls. Explicit
-            // rather than inherited: the section above has no definite height to resolve against.
-            .max_h(px(RAYOPS_SECTION_MAX_HEIGHT))
+            // Fills the section rather than a fixed cap: a hard 360px left the listing showing one
+            // or two rows in a panel with room for many more, which reads as an empty view rather
+            // than a short one. The header and the actions stay put and only the listing scrolls.
             .flex_1()
             .min_h_0()
             .child(header)
@@ -4031,5 +4075,27 @@ mod session_manager_pointer_tests {
             session_manager_item_pointer_action(2, false),
             SessionManagerItemPointerAction::Open
         );
+    }
+}
+
+/// A byte count as an operator reads it.
+///
+/// Binary units, because that is what every `ls -h` an operator has seen uses, and a decimal unit
+/// would disagree with the tools they are comparing against.
+fn human_readable_size(bytes: i64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    if bytes < 0 {
+        return String::new();
+    }
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit + 1 < UNITS.len() {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{value:.1} {}", UNITS[unit])
     }
 }
