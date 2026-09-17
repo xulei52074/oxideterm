@@ -304,7 +304,8 @@
       "files_choose_folder": "Zielordner wählen",
       "files_choose_file": "Datei zum Hochladen wählen",
       "files_refresh": "Aktualisieren",
-      "files_skipped_entries": "Übersprungene Einträge"
+      "files_skipped_entries": "Übersprungene Einträge",
+      "files_directory_not_empty": "Das Verzeichnis ist nicht leer und wurde nicht gelöscht (das Gateway löscht nicht rekursiv)"
     }
   }
 }

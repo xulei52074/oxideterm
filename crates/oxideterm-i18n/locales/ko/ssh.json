@@ -304,7 +304,8 @@
       "files_choose_folder": "저장할 폴더 선택",
       "files_choose_file": "업로드할 파일 선택",
       "files_refresh": "새로 고침",
-      "files_skipped_entries": "건너뛴 항목"
+      "files_skipped_entries": "건너뛴 항목",
+      "files_directory_not_empty": "디렉터리가 비어 있지 않아 삭제하지 않았습니다(게이트웨이는 재귀 삭제를 지원하지 않습니다)"
     }
   }
 }

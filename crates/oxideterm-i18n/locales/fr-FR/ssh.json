@@ -304,7 +304,8 @@
       "files_choose_folder": "Choisir un dossier de destination",
       "files_choose_file": "Choisir un fichier à envoyer",
       "files_refresh": "Actualiser",
-      "files_skipped_entries": "Entrées ignorées"
+      "files_skipped_entries": "Entrées ignorées",
+      "files_directory_not_empty": "Le dossier n’est pas vide et n’a pas été supprimé (la passerelle ne supprime pas récursivement)"
     }
   }
 }

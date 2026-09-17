@@ -304,7 +304,8 @@
       "files_choose_folder": "選擇儲存位置",
       "files_choose_file": "選擇要上傳的檔案",
       "files_refresh": "重新整理",
-      "files_skipped_entries": "以下項目已略過"
+      "files_skipped_entries": "以下項目已略過",
+      "files_directory_not_empty": "目錄非空，無法刪除（閘道不支援遞迴刪除）"
     }
   },
   "connections": {

@@ -304,7 +304,8 @@
       "files_choose_folder": "Elige una carpeta de destino",
       "files_choose_file": "Elige un archivo para subir",
       "files_refresh": "Actualizar",
-      "files_skipped_entries": "Entradas omitidas"
+      "files_skipped_entries": "Entradas omitidas",
+      "files_directory_not_empty": "El directorio no está vacío, por lo que no se eliminó (la pasarela no elimina de forma recursiva)"
     }
   }
 }

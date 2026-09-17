@@ -511,7 +511,18 @@ impl crate::workspace::WorkspaceApp {
             let _ = this.update_in(cx, |this, _window, cx| {
                 match outcome {
                     Ok(Ok(())) => this.reload_rayops_directory(cx),
-                    Ok(Err(message)) => this.notify_rayops_error(message, cx),
+                    Ok(Err(message)) => {
+                        // The gateway refuses a non-empty directory with a bare
+                        // `SSH_FX_FAILURE`, which says nothing an operator can act on. The
+                        // refusal is the safe behaviour — nothing is deleted — so it is worth
+                        // stating plainly: delete a directory's contents first.
+                        let explained = if message.contains("SSH_FX_FAILURE") {
+                            this.i18n.t("ssh.rayops.files_directory_not_empty")
+                        } else {
+                            message
+                        };
+                        this.notify_rayops_error(explained, cx);
+                    }
                     Err(join) => {
                         this.notify_rayops_error(format!("the RayOps delete failed: {join}"), cx)
                     }

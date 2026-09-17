@@ -304,7 +304,8 @@
       "files_choose_folder": "Escolha uma pasta de destino",
       "files_choose_file": "Escolha um arquivo para enviar",
       "files_refresh": "Atualizar",
-      "files_skipped_entries": "Entradas ignoradas"
+      "files_skipped_entries": "Entradas ignoradas",
+      "files_directory_not_empty": "O diretório não está vazio e não foi excluído (o gateway não exclui recursivamente)"
     }
   }
 }

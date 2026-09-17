@@ -304,7 +304,8 @@
       "files_choose_folder": "保存先フォルダを選択",
       "files_choose_file": "アップロードするファイルを選択",
       "files_refresh": "更新",
-      "files_skipped_entries": "スキップした項目"
+      "files_skipped_entries": "スキップした項目",
+      "files_directory_not_empty": "ディレクトリが空ではないため削除しませんでした（ゲートウェイは再帰削除に対応していません）"
     }
   }
 }

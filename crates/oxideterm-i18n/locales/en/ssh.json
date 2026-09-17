@@ -304,7 +304,8 @@
       "files_choose_folder": "Choose a folder to save into",
       "files_choose_file": "Choose a file to upload",
       "files_refresh": "Refresh",
-      "files_skipped_entries": "Skipped entries"
+      "files_skipped_entries": "Skipped entries",
+      "files_directory_not_empty": "The directory is not empty, so it was not deleted (the gateway does not delete recursively)"
     }
   },
   "connections": {
