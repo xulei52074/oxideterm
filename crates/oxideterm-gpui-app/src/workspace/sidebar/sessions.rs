@@ -1420,25 +1420,32 @@ impl WorkspaceApp {
                     listener,
                     cx,
                 ));
-                let listener = cx.listener({
-                    let node_id = node_id.clone();
-                    move |this, _event, _window, cx| {
-                        // Mirrors Tauri's node-first IDE route: opening IDE creates
-                        // an IDE owner surface and remote folder chooser for the
-                        // node, not a terminal pane or implicit "/" project.
-                        this.open_ide_folder_picker_tab(node_id.clone(), cx);
-                        cx.stop_propagation();
-                    }
-                });
-                children.push(self.render_session_action_item(
-                    node_depth + 1,
-                    false,
-                    LucideIcon::Code2,
-                    "IDE".to_string(),
-                    SessionActionVariant::Primary,
-                    listener,
-                    cx,
-                ));
+                // IDE, port forwarding, saving and drilling in all act on an SSH **node**. A
+                // managed RayOps session has none: its row carries a synthetic id, so clicking
+                // these looked the id up in the node registry and reported
+                // `Node not found: rayops-session-...`. They are left out rather than offered
+                // broken. `断开` and the terminal entry below stay, because those do apply.
+                if rayops_asset_id.is_none() {
+                    let listener = cx.listener({
+                        let node_id = node_id.clone();
+                        move |this, _event, _window, cx| {
+                            // Mirrors Tauri's node-first IDE route: opening IDE creates
+                            // an IDE owner surface and remote folder chooser for the
+                            // node, not a terminal pane or implicit "/" project.
+                            this.open_ide_folder_picker_tab(node_id.clone(), cx);
+                            cx.stop_propagation();
+                        }
+                    });
+                    children.push(self.render_session_action_item(
+                        node_depth + 1,
+                        false,
+                        LucideIcon::Code2,
+                        "IDE".to_string(),
+                        SessionActionVariant::Primary,
+                        listener,
+                        cx,
+                    ));
+                }
                 let listener = cx.listener({
                     let node_id = node_id.clone();
                     move |this, _event, window, cx| {
