@@ -7,6 +7,29 @@
 
 use gpui::Context;
 
+/// The path split into clickable ancestors, outermost first.
+///
+/// Each entry pairs the label to show with the absolute path it navigates to, so a segment can be
+/// rendered and acted on without the view re-deriving what a prefix means. The last entry is the
+/// directory on display.
+///
+/// The root is always present, which is what makes the whole path reachable from any depth without
+/// stepping up one level at a time.
+pub(in crate::workspace) fn path_segments(path: &str) -> Vec<(String, String)> {
+    let trimmed = path.trim_matches('/');
+    let mut segments = vec![("/".to_owned(), "/".to_owned())];
+    if trimmed.is_empty() {
+        return segments;
+    }
+    let mut accumulated = String::new();
+    for part in trimmed.split('/').filter(|part| !part.is_empty()) {
+        accumulated.push('/');
+        accumulated.push_str(part);
+        segments.push((part.to_owned(), accumulated.clone()));
+    }
+    segments
+}
+
 /// Whether an asset advertises the capability the gateway's file API requires.
 ///
 /// Checked before the user is offered a file view, so an asset that cannot serve one is not
@@ -193,6 +216,38 @@ mod rayops_files_tests {
 
         state.selected = Some(3);
         assert!(state.selected_entry().is_none(), "an empty list has no entry 3");
+    }
+
+    /// Every ancestor is reachable in one step, and the deepest entry is the current directory.
+    #[test]
+    fn the_path_splits_into_clickable_ancestors() {
+        assert_eq!(path_segments("/"), vec![("/".to_owned(), "/".to_owned())]);
+        assert_eq!(
+            path_segments("/data"),
+            vec![
+                ("/".to_owned(), "/".to_owned()),
+                ("data".to_owned(), "/data".to_owned()),
+            ]
+        );
+        assert_eq!(
+            path_segments("/data/sit-backup/mongodb"),
+            vec![
+                ("/".to_owned(), "/".to_owned()),
+                ("data".to_owned(), "/data".to_owned()),
+                ("sit-backup".to_owned(), "/data/sit-backup".to_owned()),
+                ("mongodb".to_owned(), "/data/sit-backup/mongodb".to_owned()),
+            ]
+        );
+        // A trailing separator names the same directory, not an extra empty segment.
+        assert_eq!(
+            path_segments("/data/"),
+            vec![
+                ("/".to_owned(), "/".to_owned()),
+                ("data".to_owned(), "/data".to_owned()),
+            ]
+        );
+        // An empty path still offers the root rather than nothing to click.
+        assert_eq!(path_segments(""), vec![("/".to_owned(), "/".to_owned())]);
     }
 }
 

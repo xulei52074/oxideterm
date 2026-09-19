@@ -2163,13 +2163,54 @@ impl WorkspaceApp {
                     .child(format!("↑ {}", self.i18n.t("ssh.rayops.files_up"))),
             );
         }
-        path_row = path_row.child(
-            div()
-                .flex_1()
-                .text_xs()
-                .text_color(rgb(theme.text_muted))
-                .child(state.path.clone()),
-        );
+        // The breadcrumb replaces the plain path text: every ancestor becomes one click away, so
+        // reaching a directory near the root no longer means stepping up once per level. The last
+        // segment is the directory on display and is not a link — clicking where you already are
+        // would only re-list it.
+        {
+            use super::new_connection::rayops_files::path_segments;
+            let segments = path_segments(&state.path);
+            let last = segments.len().saturating_sub(1);
+            let mut crumbs = div().flex().flex_row().flex_1().items_center().overflow_hidden();
+            for (index, (label, full_path)) in segments.into_iter().enumerate() {
+                if index > 0 {
+                    crumbs = crumbs.child(
+                        div()
+                            .px_1()
+                            .text_xs()
+                            .text_color(rgb(theme.text_muted))
+                            .child("/"),
+                    );
+                }
+                if index == last {
+                    crumbs = crumbs.child(
+                        div()
+                            .text_xs()
+                            .text_color(rgb(theme.text))
+                            .child(label),
+                    );
+                } else {
+                    crumbs = crumbs.child(
+                        div()
+                            .id(("rayops-path-crumb", index as u64))
+                            .px_1()
+                            .rounded_sm()
+                            .cursor_pointer()
+                            .text_xs()
+                            .text_color(rgb(theme.text_muted))
+                            .hover(|style| style.bg(rgb(theme.bg_hover)))
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                                    this.navigate_rayops_directory(full_path.clone(), cx);
+                                }),
+                            )
+                            .child(label),
+                    );
+                }
+            }
+            path_row = path_row.child(crumbs);
+        }
 
         let mut listing = div()
             .id("rayops-files-listing")
