@@ -305,7 +305,8 @@
       "files_choose_file": "Elige un archivo para subir",
       "files_refresh": "Actualizar",
       "files_skipped_entries": "Entradas omitidas",
-      "files_directory_not_empty": "El directorio no está vacío, por lo que no se eliminó (la pasarela no elimina de forma recursiva)"
+      "files_directory_not_empty": "El directorio no está vacío, por lo que no se eliminó (la pasarela no elimina de forma recursiva)",
+      "files_host_key_unverified": "La pasarela no puede verificar la clave del host de destino (falta una entrada en known_hosts del lado de la pasarela)"
     }
   }
 }

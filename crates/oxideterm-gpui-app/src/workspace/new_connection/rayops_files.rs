@@ -280,7 +280,15 @@ impl crate::workspace::WorkspaceApp {
                     }
                     Ok(Err(message)) => {
                         this.rayops_files.phase = RayOpsFilePhase::Failed;
-                        this.rayops_files.error = Some(message);
+                        // A host-key refusal is the gateway's own problem, not the user's and not
+                        // this client's, and its raw form ("knownhosts: key is unknown") reads like
+                        // something the operator did wrong. Saying whose problem it is is the whole
+                        // value of the message.
+                        this.rayops_files.error = Some(if message.contains("knownhosts") {
+                            this.i18n.t("ssh.rayops.files_host_key_unverified")
+                        } else {
+                            message
+                        });
                     }
                     Err(join) => {
                         this.rayops_files.phase = RayOpsFilePhase::Failed;

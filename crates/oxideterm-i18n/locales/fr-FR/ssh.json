@@ -305,7 +305,8 @@
       "files_choose_file": "Choisir un fichier à envoyer",
       "files_refresh": "Actualiser",
       "files_skipped_entries": "Entrées ignorées",
-      "files_directory_not_empty": "Le dossier n’est pas vide et n’a pas été supprimé (la passerelle ne supprime pas récursivement)"
+      "files_directory_not_empty": "Le dossier n’est pas vide et n’a pas été supprimé (la passerelle ne supprime pas récursivement)",
+      "files_host_key_unverified": "La passerelle ne peut pas vérifier la clé de l’hôte cible (aucune entrée known_hosts côté passerelle)"
     }
   }
 }

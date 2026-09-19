@@ -305,7 +305,8 @@
       "files_choose_file": "选择要上传的文件",
       "files_refresh": "刷新",
       "files_skipped_entries": "以下条目已跳过",
-      "files_directory_not_empty": "目录非空，无法删除（网关不支持递归删除）"
+      "files_directory_not_empty": "目录非空，无法删除（网关不支持递归删除）",
+      "files_host_key_unverified": "网关无法验证目标主机密钥（网关侧的 known_hosts 缺少该资产）"
     }
   },
   "connections": {

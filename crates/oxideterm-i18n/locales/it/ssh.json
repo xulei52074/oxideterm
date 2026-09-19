@@ -305,7 +305,8 @@
       "files_choose_file": "Scegli un file da caricare",
       "files_refresh": "Aggiorna",
       "files_skipped_entries": "Voci saltate",
-      "files_directory_not_empty": "La cartella non è vuota e non è stata eliminata (il gateway non elimina in modo ricorsivo)"
+      "files_directory_not_empty": "La cartella non è vuota e non è stata eliminata (il gateway non elimina in modo ricorsivo)",
+      "files_host_key_unverified": "Il gateway non può verificare la chiave dell’host di destinazione (manca una voce known_hosts lato gateway)"
     }
   }
 }

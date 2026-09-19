@@ -305,7 +305,8 @@
       "files_choose_file": "アップロードするファイルを選択",
       "files_refresh": "更新",
       "files_skipped_entries": "スキップした項目",
-      "files_directory_not_empty": "ディレクトリが空ではないため削除しませんでした（ゲートウェイは再帰削除に対応していません）"
+      "files_directory_not_empty": "ディレクトリが空ではないため削除しませんでした（ゲートウェイは再帰削除に対応していません）",
+      "files_host_key_unverified": "ゲートウェイが対象ホストの鍵を検証できません（ゲートウェイ側の known_hosts に該当資産の登録がありません）"
     }
   }
 }

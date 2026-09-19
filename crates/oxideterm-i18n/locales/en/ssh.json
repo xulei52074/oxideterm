@@ -305,7 +305,8 @@
       "files_choose_file": "Choose a file to upload",
       "files_refresh": "Refresh",
       "files_skipped_entries": "Skipped entries",
-      "files_directory_not_empty": "The directory is not empty, so it was not deleted (the gateway does not delete recursively)"
+      "files_directory_not_empty": "The directory is not empty, so it was not deleted (the gateway does not delete recursively)",
+      "files_host_key_unverified": "The gateway cannot verify the target host key (the gateway side known_hosts has no entry for this asset)"
     }
   },
   "connections": {

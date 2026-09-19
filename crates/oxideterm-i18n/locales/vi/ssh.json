@@ -305,7 +305,8 @@
       "files_choose_file": "Chọn tệp để tải lên",
       "files_refresh": "Làm mới",
       "files_skipped_entries": "Mục đã bỏ qua",
-      "files_directory_not_empty": "Thư mục không trống nên không bị xóa (cổng không xóa đệ quy)"
+      "files_directory_not_empty": "Thư mục không trống nên không bị xóa (cổng không xóa đệ quy)",
+      "files_host_key_unverified": "Cổng không thể xác minh khóa máy chủ đích (known_hosts phía cổng thiếu mục cho tài sản này)"
     }
   }
 }
