@@ -39,6 +39,9 @@ CHARCOAL = (32, 38, 46)
 
 MARK_MARGIN = 0.18  # the mark's inset from the plate edge; enough that the bowl clears the rounded corner
 PLATE_RADIUS = 0.22
+# How far the plate leans towards a variant's colour. Low enough that the mark stays dominant,
+# high enough that the twelve variants remain distinguishable from one another.
+PLATE_TINT = 0.22
 SUPERSAMPLE = 4
 
 ICON_SIZE = 512
@@ -91,8 +94,21 @@ def recolor(mark, ink, accent):
     return mark
 
 
+def plate_colour(background, accent):
+    """The plate tinted towards the variant's colour.
+
+    The variant colour used to be applied by recolouring the mark, because the mark was a
+    single-colour shape. The family mark now carries its own finished colours — a dark tile, a
+    white R, a red block and a gold sparkle — so recolouring it would destroy the letterform.
+    The choice moves to the plate instead, which keeps it meaningful: the icon still reads as
+    blue, green or red at a glance, and the mark stays the mark.
+    """
+    base = background if background is not None else PAPER
+    return tuple(round(base[i] + (accent[i] - base[i]) * PLATE_TINT) for i in range(3))
+
+
 def compose(size, mark, background, ink, accent):
-    """Draws one icon: the plate, then the recoloured mark centred on it."""
+    """Draws one icon: the tinted plate, then the mark placed unchanged on it."""
     scale = size * SUPERSAMPLE
     canvas = Image.new("RGBA", (scale, scale), (0, 0, 0, 0))
 
@@ -100,7 +116,7 @@ def compose(size, mark, background, ink, accent):
         ImageDraw.Draw(canvas).rounded_rectangle(
             [(0, 0), (scale - 1, scale - 1)],
             radius=int(scale * PLATE_RADIUS),
-            fill=(*background, 255),
+            fill=(*plate_colour(background, accent), 255),
         )
 
     # The mark keeps its own silhouette — its rounded bowl and diagonal leg *are* the
@@ -114,7 +130,9 @@ def compose(size, mark, background, ink, accent):
     else:
         target_h, target_w = int(inner), max(1, int(inner * ratio))
 
-    colored = recolor(mark.resize((target_w, target_h), Image.LANCZOS), ink, accent)
+    # Placed as-is: the mark's own colours are the brand, and `recolor` would map them onto
+    # ink/accent, flattening the white letterform and the gold sparkle.
+    colored = mark.resize((target_w, target_h), Image.LANCZOS)
     canvas.alpha_composite(
         colored, ((scale - target_w) // 2, (scale - target_h) // 2)
     )
@@ -139,19 +157,20 @@ VARIANTS = {
 }
 
 
-def verify(path: Path, size: int, expect_accent) -> None:
-    """Asserts the icon contains the mark and its accent.
+def verify(path: Path, size: int, expect_plate) -> None:
+    """Asserts the icon contains its tinted plate and the mark.
 
-    A mis-sized composite or a fully transparent mask still writes a valid PNG, so this
-    counts pixels rather than trusting the file to exist.
+    A mis-sized composite or a fully transparent mask still writes a valid PNG, so this counts
+    pixels rather than trusting the file to exist. The plate colour is what distinguishes the
+    variants now, so it is the plate — not an accent inside the artwork — that is checked.
     """
     image = Image.open(path).convert("RGBA")
     assert image.size == (size, size), f"{path} is {image.size}, expected {size}"
 
     opaque = [p for p in image.getdata() if p[3] > 200]
     assert len(opaque) > size * size * 0.3, f"{path} looks empty"
-    assert [p for p in opaque if math.dist(p[:3], expect_accent) < 40], (
-        f"{path} has no pixels of the accent colour {expect_accent}"
+    assert [p for p in opaque if math.dist(p[:3], expect_plate) < 12], (
+        f"{path} has no pixels of the plate colour {expect_plate}"
     )
     left = [p for p in image.crop((0, 0, size // 3, size)).getdata() if p[3] > 200]
     assert left, f"{path} has nothing in the left third, so the mark did not land"
@@ -209,14 +228,14 @@ def main() -> int:
         png = out / "variants" / f"{name}.png"
         png.parent.mkdir(parents=True, exist_ok=True)
         image.save(png, "PNG", optimize=True)
-        verify(png, ICON_SIZE, accent)
+        verify(png, ICON_SIZE, plate_colour(background, accent))
         image.save(out / "variants" / f"{name}.ico", "ICO", sizes=[(s, s) for s in ICO_SIZES])
         print(f"  {name}")
 
     background, ink, accent = VARIANTS["default"]
     icon = compose(ICON_SIZE, mark, background, ink, accent)
     icon.save(out / "icon.png", "PNG", optimize=True)
-    verify(out / "icon.png", ICON_SIZE, accent)
+    verify(out / "icon.png", ICON_SIZE, plate_colour(background, accent))
     print("  icon.png")
 
     for name, store_size in STORE_LOGOS.items():
