@@ -42,6 +42,9 @@ PLATE_RADIUS = 0.22
 # How far the plate leans towards a variant's colour. Low enough that the mark stays dominant,
 # high enough that the twelve variants remain distinguishable from one another.
 PLATE_TINT = 0.22
+# The default icon is the family one: a neutral plate. Tinting it towards an accent would make
+# the product's own icon the odd one out among its own colourways.
+DEFAULT_VARIANT = "default"
 SUPERSAMPLE = 4
 
 ICON_SIZE = 512
@@ -94,7 +97,7 @@ def recolor(mark, ink, accent):
     return mark
 
 
-def plate_colour(background, accent):
+def plate_colour(background, accent, tint=PLATE_TINT):
     """The plate tinted towards the variant's colour.
 
     The variant colour used to be applied by recolouring the mark, because the mark was a
@@ -104,10 +107,10 @@ def plate_colour(background, accent):
     blue, green or red at a glance, and the mark stays the mark.
     """
     base = background if background is not None else PAPER
-    return tuple(round(base[i] + (accent[i] - base[i]) * PLATE_TINT) for i in range(3))
+    return tuple(round(base[i] + (accent[i] - base[i]) * tint) for i in range(3))
 
 
-def compose(size, mark, background, ink, accent):
+def compose(size, mark, background, ink, accent, tint=PLATE_TINT):
     """Draws one icon: the tinted plate, then the mark placed unchanged on it."""
     scale = size * SUPERSAMPLE
     canvas = Image.new("RGBA", (scale, scale), (0, 0, 0, 0))
@@ -116,7 +119,7 @@ def compose(size, mark, background, ink, accent):
         ImageDraw.Draw(canvas).rounded_rectangle(
             [(0, 0), (scale - 1, scale - 1)],
             radius=int(scale * PLATE_RADIUS),
-            fill=(*plate_colour(background, accent), 255),
+            fill=(*plate_colour(background, accent, tint), 255),
         )
 
     # The mark keeps its own silhouette — its rounded bowl and diagonal leg *are* the
@@ -224,18 +227,20 @@ def main() -> int:
     print(f"writing icons to {out}")
 
     for name, (background, ink, accent) in VARIANTS.items():
-        image = compose(ICON_SIZE, mark, background, ink, accent)
+        # The default keeps a neutral plate; every other variant carries its colour.
+        tint = 0.0 if name == DEFAULT_VARIANT else PLATE_TINT
+        image = compose(ICON_SIZE, mark, background, ink, accent, tint)
         png = out / "variants" / f"{name}.png"
         png.parent.mkdir(parents=True, exist_ok=True)
         image.save(png, "PNG", optimize=True)
-        verify(png, ICON_SIZE, plate_colour(background, accent))
+        verify(png, ICON_SIZE, plate_colour(background, accent, tint))
         image.save(out / "variants" / f"{name}.ico", "ICO", sizes=[(s, s) for s in ICO_SIZES])
         print(f"  {name}")
 
     background, ink, accent = VARIANTS["default"]
-    icon = compose(ICON_SIZE, mark, background, ink, accent)
+    icon = compose(ICON_SIZE, mark, background, ink, accent, tint=0.0)
     icon.save(out / "icon.png", "PNG", optimize=True)
-    verify(out / "icon.png", ICON_SIZE, plate_colour(background, accent))
+    verify(out / "icon.png", ICON_SIZE, plate_colour(background, accent, 0.0))
     print("  icon.png")
 
     for name, store_size in STORE_LOGOS.items():
