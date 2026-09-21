@@ -32,7 +32,9 @@ from PIL import Image, ImageDraw
 
 # RayTerm takes the teal from the application's existing accent set; it is distinct from
 # the four the family pairs with its other products (lime, blue, orange, cyan).
-RAYTERM_ACCENT = (20, 160, 168)
+# Retained for the variants table and for callers that still ask for an accent colour, though the
+# current mark is placed without recolouring. The family red, taken from the mark itself.
+RAYTERM_ACCENT = (200, 32, 40)
 INK = (24, 26, 27)
 PAPER = (255, 255, 255)
 CHARCOAL = (32, 38, 46)
@@ -114,7 +116,10 @@ def compose(size, mark, background, ink, accent):
     else:
         target_h, target_w = int(inner), max(1, int(inner * ratio))
 
-    colored = recolor(mark.resize((target_w, target_h), Image.LANCZOS), ink, accent)
+    # The family mark carries its own finished colours — a dark tile with a white R, a red block
+    # and a gold sparkle — so it is placed as-is. Recolouring it would map that artwork's near-black
+    # and accent onto `ink`/`accent` and destroy the white letterform and the gold star.
+    colored = mark.resize((target_w, target_h), Image.LANCZOS)
     canvas.alpha_composite(
         colored, ((scale - target_w) // 2, (scale - target_h) // 2)
     )
@@ -123,19 +128,12 @@ def compose(size, mark, background, ink, accent):
 
 # The application already ships a variant picker under these names; the files are
 # regenerated in place so a stored user setting keeps resolving.
+# One icon, not a palette of them. The table below used to hold recoloured variants because the
+# mark was a single-colour shape that took its accent from here. The family mark now carries its
+# own finished colours — dark tile, white R, red block, gold sparkle — so a variant with a different
+# accent would be a different logo rather than a different colourway of this one.
 VARIANTS = {
     "default": (PAPER, INK, RAYTERM_ACCENT),
-    "white-blue": (PAPER, INK, (55, 142, 246)),
-    "white-graphite": (PAPER, INK, (106, 116, 135)),
-    "white-green": (PAPER, INK, (31, 161, 73)),
-    "white-purple": (PAPER, INK, (129, 61, 229)),
-    "white-red": (PAPER, INK, (221, 42, 38)),
-    "filled-orange": (CHARCOAL, PAPER, RAYTERM_ACCENT),
-    "filled-blue": (CHARCOAL, PAPER, (55, 142, 246)),
-    "filled-graphite": (CHARCOAL, PAPER, (106, 116, 135)),
-    "filled-green": (CHARCOAL, PAPER, (31, 161, 73)),
-    "filled-purple": (CHARCOAL, PAPER, (129, 61, 229)),
-    "filled-red": (CHARCOAL, PAPER, (221, 42, 38)),
 }
 
 
