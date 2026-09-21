@@ -248,6 +248,9 @@
       "unreachable": "RayOps unreachable",
       "retry_hint": "Click to retry",
       "managed_assets": "Managed assets",
+      "refresh_assets": "Refresh assets",
+      "status_online": "Online",
+      "status_offline": "Offline",
       "view_by": "Group by",
       "view_gateway_group": "Gateway group",
       "view_platform": "Platform",
@@ -282,6 +285,7 @@
       "field_memory": "Memory",
       "field_disk": "Disk",
       "field_asset_status": "Asset status",
+      "field_os": "Operating system",
       "precheck_idle": "Governance not checked yet",
       "precheck_checking": "Checking governance…",
       "precheck_allowed": "Governance check passed",
@@ -306,7 +310,11 @@
       "files_refresh": "Refresh",
       "files_skipped_entries": "Skipped entries",
       "files_directory_not_empty": "The directory is not empty, so it was not deleted (the gateway does not delete recursively)",
-      "files_host_key_unverified": "The gateway cannot verify the target host key (the gateway side known_hosts has no entry for this asset)"
+      "files_host_key_unverified": "The gateway cannot verify the target host key (the gateway side known_hosts has no entry for this asset)",
+      "sign_in_action": "Sign In Now",
+      "expired_badge": "Expired",
+      "expired_hint": "Session expired, please sign in again",
+      "retry_action": "Sign In Again"
     }
   },
   "connections": {

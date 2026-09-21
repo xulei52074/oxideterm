@@ -19,6 +19,7 @@ pub(in crate::workspace) struct RayOpsLaunch {
     pub username: String,
     /// Read from the environment rather than stored. See `credential_from_environment`.
     pub password: zeroize::Zeroizing<String>,
+    pub token: Option<oxideterm_rayops::Secret>,
 }
 
 /// A connected terminal channel plus the identity this client presented for it.
@@ -61,25 +62,33 @@ pub(in crate::workspace) async fn open_rayops_connection(
     // --- authenticate -----------------------------------------------------------------
     // An existing token skips login, which is how a session can be re-opened during development
     // without retyping a password.
-    let session = match std::env::var("RAYOPS_JWT") {
-        Ok(token) if !token.trim().is_empty() => oxideterm_rayops::Session {
-            token: Secret::new(token.trim()),
+    let session = match launch.token {
+        Some(token) => oxideterm_rayops::Session {
+            token,
             expires_at_raw: None,
             username: Some(launch.username.clone()),
             role: None,
         },
-        _ => {
-            let request = login_request(&launch.username, &Secret::new(launch.password.to_string()), LoginType::Local);
-            let response = control.transport.send(&request).await.map_err(describe)?;
-            interpret_login(&response).map_err(|e| e.to_string())?
-        }
+        None => match std::env::var("RAYOPS_JWT") {
+            Ok(token) if !token.trim().is_empty() => oxideterm_rayops::Session {
+                token: Secret::new(token.trim()),
+                expires_at_raw: None,
+                username: Some(launch.username.clone()),
+                role: None,
+            },
+            _ => {
+                let request = login_request(&launch.username, &Secret::new(launch.password.to_string()), LoginType::Local);
+                let response = control.transport.send(&request).await.map_err(describe)?;
+                interpret_login(&response).map_err(|e| e.to_string())?
+            }
+        },
     };
 
     // --- the asset must be visible to this user ---------------------------------------
     // Checked rather than assumed: `GetAssetForUser` filters by scope, and a ticket request for
     // an asset outside the user's scope answers 404, which reads as "does not exist" and hides
     // the real reason.
-    let request = assets_request(&session.token, 1, 200);
+    let request = assets_request(&session.token, 1, 500);
     let response = control.transport.send(&request).await.map_err(describe)?;
     let page = interpret_assets(&response).map_err(|e| e.to_string())?;
     let asset = page
@@ -230,6 +239,7 @@ pub(in crate::workspace) async fn fetch_assets(
         allow_plaintext: request.allow_plaintext,
         username: String::new(),
         password: zeroize::Zeroizing::new(String::new()),
+        token: None,
     })?;
     let keyword = request.keyword.trim();
     let outbound = if keyword.is_empty() {
@@ -263,6 +273,7 @@ pub(in crate::workspace) async fn fetch_asset_groups(
         allow_plaintext,
         username: String::new(),
         password: zeroize::Zeroizing::new(String::new()),
+        token: None,
     })?;
     let request = asset_groups_request(&token);
     let response = control.transport.send(&request).await.map_err(describe)?;

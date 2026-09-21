@@ -108,13 +108,15 @@ impl WorkspaceApp {
             } else {
                 state.password.clone()
             };
+            let allow_plaintext = state.allow_plaintext || state.base_url.starts_with("http://");
             Some(super::super::rayops_flow::RayOpsLaunch {
                 base_url: state.base_url.trim().to_owned(),
                 asset_id: 0,
                 insecure_tls: state.insecure_tls,
-                allow_plaintext: state.allow_plaintext,
+                allow_plaintext,
                 username: state.username.clone(),
                 password,
+                token: state.token.clone(),
             })
         })
     }
@@ -125,10 +127,11 @@ impl WorkspaceApp {
         cx: &mut Context<Self>,
     ) -> Option<super::super::rayops_flow::RayOpsAssetRequest> {
         let state = self.connection_flow.read(cx).rayops.as_ref()?;
+        let allow_plaintext = state.allow_plaintext || state.base_url.starts_with("http://");
         Some(super::super::rayops_flow::RayOpsAssetRequest {
             base_url: state.base_url.trim().to_owned(),
             insecure_tls: state.insecure_tls,
-            allow_plaintext: state.allow_plaintext,
+            allow_plaintext,
             token: state.token.clone()?,
             keyword: state.search.clone(),
             page: state.page.index as i64,
@@ -175,6 +178,20 @@ impl WorkspaceApp {
             cx.notify();
         });
         if logged_in {
+            let config_to_save = self.connection_flow.read(cx).rayops.as_ref().map(|state| {
+                (
+                    state.base_url.trim().to_owned(),
+                    state.insecure_tls,
+                    state.allow_plaintext || state.base_url.starts_with("http://"),
+                )
+            });
+            if let Some((url, insecure_tls, allow_plaintext)) = config_to_save {
+                self.settings_store.settings_mut().rayops.base_url = url;
+                self.settings_store.settings_mut().rayops.insecure_tls = insecure_tls;
+                self.settings_store.settings_mut().rayops.allow_plaintext = allow_plaintext;
+                let _ = self.settings_store.save();
+            }
+
             // Hand the session to the workspace catalog, so the session manager and the picker read
             // one copy and the user signs in once per run rather than once per surface.
             let adopted = self.connection_flow.read(cx).rayops.as_ref().and_then(|state| {
@@ -582,13 +599,29 @@ impl WorkspaceApp {
         }
 
         div()
+            .id("rayops-modal-backdrop")
             .absolute()
             .inset_0()
+            .occlude()
             .flex()
             .items_center()
             .justify_center()
             .bg(rgba(0x00000088))
-            .child(card)
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
+                    cx.stop_propagation();
+                    this.close_rayops_flow(cx);
+                }),
+            )
+            .child(
+                card.id("rayops-modal-card").occlude().on_mouse_down(
+                    MouseButton::Left,
+                    |_event, _window, cx| {
+                        cx.stop_propagation();
+                    },
+                ),
+            )
             .into_any_element()
     }
 
@@ -652,10 +685,19 @@ impl WorkspaceApp {
                 .flex_row()
                 .gap_2()
                 .justify_end()
-                .child(self.render_rayops_button("ssh.form.cancel".to_owned(), false, false, theme, cx, |this, cx| {
-                    this.close_rayops_flow(cx);
-                }))
                 .child(self.render_rayops_button(
+                    "rayops-btn-cancel",
+                    "ssh.form.cancel".to_owned(),
+                    false,
+                    false,
+                    theme,
+                    cx,
+                    |this, cx| {
+                        this.close_rayops_flow(cx);
+                    },
+                ))
+                .child(self.render_rayops_button(
+                    "rayops-btn-connect",
                     if busy { "ssh.rayops.connecting" } else { "ssh.form.connect" }.to_owned(),
                     true,
                     busy,
@@ -683,6 +725,7 @@ impl WorkspaceApp {
             cx,
         ));
         card = card.child(self.render_rayops_button(
+            "rayops-btn-search",
             "ssh.rayops.search".to_owned(),
             false,
             matches!(state.phase, RayOpsPhase::Browsing { loading: true }),
@@ -724,6 +767,7 @@ impl WorkspaceApp {
                     .gap_2()
                     .justify_between()
                     .child(self.render_rayops_button(
+                        "rayops-btn-asset-cancel",
                         "ssh.form.cancel".to_owned(),
                         false,
                         false,
@@ -737,6 +781,7 @@ impl WorkspaceApp {
                             .flex_row()
                             .gap_2()
                             .child(self.render_rayops_button(
+                                "rayops-btn-prev-page",
                                 "ssh.rayops.previous_page".to_owned(),
                                 false,
                                 state.page.index <= 1,
@@ -745,6 +790,7 @@ impl WorkspaceApp {
                                 |this, cx| this.previous_rayops_page(cx),
                             ))
                             .child(self.render_rayops_button(
+                                "rayops-btn-next-page",
                                 "ssh.rayops.next_page".to_owned(),
                                 false,
                                 !state.has_more,
@@ -936,9 +982,10 @@ impl WorkspaceApp {
         container.into_any_element()
     }
 
-    /// A flat button that runs an action on the workspace.
+    /// A flat button that runs an action on the workspace with proper id and hover styles.
     fn render_rayops_button(
         &self,
+        button_id: &'static str,
         label: String,
         primary: bool,
         disabled: bool,
@@ -952,16 +999,51 @@ impl WorkspaceApp {
             label
         };
         let mut button = div()
-            .px_3()
-            .py_2()
+            .id(button_id)
+            .occlude()
+            .px_4()
+            .py_1p5()
             .rounded_md()
-            .text_color(rgb(if disabled { theme.text_muted } else { theme.text }))
-            .bg(rgb(if primary { theme.accent } else { theme.bg_elevated }));
-        if !disabled {
-            button = button.cursor_pointer().on_mouse_down(
-                MouseButton::Left,
-                cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| action(this, cx)),
-            );
+            .text_sm()
+            .flex()
+            .items_center()
+            .justify_center();
+
+        if disabled {
+            button = button
+                .bg(rgb(theme.bg_sunken))
+                .text_color(rgb(theme.text_muted));
+        } else if primary {
+            button = button
+                .bg(rgb(theme.accent))
+                .text_color(rgb(theme.accent_text))
+                .font_weight(gpui::FontWeight::MEDIUM)
+                .cursor_pointer()
+                .hover(|s| s.bg(rgb(theme.accent_secondary)))
+                .active(|s| s.bg(rgb(theme.accent_hover)))
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                        cx.stop_propagation();
+                        action(this, cx);
+                    }),
+                );
+        } else {
+            button = button
+                .bg(rgb(theme.bg_elevated))
+                .border_1()
+                .border_color(rgb(theme.border))
+                .text_color(rgb(theme.text))
+                .cursor_pointer()
+                .hover(|s| s.bg(rgb(theme.bg_hover)))
+                .active(|s| s.bg(rgb(theme.bg_active)))
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                        cx.stop_propagation();
+                        action(this, cx);
+                    }),
+                );
         }
         button.child(label).into_any_element()
     }

@@ -248,6 +248,9 @@
       "unreachable": "Không kết nối được RayOps",
       "retry_hint": "Nhấp để thử lại",
       "managed_assets": "Tài sản được quản lý",
+      "refresh_assets": "Làm mới tài sản",
+      "status_online": "Trực tuyến",
+      "status_offline": "Ngoại tuyến",
       "view_by": "Nhóm theo",
       "view_gateway_group": "Nhóm cổng",
       "view_platform": "Nền tảng",
@@ -282,6 +285,7 @@
       "field_memory": "Bộ nhớ",
       "field_disk": "Đĩa",
       "field_asset_status": "Trạng thái tài sản",
+      "field_os": "Hệ điều hành",
       "precheck_idle": "Chưa kiểm tra quản trị",
       "precheck_checking": "Đang kiểm tra quản trị…",
       "precheck_allowed": "Kiểm tra quản trị đã đạt",
@@ -306,7 +310,11 @@
       "files_refresh": "Làm mới",
       "files_skipped_entries": "Mục đã bỏ qua",
       "files_directory_not_empty": "Thư mục không trống nên không bị xóa (cổng không xóa đệ quy)",
-      "files_host_key_unverified": "Cổng không thể xác minh khóa máy chủ đích (known_hosts phía cổng thiếu mục cho tài sản này)"
+      "files_host_key_unverified": "Cổng không thể xác minh khóa máy chủ đích (known_hosts phía cổng thiếu mục cho tài sản này)",
+      "sign_in_action": "Đăng nhập ngay",
+      "expired_badge": "Đã hết hạn",
+      "expired_hint": "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại",
+      "retry_action": "Đăng nhập lại"
     }
   }
 }

@@ -248,6 +248,9 @@
       "unreachable": "RayOps non raggiungibile",
       "retry_hint": "Fai clic per riprovare",
       "managed_assets": "Risorse gestite",
+      "refresh_assets": "Aggiorna asset",
+      "status_online": "Online",
+      "status_offline": "Offline",
       "view_by": "Raggruppa per",
       "view_gateway_group": "Gruppo gateway",
       "view_platform": "Piattaforma",
@@ -282,6 +285,7 @@
       "field_memory": "Memoria",
       "field_disk": "Disco",
       "field_asset_status": "Stato risorsa",
+      "field_os": "Sistema operativo",
       "precheck_idle": "Governance non ancora verificata",
       "precheck_checking": "Verifica della governance…",
       "precheck_allowed": "Verifica di governance superata",
@@ -306,7 +310,11 @@
       "files_refresh": "Aggiorna",
       "files_skipped_entries": "Voci saltate",
       "files_directory_not_empty": "La cartella non è vuota e non è stata eliminata (il gateway non elimina in modo ricorsivo)",
-      "files_host_key_unverified": "Il gateway non può verificare la chiave dell’host di destinazione (manca una voce known_hosts lato gateway)"
+      "files_host_key_unverified": "Il gateway non può verificare la chiave dell’host di destinazione (manca una voce known_hosts lato gateway)",
+      "sign_in_action": "Accedi ora",
+      "expired_badge": "Scaduto",
+      "expired_hint": "Sessione scaduta, accedi di nuovo",
+      "retry_action": "Accedi di nuovo"
     }
   }
 }

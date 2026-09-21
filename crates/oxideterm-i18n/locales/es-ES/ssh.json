@@ -248,6 +248,9 @@
       "unreachable": "RayOps no disponible",
       "retry_hint": "Haz clic para reintentar",
       "managed_assets": "Recursos gestionados",
+      "refresh_assets": "Actualizar activos",
+      "status_online": "En línea",
+      "status_offline": "Desconectado",
       "view_by": "Agrupar por",
       "view_gateway_group": "Grupo de pasarela",
       "view_platform": "Plataforma",
@@ -282,6 +285,7 @@
       "field_memory": "Memoria",
       "field_disk": "Disco",
       "field_asset_status": "Estado del recurso",
+      "field_os": "Sistema operativo",
       "precheck_idle": "Gobernanza aún no comprobada",
       "precheck_checking": "Comprobando gobernanza…",
       "precheck_allowed": "Comprobación de gobernanza superada",
@@ -306,7 +310,11 @@
       "files_refresh": "Actualizar",
       "files_skipped_entries": "Entradas omitidas",
       "files_directory_not_empty": "El directorio no está vacío, por lo que no se eliminó (la pasarela no elimina de forma recursiva)",
-      "files_host_key_unverified": "La pasarela no puede verificar la clave del host de destino (falta una entrada en known_hosts del lado de la pasarela)"
+      "files_host_key_unverified": "La pasarela no puede verificar la clave del host de destino (falta una entrada en known_hosts del lado de la pasarela)",
+      "sign_in_action": "Iniciar sesión ahora",
+      "expired_badge": "Expirado",
+      "expired_hint": "Sesión caducada, vuelva a iniciar sesión",
+      "retry_action": "Iniciar sesión de nuevo"
     }
   }
 }

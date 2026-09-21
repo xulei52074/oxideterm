@@ -248,6 +248,9 @@
       "unreachable": "RayOps injoignable",
       "retry_hint": "Cliquez pour réessayer",
       "managed_assets": "Ressources gérées",
+      "refresh_assets": "Actualiser les actifs",
+      "status_online": "En ligne",
+      "status_offline": "Hors ligne",
       "view_by": "Grouper par",
       "view_gateway_group": "Groupe de passerelle",
       "view_platform": "Plateforme",
@@ -282,6 +285,7 @@
       "field_memory": "Mémoire",
       "field_disk": "Disque",
       "field_asset_status": "État de la ressource",
+      "field_os": "Système d'exploitation",
       "precheck_idle": "Gouvernance non vérifiée",
       "precheck_checking": "Vérification de la gouvernance…",
       "precheck_allowed": "Contrôle de gouvernance réussi",
@@ -306,7 +310,11 @@
       "files_refresh": "Actualiser",
       "files_skipped_entries": "Entrées ignorées",
       "files_directory_not_empty": "Le dossier n’est pas vide et n’a pas été supprimé (la passerelle ne supprime pas récursivement)",
-      "files_host_key_unverified": "La passerelle ne peut pas vérifier la clé de l’hôte cible (aucune entrée known_hosts côté passerelle)"
+      "files_host_key_unverified": "La passerelle ne peut pas vérifier la clé de l’hôte cible (aucune entrée known_hosts côté passerelle)",
+      "sign_in_action": "Se connecter maintenant",
+      "expired_badge": "Expiré",
+      "expired_hint": "Session expirée, veuillez vous reconnecter",
+      "retry_action": "Se reconnecter"
     }
   }
 }

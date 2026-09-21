@@ -1165,10 +1165,11 @@ impl WorkspaceApp {
                     .id("session-manager-tree-root-drop-target")
                     .flex_1()
                     .min_h(px(0.0))
-                    // Capped so the managed-asset section below stays reachable. Without a cap the
-                    // list takes every remaining pixel and pushes that section past the bottom of
-                    // the view, which reads as the assets having disappeared.
-                    .max_h(px(SESSION_TREE_MAX_HEIGHT))
+                    // Capped only when the managed-asset section has assets to display.
+                    // Without assets, the tree takes the available height without leaving dead space.
+                    .when(self.rayops_catalog_has_assets() && !self.rayops_section_collapsed, |el| {
+                        el.max_h(px(SESSION_TREE_MAX_HEIGHT))
+                    })
                     .drag_over::<SessionManagerDrag>(move |target, _drag, _window, _cx| {
                         target
                             .border_1()
@@ -1259,63 +1260,181 @@ impl WorkspaceApp {
         use super::new_connection::rayops_catalog::RayOpsCatalogPhase;
 
         let theme = self.tokens.ui;
-        let mut section = div().flex().flex_col().w_full();
+        let mut section = div().flex().flex_col().w_full().flex_none();
 
         if self.rayops_catalog.assets.is_empty() {
-            // Signed out and empty are different states, and the difference decides what the user
-            // should do: sign in, or wait and retry.
-            let (label, action) = match self.rayops_catalog.phase {
-                RayOpsCatalogPhase::SignedOut | RayOpsCatalogPhase::Expired => (
-                    self.i18n.t("ssh.rayops.sign_in"),
-                    self.i18n.t("ssh.rayops.sign_in_hint"),
-                ),
-                RayOpsCatalogPhase::Authenticating | RayOpsCatalogPhase::Refreshing => (
+            let is_authenticating = matches!(
+                self.rayops_catalog.phase,
+                RayOpsCatalogPhase::Authenticating | RayOpsCatalogPhase::Refreshing
+            );
+            let is_expired = matches!(self.rayops_catalog.phase, RayOpsCatalogPhase::Expired);
+            let is_disconnected = matches!(self.rayops_catalog.phase, RayOpsCatalogPhase::Disconnected);
+
+            let (title, desc) = if is_authenticating {
+                (
                     self.i18n.t("ssh.rayops.connecting"),
                     self.i18n.t("ssh.rayops.sign_in_hint"),
-                ),
-                RayOpsCatalogPhase::Disconnected => (
+                )
+            } else if is_expired {
+                (
+                    self.i18n.t("ssh.rayops.sign_in"),
+                    self.i18n.t("ssh.rayops.expired_hint"),
+                )
+            } else if is_disconnected {
+                (
                     self.i18n.t("ssh.rayops.unreachable"),
                     self.i18n.t("ssh.rayops.retry_hint"),
-                ),
-                RayOpsCatalogPhase::Ready => (
+                )
+            } else if matches!(self.rayops_catalog.phase, RayOpsCatalogPhase::Ready) {
+                (
                     self.i18n.t("ssh.rayops.empty"),
                     self.i18n.t("ssh.rayops.sign_in_hint"),
-                ),
+                )
+            } else {
+                (
+                    self.i18n.t("ssh.rayops.sign_in"),
+                    self.i18n.t("ssh.rayops.sign_in_hint"),
+                )
             };
-            let signed_out = matches!(
-                self.rayops_catalog.phase,
-                RayOpsCatalogPhase::SignedOut | RayOpsCatalogPhase::Expired
-            );
-            return section
+
+            let button_text = if is_expired {
+                self.i18n.t("ssh.rayops.retry_action")
+            } else {
+                self.i18n.t("ssh.rayops.sign_in_action")
+            };
+
+            let icon = if is_authenticating {
+                LucideIcon::LoaderCircle
+            } else if is_expired {
+                LucideIcon::ShieldAlert
+            } else {
+                LucideIcon::ShieldCheck
+            };
+
+            let icon_color = if is_expired {
+                rgb(theme.warning)
+            } else {
+                rgb(theme.accent)
+            };
+
+            let icon_bg = if is_expired {
+                rgba((theme.warning << 8) | 0x22)
+            } else {
+                rgba((theme.accent << 8) | 0x22)
+            };
+
+            let card = div()
+                .id("rayops-catalog-entry")
+                .flex_none()
+                .mx_2()
+                .my_1p5()
+                .px_3()
+                .py_2()
+                .rounded_md()
+                .bg(rgb(theme.bg_elevated))
+                .border_1()
+                .border_color(rgb(theme.border))
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .gap_2()
+                .cursor_pointer()
+                .hover(|style| {
+                    style
+                        .bg(rgb(theme.bg_hover))
+                        .border_color(rgb(theme.accent))
+                })
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |this, _: &gpui::MouseDownEvent, window, cx| {
+                        if is_authenticating {
+                            return;
+                        }
+                        this.open_rayops_connection(window, cx);
+                    }),
+                )
+                // Left: Icon + Title + Description
                 .child(
                     div()
-                        .id("rayops-catalog-entry")
-                        .mx_2()
-                        .my_1()
-                        .px_3()
-                        .py_2()
-                        .rounded_md()
-                        .bg(rgb(theme.bg_elevated))
-                        .cursor_pointer()
-                        .hover(|style| style.bg(rgb(theme.bg_hover)))
-                        .on_mouse_down(
-                            MouseButton::Left,
-                            cx.listener(move |this, _: &gpui::MouseDownEvent, window, cx| {
-                                let _ = window;
-                                if signed_out {
-                                    // Signs in directly instead of opening the picker: the entry
-                                    // exists to fill this tree, and the picker is reachable from the
-                                    // menu for anyone who wants to choose an asset right away.
-                                    this.authenticate_rayops_catalog(cx);
-                                } else {
-                                    this.refresh_rayops_catalog(cx);
-                                }
-                            }),
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_2p5()
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .w_7()
+                                .h_7()
+                                .rounded_full()
+                                .bg(icon_bg)
+                                .child(Self::render_lucide_icon(icon, 14.0, icon_color)),
                         )
-                        .child(div().text_sm().text_color(rgb(theme.text_heading)).child(label))
-                        .child(div().text_xs().text_color(rgb(theme.text_muted)).child(action)),
+                        .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .min_w(px(0.0))
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_1p5()
+                                        .child(
+                                            div()
+                                                .text_xs()
+                                                .font_weight(gpui::FontWeight::MEDIUM)
+                                                .text_color(rgb(theme.text_heading))
+                                                .child(title),
+                                        )
+                                        .when(is_expired, |row| {
+                                            row.child(
+                                                div()
+                                                    .px_1()
+                                                    .py_0p5()
+                                                    .rounded_sm()
+                                                    .bg(rgba((theme.warning << 8) | 0x28))
+                                                    .text_xs()
+                                                    .text_color(rgb(theme.warning))
+                                                    .child(self.i18n.t("ssh.rayops.expired_badge")),
+                                            )
+                                        }),
+                                )
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(rgb(theme.text_muted))
+                                        .truncate()
+                                        .child(desc),
+                                ),
+                        ),
                 )
-                .into_any_element();
+                // Right: Compact Action Badge
+                .child(
+                    div()
+                        .id("rayops-sign-in-btn")
+                        .flex_none()
+                        .px_2p5()
+                        .py_1()
+                        .rounded_md()
+                        .bg(if is_authenticating { rgb(theme.bg_sunken) } else { rgb(theme.accent) })
+                        .hover(|s| s.bg(rgb(theme.accent_secondary)))
+                        .text_xs()
+                        .font_weight(gpui::FontWeight::MEDIUM)
+                        .text_color(rgb(if is_authenticating { theme.text_muted } else { theme.accent_text }))
+                        .flex()
+                        .items_center()
+                        .gap_1()
+                        .child(Self::render_lucide_icon(LucideIcon::KeyRound, 11.0, rgb(if is_authenticating { theme.text_muted } else { theme.accent_text })))
+                        .child(button_text),
+                );
+
+            return section.child(card).into_any_element();
         }
 
         // The same query the local list uses, applied to the managed assets. Without it the
@@ -1350,44 +1469,101 @@ impl WorkspaceApp {
             &labels,
         );
         let collapsed = self.rayops_section_collapsed;
+        let asset_count = self.rayops_catalog.assets.len();
         section = section.child(
             div()
                 .id("rayops-section-header")
                 .flex()
                 .flex_row()
-                .gap_1()
                 .items_center()
+                .justify_between()
                 .mx_2()
                 .mt_3()
-                .px_3()
+                .px_2()
                 .py_1()
-                .cursor_pointer()
+                .rounded_md()
                 .hover(|style| style.bg(rgb(theme.bg_hover)))
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
-                        this.rayops_section_collapsed = !this.rayops_section_collapsed;
-                        cx.notify();
-                    }),
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .gap_1p5()
+                        .items_center()
+                        .cursor_pointer()
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
+                                this.rayops_section_collapsed = !this.rayops_section_collapsed;
+                                cx.notify();
+                            }),
+                        )
+                        .child(Self::render_lucide_icon(
+                            if collapsed {
+                                LucideIcon::ChevronRight
+                            } else {
+                                LucideIcon::ChevronDown
+                            },
+                            13.0,
+                            rgb(theme.text_muted),
+                        ))
+                        .child(
+                            div()
+                                .text_sm()
+                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .text_color(rgb(theme.text_heading))
+                                .child(self.i18n.t("ssh.rayops.managed_assets")),
+                        )
+                        .child(
+                            div()
+                                .px_1p5()
+                                .py(px(0.5))
+                                .rounded(px(self.tokens.radii.sm))
+                                .bg(rgb(theme.bg_sunken))
+                                .border_1()
+                                .border_color(rgb(theme.border))
+                                .text_xs()
+                                .text_color(rgb(theme.text_muted))
+                                .child(asset_count.to_string()),
+                        ),
                 )
                 .child(
                     div()
-                        .w(px(10.0))
-                        .text_xs()
-                        .text_color(rgb(theme.text_muted))
-                        .child(if collapsed { "▸" } else { "▾" }),
-                )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(rgb(theme.text_heading))
-                        .child(self.i18n.t("ssh.rayops.managed_assets")),
-                )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(rgb(theme.text_muted))
-                        .child(self.rayops_catalog.assets.len().to_string()),
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_1()
+                        .child(
+                            div()
+                                .id("rayops-header-refresh")
+                                .p_1()
+                                .rounded_md()
+                                .cursor_pointer()
+                                .hover(|style| style.bg(rgb(theme.bg_sunken)))
+                                .tooltip({
+                                    let tokens = self.tokens;
+                                    let label = self.i18n.t("ssh.rayops.refresh_assets");
+                                    move |_window, cx| {
+                                        oxideterm_gpui_ui::tooltip::tooltip_view(
+                                            tokens,
+                                            label.clone(),
+                                            None,
+                                            cx,
+                                        )
+                                    }
+                                })
+                                .on_mouse_down(
+                                    MouseButton::Left,
+                                    cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
+                                        this.refresh_rayops_catalog(cx);
+                                        cx.stop_propagation();
+                                    }),
+                                )
+                                .child(Self::render_lucide_icon(
+                                    LucideIcon::RefreshCw,
+                                    12.0,
+                                    rgb(theme.text_muted),
+                                )),
+                        ),
                 ),
         );
         if collapsed {
@@ -1408,46 +1584,73 @@ impl WorkspaceApp {
                 .child(self.render_rayops_asset_details(theme, cx))
                 .into_any_element();
         }
-        // Grouping choice, as chips rather than a menu: five short options fit on one row, and a
-        // menu would add a click to an action the user may take repeatedly while looking for a
-        // machine.
+        // Grouping choice, as chips in a structured segmented-control container.
         {
             use super::new_connection::rayops_state::RayOpsAssetViewMode;
+            let mut container = div()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .mx_2()
+                .mt_2()
+                .mb_1p5()
+                .p_1()
+                .rounded_lg()
+                .bg(rgb(theme.bg_sunken))
+                .border_1()
+                .border_color(rgb(theme.border));
+
             let mut chips = div()
                 .flex()
                 .flex_row()
                 .flex_wrap()
-                .gap_1()
-                .mx_2()
-                .mt_1()
-                .items_center()
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(rgb(theme.text_muted))
-                        .child(self.i18n.t("ssh.rayops.view_by")),
-                );
+                .gap_1p5()
+                .items_center();
+
             for mode in RayOpsAssetViewMode::ALL {
                 let active = mode == self.rayops_asset_view_mode;
+                let mode_icon = match mode {
+                    RayOpsAssetViewMode::GatewayGroup => LucideIcon::Layers,
+                    RayOpsAssetViewMode::Platform => LucideIcon::Server,
+                    RayOpsAssetViewMode::OperatingSystem => LucideIcon::Terminal,
+                    RayOpsAssetViewMode::Tag => LucideIcon::Hash,
+                    RayOpsAssetViewMode::ConnectionStatus => LucideIcon::ShieldCheck,
+                };
                 chips = chips.child(
                     div()
                         .id(("rayops-view-mode", mode as u64))
-                        .px_2()
-                        .py_0p5()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_1p5()
+                        .px_2p5()
+                        .py_1()
                         .rounded_md()
-                        .text_xs()
+                        .text_sm()
                         .cursor_pointer()
                         .bg(rgb(if active {
-                            theme.accent_secondary
-                        } else {
                             theme.bg_elevated
+                        } else {
+                            theme.bg_sunken
+                        }))
+                        .border_1()
+                        .border_color(rgb(if active {
+                            theme.accent
+                        } else {
+                            theme.border
                         }))
                         .text_color(rgb(if active {
-                            theme.text_heading
+                            theme.accent
                         } else {
                             theme.text_muted
                         }))
-                        .hover(|style| style.bg(rgb(theme.bg_hover)))
+                        .hover(|style| {
+                            if !active {
+                                style.bg(rgb(theme.bg_hover)).text_color(rgb(theme.text))
+                            } else {
+                                style
+                            }
+                        })
                         .on_mouse_down(
                             MouseButton::Left,
                             cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
@@ -1455,10 +1658,28 @@ impl WorkspaceApp {
                                 cx.notify();
                             }),
                         )
-                        .child(self.i18n.t(mode.label_key())),
+                        .child(Self::render_lucide_icon(
+                            mode_icon,
+                            13.0,
+                            rgb(if active {
+                                theme.accent
+                            } else {
+                                theme.text_muted
+                            }),
+                        ))
+                        .child(
+                            div()
+                                .font_weight(if active {
+                                    gpui::FontWeight::SEMIBOLD
+                                } else {
+                                    gpui::FontWeight::NORMAL
+                                })
+                                .child(self.i18n.t(mode.label_key())),
+                        ),
                 );
             }
-            section = section.child(chips);
+            container = container.child(chips);
+            section = section.child(container);
         }
         // Bounded and scrollable: the estate can be hundreds of assets, and an unbounded section
         // would push everything below it out of the view.
@@ -1486,15 +1707,21 @@ impl WorkspaceApp {
         let collapsed = self.collapsed_rayops_groups.contains(&node.group.id);
         if !node.group.name.is_empty() {
             let group_id = node.group.id;
+            let total = node.total_assets();
+            let connectable = node.connectable_assets();
             container = container.child(
                 div()
                     .id(("rayops-tree-group", group_id as u64))
                     .flex()
                     .flex_row()
-                    .gap_1()
                     .items_center()
-                    .pl(px(8.0 + 12.0 * depth as f32))
-                    .py_1()
+                    .gap_1p5()
+                    .pl(px(8.0 + 14.0 * depth as f32))
+                    .pr_2p5()
+                    .py_1p5()
+                    .mx_1()
+                    .my(px(1.0))
+                    .rounded_md()
                     .cursor_pointer()
                     .hover(|style| style.bg(rgb(theme.bg_hover)))
                     .on_mouse_down(
@@ -1506,33 +1733,70 @@ impl WorkspaceApp {
                             cx.notify();
                         }),
                     )
+                    .child(Self::render_lucide_icon(
+                        if collapsed {
+                            LucideIcon::ChevronRight
+                        } else {
+                            LucideIcon::ChevronDown
+                        },
+                        13.0,
+                        rgb(theme.text_muted),
+                    ))
+                    .child(Self::render_lucide_icon(
+                        if collapsed {
+                            LucideIcon::Folder
+                        } else {
+                            LucideIcon::FolderOpen
+                        },
+                        14.0,
+                        rgb(theme.accent),
+                    ))
                     .child(
                         div()
-                            .w(px(10.0))
-                            .text_xs()
-                            .text_color(rgb(theme.text_muted))
-                            .child(if collapsed { "▸" } else { "▾" }),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            // The group name is the navigation affordance, so it reads stronger
-                            // than the muted metadata around it.
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .truncate()
+                            .text_sm()
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
                             .text_color(rgb(theme.text_heading))
                             .child(node.group.name.clone()),
                     )
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(rgb(theme.text_muted))
-                            // Total, then how many have nothing known against them. The second
-                            // number is a catalog hint from the gateway's last verification, not an
-                            // authorization: every one of them still goes through the precheck.
-                            .child(format!(
-                                "{} · ✓ {}",
-                                node.total_assets(),
-                                node.connectable_assets()
-                            )),
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_1p5()
+                            .child(
+                                div()
+                                    .px_2()
+                                    .py(px(1.0))
+                                    .rounded_full()
+                                    .bg(rgb(theme.bg_sunken))
+                                    .border_1()
+                                    .border_color(rgb(theme.border))
+                                    .text_xs()
+                                    .text_color(rgb(theme.text_muted))
+                                    .child(total.to_string()),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_1()
+                                    .px_2()
+                                    .py(px(1.0))
+                                    .rounded_full()
+                                    .bg(rgba((theme.success << 8) | 0x1a))
+                                    .border_1()
+                                    .border_color(rgba((theme.success << 8) | 0x33))
+                                    .text_xs()
+                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                    .text_color(rgb(theme.success))
+                                    .child("✓")
+                                    .child(connectable.to_string()),
+                            ),
                     ),
             );
         }
@@ -1568,19 +1832,29 @@ impl WorkspaceApp {
 
         let id = asset.id;
         let selected = self.rayops_asset_details.selected_asset_id == Some(id);
-        let (status_mark, status_color) = match asset_status(asset) {
-            Status::Online => ("●", theme.success),
-            Status::Offline => ("●", theme.error),
-            Status::Unknown => ("○", theme.text_muted),
+        let status = asset_status(asset);
+        let status_color = match status {
+            Status::Online => theme.success,
+            Status::Offline => theme.error,
+            Status::Unknown => theme.text_muted,
         };
-        let (availability_key, availability_color) = match asset_availability(asset) {
-            Availability::Connectable => ("ssh.rayops.credential_verified", theme.success),
-            Availability::CredentialVerificationFailed => {
-                ("ssh.rayops.credential_failed", theme.warning)
-            }
-            // Includes the catalogue-only variants, which a precheck would have to produce and the
-            // catalog never does.
-            _ => ("ssh.rayops.credential_unverified", theme.text_muted),
+        let availability = asset_availability(asset);
+        let (availability_badge_bg, availability_badge_fg, availability_icon) = match availability {
+            Availability::Connectable => (
+                rgba((theme.success << 8) | 0x1a),
+                theme.success,
+                "✓",
+            ),
+            Availability::CredentialVerificationFailed => (
+                rgba((theme.warning << 8) | 0x1a),
+                theme.warning,
+                "!",
+            ),
+            _ => (
+                rgba((theme.text_muted << 8) | 0x1a),
+                theme.text_muted,
+                "?",
+            ),
         };
 
         let address = if asset.port > 0 {
@@ -1594,21 +1868,41 @@ impl WorkspaceApp {
             format!(" · {}", asset.protocols.join(", "))
         };
 
+        let supports_files = super::new_connection::rayops_files::asset_supports_files(asset);
+        let is_windows = asset.platform.to_lowercase().contains("win");
+        let asset_icon = if is_windows {
+            LucideIcon::Monitor
+        } else {
+            LucideIcon::Server
+        };
+
         div()
             .id(("rayops-tree-asset", id as u64))
-            .ml(px(12.0 * depth as f32))
+            .ml(px(8.0 + 14.0 * depth as f32))
             .mr_2()
-            .my(px(2.0))
+            .my(px(2.5))
             .px_3()
             .py_2()
-            .rounded_md()
+            .rounded_lg()
+            .border_1()
+            .border_color(rgb(if selected {
+                theme.accent
+            } else {
+                theme.border
+            }))
             .bg(rgb(if selected {
                 theme.accent_secondary
             } else {
-                theme.bg_elevated
+                theme.bg_card
             }))
             .cursor_pointer()
-            .hover(|style| style.bg(rgb(theme.bg_hover)))
+            .hover(|style| {
+                if !selected {
+                    style.bg(rgb(theme.bg_hover)).border_color(rgb(theme.accent))
+                } else {
+                    style
+                }
+            })
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
@@ -1619,45 +1913,174 @@ impl WorkspaceApp {
                 div()
                     .flex()
                     .flex_row()
-                    .gap_2()
                     .items_center()
+                    .gap_2p5()
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(rgb(status_color))
-                            .child(status_mark),
+                            .size(px(26.0))
+                            .flex_none()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded_md()
+                            .bg(rgba((status_color << 8) | 0x22))
+                            .child(Self::render_lucide_icon(
+                                asset_icon,
+                                13.0,
+                                rgb(status_color),
+                            )),
                     )
-                    // The hostname is both the asset's name and its hostname — there is no separate
-                    // name field — so it is shown once here and not repeated below.
                     .child(
                         div()
-                            .text_sm()
-                            .text_color(rgb(theme.text))
-                            .child(asset.hostname.clone()),
+                            .flex()
+                            .flex_col()
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .gap(px(2.0))
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_1p5()
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w(px(0.0))
+                                            .truncate()
+                                            .text_sm()
+                                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                                            .text_color(rgb(theme.text_heading))
+                                            .child(asset.hostname.clone()),
+                                    )
+                                    .when(!asset.platform.is_empty(), |line| {
+                                        line.child(
+                                            div()
+                                                .px_1p5()
+                                                .py(px(0.5))
+                                                .rounded_sm()
+                                                .bg(rgb(theme.bg_sunken))
+                                                .border_1()
+                                                .border_color(rgb(theme.border))
+                                                .text_xs()
+                                                .font_weight(gpui::FontWeight::MEDIUM)
+                                                .text_color(rgb(theme.text_muted))
+                                                .child(asset.platform.clone()),
+                                        )
+                                    })
+                                    .child(
+                                        div()
+                                            .size(px(15.0))
+                                            .flex()
+                                            .items_center()
+                                            .justify_center()
+                                            .rounded_full()
+                                            .bg(availability_badge_bg)
+                                            .text_xs()
+                                            .font_weight(gpui::FontWeight::BOLD)
+                                            .text_color(rgb(availability_badge_fg))
+                                            .child(availability_icon),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .justify_between()
+                                    .child(
+                                        div()
+                                            .truncate()
+                                            .text_xs()
+                                            .text_color(rgb(theme.text_muted))
+                                            .child(format!("{address}{protocols}")),
+                                    ),
+                            ),
                     )
-                    .when(!asset.platform.is_empty(), |line| {
-                        line.child(
-                            div()
-                                .px_1()
-                                .rounded_sm()
-                                .bg(rgb(theme.bg_sunken))
-                                .text_xs()
-                                .text_color(rgb(theme.text_muted))
-                                .child(asset.platform.clone()),
-                        )
-                    })
+                    // Quick Action Buttons on the right
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(rgb(availability_color))
-                            .child(self.i18n.t(availability_key)),
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_1p5()
+                            .flex_none()
+                            .child(
+                                div()
+                                    .id(("rayops-row-connect", id as u64))
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_1()
+                                    .px_2()
+                                    .py_1()
+                                    .rounded_md()
+                                    .bg(rgb(theme.accent))
+                                    .text_color(rgb(theme.accent_text))
+                                    .text_xs()
+                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                    .cursor_pointer()
+                                    .hover(|s| s.opacity(0.88))
+                                    .on_mouse_down(
+                                        MouseButton::Left,
+                                        cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                                            cx.stop_propagation();
+                                            this.connect_rayops_catalog_asset(id, cx);
+                                        }),
+                                    )
+                                    .child(Self::render_lucide_icon(
+                                        LucideIcon::Terminal,
+                                        11.0,
+                                        rgb(theme.accent_text),
+                                    ))
+                                    .child(self.i18n.t("ssh.form.connect")),
+                            )
+                            .when(supports_files, |row| {
+                                row.child(
+                                    div()
+                                        .id(("rayops-row-sftp", id as u64))
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_1()
+                                        .px_2()
+                                        .py_1()
+                                        .rounded_md()
+                                        .bg(rgb(theme.bg_sunken))
+                                        .border_1()
+                                        .border_color(rgb(theme.border))
+                                        .text_color(rgb(theme.text))
+                                        .text_xs()
+                                        .font_weight(gpui::FontWeight::MEDIUM)
+                                        .cursor_pointer()
+                                        .hover(|s| s.bg(rgb(theme.bg_hover)))
+                                        .on_mouse_down(
+                                            MouseButton::Left,
+                                            cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                                                cx.stop_propagation();
+                                                this.open_rayops_files(id, cx);
+                                            }),
+                                        )
+                                        .child(Self::render_lucide_icon(
+                                            LucideIcon::Folder,
+                                            11.0,
+                                            rgb(theme.text_muted),
+                                        ))
+                                        .child("SFTP"),
+                                )
+                            })
+                            .child(
+                                div()
+                                    .p_1()
+                                    .rounded_md()
+                                    .hover(|s| s.bg(rgb(theme.bg_hover)))
+                                    .child(Self::render_lucide_icon(
+                                        LucideIcon::ChevronRight,
+                                        13.0,
+                                        rgb(theme.text_muted),
+                                    )),
+                            ),
                     ),
-            )
-            .child(
-                div()
-                    .text_xs()
-                    .text_color(rgb(theme.text_muted))
-                    .child(format!("{address}{protocols}")),
             )
             .into_any_element()
     }
@@ -1727,50 +2150,61 @@ impl WorkspaceApp {
         let unknown = self.i18n.t("ssh.rayops.unknown");
         let optional = |value: &Option<String>| value.clone().unwrap_or_else(|| unknown.clone());
 
-        // One line per field: the label is a fixed gutter so the values line up, and the value
-        // takes the rest and wraps rather than being clipped.
+        // One line per field: label has clear readable size and value wraps cleanly.
         let row = |label_key: &str, value: String| {
             div()
                 .flex()
                 .flex_row()
                 .items_start()
                 .gap_2()
-                .py_0p5()
+                .py_1()
                 .child(
                     div()
-                        .w(px(84.0))
+                        .w(px(100.0))
                         .flex_shrink_0()
-                        .text_xs()
+                        .text_sm()
                         .text_color(rgb(theme.text_muted))
                         .child(self.i18n.t(label_key)),
                 )
                 .child(
                     div()
                         .flex_1()
-                        .text_xs()
+                        .text_sm()
                         .text_color(rgb(theme.text))
                         .child(value),
                 )
         };
-        let card = |title_key: &str, body: gpui::Div| {
+        let card = |icon: LucideIcon, title_key: &str, body: gpui::Div| {
             div()
                 .flex()
                 .flex_col()
                 .mx_2()
                 .mb_2()
-                .px_2()
-                .py_1()
-                .rounded_md()
+                .px_3()
+                .py_2()
+                .rounded_lg()
                 .bg(rgb(theme.bg_card))
                 .border_1()
                 .border_color(rgb(theme.border))
                 .child(
                     div()
-                        .text_xs()
-                        .text_color(rgb(theme.text_heading))
-                        .child(self.i18n.t(title_key)),
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .pb_1p5()
+                        .border_b_1()
+                        .border_color(rgb(theme.border))
+                        .child(Self::render_lucide_icon(icon, 14.0, rgb(theme.accent)))
+                        .child(
+                            div()
+                                .text_sm()
+                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                .text_color(rgb(theme.text_heading))
+                                .child(self.i18n.t(title_key)),
+                        ),
                 )
-                .child(body)
+                .child(div().pt_1p5().child(body))
         };
 
         let group_name = self
@@ -1956,31 +2390,125 @@ impl WorkspaceApp {
                     .items_center()
                     .justify_between()
                     .mx_2()
-                    .mb_1()
+                    .mt_1p5()
+                    .mb_2()
                     .child(
                         div()
                             .id("rayops-asset-details-close")
-                            .px_2()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_1p5()
+                            .px_3()
+                            .py_1p5()
                             .rounded_md()
+                            .bg(rgb(theme.bg_elevated))
+                            .border_1()
+                            .border_color(rgb(theme.border))
                             .cursor_pointer()
-                            .text_xs()
-                            .text_color(rgb(theme.text_muted))
-                            .hover(|style| style.bg(rgb(theme.bg_hover)))
+                            .text_sm()
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_color(rgb(theme.text_heading))
+                            .hover(|style| {
+                                style
+                                    .bg(rgb(theme.bg_hover))
+                                    .border_color(rgb(theme.accent))
+                            })
                             .on_mouse_down(
                                 MouseButton::Left,
                                 cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
                                     this.close_rayops_asset_details(cx);
                                 }),
                             )
-                            .child(format!("\u{2039} {}", self.i18n.t("ssh.rayops.back_to_list"))),
+                            .child(Self::render_lucide_icon(
+                                LucideIcon::ChevronLeft,
+                                15.0,
+                                rgb(theme.accent),
+                            ))
+                            .child(self.i18n.t("ssh.rayops.back_to_list")),
                     )
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(rgb(theme.text_heading))
+                            .text_sm()
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_color(rgb(theme.text_muted))
                             .child(self.i18n.t("ssh.rayops.asset_details")),
                     ),
             )
+            .child({
+                let (status_label_key, status_color) = match asset_status(asset) {
+                    RayOpsAssetStatus::Online => ("ssh.rayops.status_online", theme.success),
+                    RayOpsAssetStatus::Offline => ("ssh.rayops.status_offline", theme.error),
+                    RayOpsAssetStatus::Unknown => ("ssh.rayops.unknown", theme.text_muted),
+                };
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_2p5()
+                    .mx_2()
+                    .mb_2()
+                    .px_3()
+                    .py_2()
+                    .rounded_lg()
+                    .bg(rgb(theme.bg_sunken))
+                    .border_1()
+                    .border_color(rgb(theme.border))
+                    .child(
+                        div()
+                            .size(px(32.0))
+                            .flex_none()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded_md()
+                            .bg(rgba((status_color << 8) | 0x22))
+                            .child(Self::render_lucide_icon(
+                                LucideIcon::Server,
+                                15.0,
+                                rgb(status_color),
+                            )),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .child(
+                                div()
+                                    .truncate()
+                                    .text_base()
+                                    .font_weight(gpui::FontWeight::BOLD)
+                                    .text_color(rgb(theme.text_heading))
+                                    .child(asset.hostname.clone()),
+                            )
+                            .child(
+                                div()
+                                    .truncate()
+                                    .text_sm()
+                                    .text_color(rgb(theme.text_muted))
+                                    .child(if asset.port > 0 {
+                                        format!("{}:{}", asset.ip, asset.port)
+                                    } else {
+                                        asset.ip.clone()
+                                    }),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .px_2()
+                            .py_0p5()
+                            .rounded_full()
+                            .bg(rgba((status_color << 8) | 0x22))
+                            .border_1()
+                            .border_color(rgba((status_color << 8) | 0x44))
+                            .text_xs()
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_color(rgb(status_color))
+                            .child(self.i18n.t(status_label_key)),
+                    )
+            })
             .child(
                 div()
                     .id("rayops-asset-details-body")
@@ -1989,34 +2517,46 @@ impl WorkspaceApp {
                     .flex_1()
                     .min_h_0()
                     .overflow_y_scroll()
-                    .child(card("ssh.rayops.identity", identity))
-                    .child(card("ssh.rayops.connection", connection))
-                    .child(card("ssh.rayops.system", system))
-                    .child(card("ssh.rayops.governance", governance)),
+                    .child(card(LucideIcon::Info, "ssh.rayops.identity", identity))
+                    .child(card(LucideIcon::Network, "ssh.rayops.connection", connection))
+                    .child(card(LucideIcon::Cpu, "ssh.rayops.system", system))
+                    .child(card(LucideIcon::ShieldCheck, "ssh.rayops.governance", governance)),
             )
             .child(precheck)
             .child(
                 div()
                     .flex()
                     .flex_row()
-                    .gap_2()
+                    .gap_2p5()
                     .mx_2()
                     .mb_2()
                     .child(
                         div()
                             .id("rayops-asset-connect")
-                            .px_3()
-                            .py_1()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_1p5()
+                            .px_4()
+                            .py_2()
                             .rounded_md()
                             .bg(rgb(theme.accent))
                             .text_color(rgb(theme.accent_text))
+                            .text_sm()
+                            .font_weight(gpui::FontWeight::MEDIUM)
                             .cursor_pointer()
+                            .hover(|style| style.opacity(0.88))
                             .on_mouse_down(
                                 MouseButton::Left,
                                 cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
                                     this.connect_rayops_catalog_asset(asset_id, cx);
                                 }),
                             )
+                            .child(Self::render_lucide_icon(
+                                LucideIcon::Terminal,
+                                14.0,
+                                rgb(theme.accent_text),
+                            ))
                             .child(self.i18n.t("ssh.form.connect")),
                     )
                     // Offered only when the gateway advertises the capability: an asset that cannot
@@ -2028,11 +2568,19 @@ impl WorkspaceApp {
                             row.child(
                                 div()
                                     .id("rayops-asset-files")
-                                    .px_3()
-                                    .py_1()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_1p5()
+                                    .px_4()
+                                    .py_2()
                                     .rounded_md()
                                     .bg(rgb(theme.bg_elevated))
+                                    .border_1()
+                                    .border_color(rgb(theme.border))
                                     .text_color(rgb(theme.text))
+                                    .text_sm()
+                                    .font_weight(gpui::FontWeight::MEDIUM)
                                     .cursor_pointer()
                                     .hover(|style| style.bg(rgb(theme.bg_hover)))
                                     .on_mouse_down(
@@ -2043,6 +2591,11 @@ impl WorkspaceApp {
                                             },
                                         ),
                                     )
+                                    .child(Self::render_lucide_icon(
+                                        LucideIcon::Folder,
+                                        14.0,
+                                        rgb(theme.accent),
+                                    ))
                                     .child(self.i18n.t("ssh.rayops.files_open")),
                             )
                         },
@@ -2050,11 +2603,19 @@ impl WorkspaceApp {
                     .child(
                         div()
                             .id("rayops-asset-copy")
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_1p5()
                             .px_3()
-                            .py_1()
+                            .py_2()
                             .rounded_md()
                             .bg(rgb(theme.bg_elevated))
+                            .border_1()
+                            .border_color(rgb(theme.border))
                             .text_color(rgb(theme.text))
+                            .text_sm()
+                            .font_weight(gpui::FontWeight::MEDIUM)
                             .cursor_pointer()
                             .hover(|style| style.bg(rgb(theme.bg_hover)))
                             .on_mouse_down(
@@ -2065,6 +2626,11 @@ impl WorkspaceApp {
                                     ));
                                 }),
                             )
+                            .child(Self::render_lucide_icon(
+                                LucideIcon::Copy,
+                                14.0,
+                                rgb(theme.text_muted),
+                            ))
                             .child(self.i18n.t("ssh.rayops.copy_identifier")),
                     ),
             );
@@ -2097,37 +2663,73 @@ impl WorkspaceApp {
         // unrelated navigation.
         let header = div()
             .flex()
-            .flex_col()
+            .flex_row()
+            .items_center()
+            .justify_between()
             .mx_2()
-            .mb_1()
+            .mt_1p5()
+            .mb_2()
             .child(
                 div()
                     .id("rayops-files-close")
-                    .px_2()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_1p5()
+                    .px_3()
+                    .py_1p5()
                     .rounded_md()
+                    .bg(rgb(theme.bg_elevated))
+                    .border_1()
+                    .border_color(rgb(theme.border))
                     .cursor_pointer()
-                    .text_xs()
-                    .text_color(rgb(theme.text_muted))
-                    .hover(|style| style.bg(rgb(theme.bg_hover)))
+                    .text_sm()
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .text_color(rgb(theme.text_heading))
+                    .hover(|style| {
+                        style
+                            .bg(rgb(theme.bg_hover))
+                            .border_color(rgb(theme.accent))
+                    })
                     .on_mouse_down(
                         MouseButton::Left,
                         cx.listener(|this, _: &gpui::MouseDownEvent, _window, cx| {
                             this.close_rayops_files(cx);
                         }),
                     )
-                    .child(format!("\u{2039} {}", self.i18n.t("ssh.rayops.files_back"))),
+                    .child(Self::render_lucide_icon(
+                        LucideIcon::ChevronLeft,
+                        15.0,
+                        rgb(theme.accent),
+                    ))
+                    .child(self.i18n.t("ssh.rayops.back_to_list")),
             )
             .child(
                 div()
-                    .text_xs()
-                    .text_color(rgb(theme.text_muted))
-                    .child(self.i18n.t("ssh.rayops.files_title")),
-            )
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(rgb(theme.text_heading))
-                    .child(asset_name.clone()),
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_1p5()
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(gpui::FontWeight::BOLD)
+                            .text_color(rgb(theme.text_heading))
+                            .child(asset_name.clone()),
+                    )
+                    .child(
+                        div()
+                            .px_1p5()
+                            .py(px(0.5))
+                            .rounded(px(self.tokens.radii.sm))
+                            .bg(rgba((theme.accent << 8) | 0x1a))
+                            .border_1()
+                            .border_color(rgba((theme.accent << 8) | 0x33))
+                            .text_xs()
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .text_color(rgb(theme.accent))
+                            .child("SFTP"),
+                    ),
             );
 
         // The path row carries the only navigation that is not an entry: going up. At the root
@@ -2146,10 +2748,12 @@ impl WorkspaceApp {
             path_row = path_row.child(
                 div()
                     .id("rayops-files-up")
-                    .px_2()
+                    .px_2p5()
+                    .py_1()
                     .rounded_md()
                     .cursor_pointer()
-                    .text_xs()
+                    .text_sm()
+                    .font_weight(gpui::FontWeight::MEDIUM)
                     .text_color(rgb(theme.text))
                     .hover(|style| style.bg(rgb(theme.bg_hover)))
                     .on_mouse_down(
@@ -2258,10 +2862,10 @@ impl WorkspaceApp {
                 div()
                     .id(("rayops-file-entry", index as u64))
                     .mx_2()
-                    .my(px(1.0))
-                    .px_2()
-                    .py_0p5()
-                    .rounded_sm()
+                    .my(px(1.5))
+                    .px_2p5()
+                    .py_1p5()
+                    .rounded_md()
                     .bg(rgb(if selected {
                         theme.accent_secondary
                     } else {
@@ -2288,7 +2892,7 @@ impl WorkspaceApp {
                             .flex()
                             .flex_row()
                             .items_center()
-                            .gap_2()
+                            .gap_2p5()
                             // An icon rather than a glyph: which entries are directories is the
                             // first thing the eye needs, and it is the one distinction a listing
                             // cannot leave to the name.
@@ -2298,7 +2902,7 @@ impl WorkspaceApp {
                                 } else {
                                     LucideIcon::File
                                 },
-                                12.0,
+                                14.0,
                                 if is_directory {
                                     rgb(theme.accent)
                                 } else {
@@ -2308,7 +2912,7 @@ impl WorkspaceApp {
                             .child(
                                 div()
                                     .flex_1()
-                                    .text_xs()
+                                    .text_sm()
                                     .text_color(rgb(theme.text))
                                     .child(entry.name.clone()),
                             )

@@ -7924,6 +7924,7 @@ dependencies = [
  "oxideterm-rayops-net",
  "oxideterm-remote-desktop",
  "oxideterm-render-policy",
+ "oxideterm-secret-store",
  "oxideterm-session-adapter",
  "oxideterm-settings",
  "oxideterm-settings-model",

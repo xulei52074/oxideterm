@@ -248,6 +248,9 @@
       "unreachable": "RayOps nicht erreichbar",
       "retry_hint": "Zum erneuten Versuch klicken",
       "managed_assets": "Verwaltete Assets",
+      "refresh_assets": "Assets aktualisieren",
+      "status_online": "Online",
+      "status_offline": "Offline",
       "view_by": "Gruppieren nach",
       "view_gateway_group": "Gateway-Gruppe",
       "view_platform": "Plattform",
@@ -282,6 +285,7 @@
       "field_memory": "Arbeitsspeicher",
       "field_disk": "Datenträger",
       "field_asset_status": "Asset-Status",
+      "field_os": "Betriebssystem",
       "precheck_idle": "Governance noch nicht geprüft",
       "precheck_checking": "Governance wird geprüft…",
       "precheck_allowed": "Governance-Prüfung bestanden",
@@ -306,7 +310,11 @@
       "files_refresh": "Aktualisieren",
       "files_skipped_entries": "Übersprungene Einträge",
       "files_directory_not_empty": "Das Verzeichnis ist nicht leer und wurde nicht gelöscht (das Gateway löscht nicht rekursiv)",
-      "files_host_key_unverified": "Das Gateway kann den Hostschlüssel des Ziels nicht prüfen (auf der Gateway-Seite fehlt ein known_hosts-Eintrag für dieses Asset)"
+      "files_host_key_unverified": "Das Gateway kann den Hostschlüssel des Ziels nicht prüfen (auf der Gateway-Seite fehlt ein known_hosts-Eintrag für dieses Asset)",
+      "sign_in_action": "Jetzt anmelden",
+      "expired_badge": "Abgelaufen",
+      "expired_hint": "Sitzung abgelaufen, bitte erneut anmelden",
+      "retry_action": "Erneut anmelden"
     }
   }
 }

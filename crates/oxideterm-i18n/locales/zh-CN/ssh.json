@@ -248,6 +248,9 @@
       "unreachable": "RayOps 不可达",
       "retry_hint": "点击重试",
       "managed_assets": "被管资产",
+      "refresh_assets": "刷新资产列表",
+      "status_online": "在线",
+      "status_offline": "离线",
       "view_by": "分组方式",
       "view_gateway_group": "网关分组",
       "view_platform": "平台",
@@ -282,6 +285,7 @@
       "field_memory": "内存",
       "field_disk": "磁盘",
       "field_asset_status": "资产状态",
+      "field_os": "操作系统",
       "precheck_idle": "尚未检查治理策略",
       "precheck_checking": "正在检查治理策略…",
       "precheck_allowed": "治理检查通过",
@@ -306,7 +310,11 @@
       "files_refresh": "刷新",
       "files_skipped_entries": "以下条目已跳过",
       "files_directory_not_empty": "目录非空，无法删除（网关不支持递归删除）",
-      "files_host_key_unverified": "网关无法验证目标主机密钥（网关侧的 known_hosts 缺少该资产）"
+      "files_host_key_unverified": "网关无法验证目标主机密钥（网关侧的 known_hosts 缺少该资产）",
+      "sign_in_action": "立即登录",
+      "expired_badge": "已过期",
+      "expired_hint": "登录凭据已过期，请重新登录",
+      "retry_action": "重新登录"
     }
   },
   "connections": {

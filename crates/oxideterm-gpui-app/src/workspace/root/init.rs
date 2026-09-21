@@ -888,6 +888,7 @@ impl WorkspaceApp {
         workspace.start_public_mcp_delivery(cx);
         workspace.sync_ssh_config_sync_service();
         workspace.restore_session_tree_snapshot();
+        workspace.bootstrap_rayops_catalog(cx);
         workspace.standalone_connections =
             standalone_connections::StandaloneConnectionRegistry::restore(
                 default_session_tree_path().with_file_name("standalone_sessions.json"),

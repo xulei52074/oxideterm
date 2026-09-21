@@ -248,6 +248,9 @@
       "unreachable": "RayOps 無法連線",
       "retry_hint": "點擊重試",
       "managed_assets": "受管資產",
+      "refresh_assets": "重新整理資產清單",
+      "status_online": "在線",
+      "status_offline": "離線",
       "view_by": "分組方式",
       "view_gateway_group": "閘道分組",
       "view_platform": "平台",
@@ -282,6 +285,7 @@
       "field_memory": "記憶體",
       "field_disk": "磁碟",
       "field_asset_status": "資產狀態",
+      "field_os": "作業系統",
       "precheck_idle": "尚未檢查治理策略",
       "precheck_checking": "正在檢查治理策略…",
       "precheck_allowed": "治理檢查通過",
@@ -306,7 +310,11 @@
       "files_refresh": "重新整理",
       "files_skipped_entries": "以下項目已略過",
       "files_directory_not_empty": "目錄非空，無法刪除（閘道不支援遞迴刪除）",
-      "files_host_key_unverified": "閘道無法驗證目標主機金鑰（閘道側的 known_hosts 缺少該資產）"
+      "files_host_key_unverified": "閘道無法驗證目標主機金鑰（閘道側的 known_hosts 缺少該資產）",
+      "sign_in_action": "立即登入",
+      "expired_badge": "已過期",
+      "expired_hint": "登入憑據已過期，請重新登入",
+      "retry_action": "重新登入"
     }
   },
   "connections": {

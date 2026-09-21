@@ -135,6 +135,7 @@ impl RayOpsCatalog {
         base_url: String,
         token: oxideterm_rayops::Secret,
     ) {
+        save_rayops_token(&base_url, token.expose());
         self.base_url = base_url;
         self.session = Some(RayOpsCatalogSession {
             token,
@@ -185,6 +186,9 @@ impl RayOpsCatalog {
 
     /// Forgets the session and everything it produced.
     pub(in crate::workspace) fn clear_session(&mut self, phase: RayOpsCatalogPhase) {
+        if matches!(phase, RayOpsCatalogPhase::Expired | RayOpsCatalogPhase::SignedOut) {
+            clear_rayops_token(&self.base_url);
+        }
         self.session = None;
         self.groups.clear();
         self.assets.clear();
@@ -397,16 +401,29 @@ impl crate::workspace::WorkspaceApp {
         cx: &mut Context<Self>,
     ) {
         let settings = self.settings_store.settings().rayops.clone();
-        let base_url = self.rayops_catalog.base_url.clone();
+        let base_url = if !self.rayops_catalog.base_url.trim().is_empty() {
+            self.rayops_catalog.base_url.clone()
+        } else {
+            settings.base_url.trim().to_owned()
+        };
         if base_url.is_empty() {
+            self.notify_rayops_error(
+                "RayOps base_url is not configured in settings".to_owned(),
+                cx,
+            );
             return;
         }
-        let password = match credential_from_environment() {
-            Ok(password) => password,
-            Err(message) => {
-                self.notify_rayops_error(message, cx);
-                return;
-            }
+        let (token, password) = if let Some(token) = self.rayops_catalog.token() {
+            (Some(token), zeroize::Zeroizing::new(String::new()))
+        } else {
+            let password = match credential_from_environment() {
+                Ok(password) => password,
+                Err(message) => {
+                    self.notify_rayops_error(message, cx);
+                    return;
+                }
+            };
+            (None, password)
         };
         let title = self
             .rayops_catalog
@@ -424,6 +441,7 @@ impl crate::workspace::WorkspaceApp {
             allow_plaintext: settings.allow_plaintext,
             username: std::env::var("RAYOPS_USERNAME").unwrap_or_else(|_| "admin".to_owned()),
             password,
+            token,
         };
         let runtime = self.forwarding_runtime.clone();
         let terminal_options = oxideterm_connections::ConnectionTerminalOptions::default();
@@ -524,6 +542,10 @@ impl crate::workspace::WorkspaceApp {
         let settings = self.settings_store.settings().rayops.clone();
         let base_url = settings.base_url.trim().to_owned();
         if base_url.is_empty() {
+            self.notify_rayops_error(
+                "RayOps base_url is not configured in settings".to_owned(),
+                cx,
+            );
             return;
         }
         if self.rayops_catalog.phase == RayOpsCatalogPhase::Authenticating {
@@ -532,6 +554,7 @@ impl crate::workspace::WorkspaceApp {
         let password = match credential_from_environment() {
             Ok(password) => password,
             Err(message) => {
+                self.notify_rayops_error(message.clone(), cx);
                 self.rayops_catalog.report_failure(RayOpsCatalogError {
                     message,
                     retryable: false,
@@ -551,6 +574,7 @@ impl crate::workspace::WorkspaceApp {
             allow_plaintext: settings.allow_plaintext,
             username: std::env::var("RAYOPS_USERNAME").unwrap_or_else(|_| "admin".to_owned()),
             password,
+            token: None,
         };
         let runtime = self.forwarding_runtime.clone();
         let task = cx.spawn(async move |this, cx| {
@@ -570,6 +594,7 @@ impl crate::workspace::WorkspaceApp {
                         let retryable = !lowered.contains("unauthorized")
                             && !lowered.contains("401")
                             && !lowered.contains("invalid");
+                        this.notify_rayops_error(message.clone(), cx);
                         this.rayops_catalog.report_failure(RayOpsCatalogError {
                             message,
                             retryable,
@@ -577,8 +602,10 @@ impl crate::workspace::WorkspaceApp {
                         cx.notify();
                     }
                     Err(join) => {
+                        let message = format!("the RayOps sign-in failed: {join}");
+                        this.notify_rayops_error(message.clone(), cx);
                         this.rayops_catalog.report_failure(RayOpsCatalogError {
-                            message: format!("the RayOps sign-in failed: {join}"),
+                            message,
                             retryable: true,
                         });
                         cx.notify();
@@ -588,4 +615,60 @@ impl crate::workspace::WorkspaceApp {
         });
         task.detach();
     }
+
+    /// Automatically restores the RayOps catalog session on application startup if available.
+    pub(in crate::workspace) fn bootstrap_rayops_catalog(&mut self, cx: &mut Context<Self>) {
+        let settings = self.settings_store.settings().rayops.clone();
+        let base_url = settings.base_url.trim().to_owned();
+        if base_url.is_empty() {
+            return;
+        }
+        // 1. First attempt to restore the saved session token from the OS keychain
+        if let Some(token_str) = load_rayops_token(&base_url) {
+            if !token_str.trim().is_empty() {
+                self.rayops_catalog.adopt_session(
+                    base_url.clone(),
+                    oxideterm_rayops::Secret::new(token_str),
+                );
+                self.refresh_rayops_catalog(cx);
+                return;
+            }
+        }
+        // 2. If no keychain token, fall back to environment variable if present
+        if credential_from_environment().is_ok() {
+            self.authenticate_rayops_catalog(cx);
+        }
+    }
 }
+
+const RAYOPS_KEYCHAIN_SERVICE: &str = "com.oxideterm.rayops";
+
+pub(in crate::workspace) fn save_rayops_token(base_url: &str, token: &str) {
+    if base_url.trim().is_empty() || token.trim().is_empty() {
+        return;
+    }
+    let store = oxideterm_secret_store::NativeSecretStore::new(RAYOPS_KEYCHAIN_SERVICE);
+    if let Err(err) = store.store(base_url, token) {
+        tracing::warn!("failed to save RayOps token to keychain: {err}");
+    }
+}
+
+pub(in crate::workspace) fn load_rayops_token(base_url: &str) -> Option<String> {
+    if base_url.trim().is_empty() {
+        return None;
+    }
+    let store = oxideterm_secret_store::NativeSecretStore::new(RAYOPS_KEYCHAIN_SERVICE);
+    match store.get(base_url) {
+        Ok(Some(token)) => Some(token.to_string()),
+        _ => None,
+    }
+}
+
+pub(in crate::workspace) fn clear_rayops_token(base_url: &str) {
+    if base_url.trim().is_empty() {
+        return;
+    }
+    let store = oxideterm_secret_store::NativeSecretStore::new(RAYOPS_KEYCHAIN_SERVICE);
+    let _ = store.delete(base_url);
+}
+
