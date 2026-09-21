@@ -24,11 +24,14 @@ from __future__ import annotations
 
 import argparse
 import math
+
 import subprocess
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
+
+ROOT = Path(__file__).resolve().parent.parent.parent
 
 # RayTerm takes the teal from the application's existing accent set; it is distinct from
 # the four the family pairs with its other products (lime, blue, orange, cyan).
@@ -42,6 +45,19 @@ PLATE_RADIUS = 0.22
 # How far the plate leans towards a variant's colour. Low enough that the mark stays dominant,
 # high enough that the twelve variants remain distinguishable from one another.
 PLATE_TINT = 0.22
+
+# The lockup carries the product name under the mark, as the family master does. The name is part
+# of the icon here: a bare tile reads as a letter, not as this product.
+WORDMARK = "RayTerm"
+WORDMARK_FONT = "assets/fonts/ibm-plex-sans/IBMPlexSans-Regular.ttf"
+# The bundled family ships Regular only, so weight comes from a stroke. Substituting a system
+# face would put a typeface in the brand that nothing else in the product uses.
+WORDMARK_STROKE = 3
+# Where the mark sits and how much of the plate the name takes, as fractions of the icon.
+MARK_TOP = 0.13
+MARK_HEIGHT = 0.42
+WORDMARK_TOP = 0.62
+WORDMARK_SIZE = 0.115
 # The default icon is the family one: a neutral plate. Tinting it towards an accent would make
 # the product's own icon the odd one out among its own colourways.
 DEFAULT_VARIANT = "default"
@@ -111,7 +127,7 @@ def plate_colour(background, accent, tint=PLATE_TINT):
 
 
 def compose(size, mark, background, ink, accent, tint=PLATE_TINT):
-    """Draws one icon: the tinted plate, then the mark placed unchanged on it."""
+    """Draws one icon: the tinted plate, the mark, and the product name beneath it."""
     scale = size * SUPERSAMPLE
     canvas = Image.new("RGBA", (scale, scale), (0, 0, 0, 0))
 
@@ -126,18 +142,27 @@ def compose(size, mark, background, ink, accent, tint=PLATE_TINT):
     # letter, so rectifying them to a square destroys the shape. It is fitted inside the
     # plate's inner box on both axes and centred, so a mark wider than its height cannot
     # overflow the plate.
-    inner = scale * (1 - 2 * MARK_MARGIN)
-    ratio = mark.width / mark.height
-    if ratio >= 1.0:
-        target_w, target_h = int(inner), max(1, int(inner / ratio))
-    else:
-        target_h, target_w = int(inner), max(1, int(inner * ratio))
-
+    # The mark sits in the upper part and the name below it, so the two never compete for the
+    # same space however the plate is tinted.
+    target_h = int(scale * MARK_HEIGHT)
+    target_w = max(1, int(mark.width * target_h / mark.height))
     # Placed as-is: the mark's own colours are the brand, and `recolor` would map them onto
     # ink/accent, flattening the white letterform and the gold sparkle.
     colored = mark.resize((target_w, target_h), Image.LANCZOS)
-    canvas.alpha_composite(
-        colored, ((scale - target_w) // 2, (scale - target_h) // 2)
+    canvas.alpha_composite(colored, ((scale - target_w) // 2, int(scale * MARK_TOP)))
+
+    draw = ImageDraw.Draw(canvas)
+    font = ImageFont.truetype(
+        str((ROOT / WORDMARK_FONT).resolve()), int(scale * WORDMARK_SIZE)
+    )
+    box = draw.textbbox((0, 0), WORDMARK, font=font, stroke_width=WORDMARK_STROKE)
+    draw.text(
+        ((scale - (box[2] - box[0])) // 2 - box[0], int(scale * WORDMARK_TOP) - box[1]),
+        WORDMARK,
+        font=font,
+        fill=(*ink, 255),
+        stroke_width=WORDMARK_STROKE,
+        stroke_fill=(*ink, 255),
     )
     return canvas.resize((size, size), Image.LANCZOS)
 
