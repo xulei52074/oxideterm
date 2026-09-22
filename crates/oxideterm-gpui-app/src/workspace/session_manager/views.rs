@@ -2767,11 +2767,32 @@ impl WorkspaceApp {
                     .child(format!("↑ {}", self.i18n.t("ssh.rayops.files_up"))),
             );
         }
+        // Once focused the row becomes a text field: the crumbs and the field are two views of the
+        // same thing, and showing both would leave the user unsure which one a keystroke reaches.
+        // Read out before the call: the renderer needs `cx` mutably, so holding a borrow of the
+        // session manager across it does not compile — and should not, since the input draws from
+        // the same state it can change.
+        let (editing, draft) = {
+            let manager = self.session_manager.read(cx);
+            (
+                manager.focused_input == Some(SessionManagerInput::RayOpsPath),
+                manager.rayops_path_draft.clone(),
+            )
+        };
+        if editing {
+            path_row = path_row.child(self.render_session_text_input_with_options(
+                SessionManagerInput::RayOpsPath,
+                &draft,
+                "/absolute/path".to_owned(),
+                false,
+                cx,
+            ));
+        }
         // The breadcrumb replaces the plain path text: every ancestor becomes one click away, so
         // reaching a directory near the root no longer means stepping up once per level. The last
         // segment is the directory on display and is not a link — clicking where you already are
         // would only re-list it.
-        {
+        if !editing {
             use super::new_connection::rayops_files::path_segments;
             let segments = path_segments(&state.path);
             let last = segments.len().saturating_sub(1);
@@ -2814,6 +2835,33 @@ impl WorkspaceApp {
                 }
             }
             path_row = path_row.child(crumbs);
+            // The crumbs reach ancestors; typing reaches a directory that shares no prefix with
+            // this one, which is the case they cannot serve.
+            let seed = state.path.clone();
+            path_row = path_row.child(
+                div()
+                    .id("rayops-path-edit")
+                    .px_1()
+                    .rounded_sm()
+                    .cursor_pointer()
+                    .text_xs()
+                    .text_color(rgb(theme.text_muted))
+                    .hover(|style| style.bg(rgb(theme.bg_hover)))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, _: &gpui::MouseDownEvent, _window, cx| {
+                            let seed = seed.clone();
+                            this.session_manager.update(cx, |manager, cx| {
+                                // Seeded with the current directory so a small correction is an
+                                // edit rather than retyping the whole path.
+                                manager.rayops_path_draft = seed;
+                                manager.focused_input = Some(SessionManagerInput::RayOpsPath);
+                                cx.notify();
+                            });
+                        }),
+                    )
+                    .child("\u{270E}"),
+            );
         }
 
         let mut listing = div()

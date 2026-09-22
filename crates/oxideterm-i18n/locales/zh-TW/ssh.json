@@ -314,7 +314,8 @@
       "sign_in_action": "立即登入",
       "expired_badge": "已過期",
       "expired_hint": "登入憑據已過期，請重新登入",
-      "retry_action": "重新登入"
+      "retry_action": "重新登入",
+      "files_path_must_be_absolute": "請輸入絕對路徑（以 / 開頭）"
     }
   },
   "connections": {

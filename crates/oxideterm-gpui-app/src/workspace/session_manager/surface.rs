@@ -350,10 +350,17 @@ impl WorkspaceApp {
                 self.submit_session_group_editor(cx);
                 true
             }
+            "enter" if input == SessionManagerInput::RayOpsPath => {
+                self.submit_rayops_path(cx);
+                true
+            }
             "backspace" => {
                 let changed = self.session_manager.update(cx, |session_manager, cx| {
                     let changed = match input {
                         SessionManagerInput::Search => session_manager.search_query.pop().is_some(),
+                        SessionManagerInput::RayOpsPath => {
+                            session_manager.rayops_path_draft.pop().is_some()
+                        }
                         SessionManagerInput::GroupName => {
                             session_manager.group_name_draft.pop().is_some()
                         }

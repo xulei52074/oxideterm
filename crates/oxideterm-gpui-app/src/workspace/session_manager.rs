@@ -156,6 +156,8 @@ pub(super) enum SessionManagerInput {
     OxideExportPassword,
     OxideExportConfirmPassword,
     OxideExportDescription,
+    /// The directory to jump to in the managed-asset file view.
+    RayOpsPath,
 }
 
 impl SessionManagerInput {
@@ -167,6 +169,7 @@ impl SessionManagerInput {
             Self::OxideExportPassword => 5,
             Self::OxideExportConfirmPassword => 6,
             Self::OxideExportDescription => 7,
+            Self::RayOpsPath => 8,
         }
     }
 
@@ -435,6 +438,11 @@ pub(super) struct SessionManagerState {
     pub(super) sort_field: SessionSortField,
     pub(super) sort_direction: SortDirection,
     pub(super) search_query: String,
+    /// What the user has typed into the managed-asset path field, before it is navigated to.
+    ///
+    /// A draft rather than the view's current path: the view follows what the gateway actually
+    /// read, and editing must not move the listing until the user commits.
+    pub(super) rayops_path_draft: String,
     pub(super) selected_items: HashSet<SessionManagerSelectionTarget>,
     pub(super) view_mode_menu_open: bool,
     pub(super) sort_menu_open: bool,
@@ -495,6 +503,7 @@ impl Default for SessionManagerState {
             sort_field: SessionSortField::LastUsed,
             sort_direction: SortDirection::Desc,
             search_query: String::new(),
+            rayops_path_draft: String::new(),
             selected_items: HashSet::new(),
             view_mode_menu_open: false,
             sort_menu_open: false,
@@ -654,6 +663,7 @@ impl SessionManagerState {
     pub(in crate::workspace) fn input_value(&self, input: SessionManagerInput) -> Option<&str> {
         match input {
             SessionManagerInput::Search => Some(&self.search_query),
+            SessionManagerInput::RayOpsPath => Some(&self.rayops_path_draft),
             SessionManagerInput::GroupName => Some(&self.group_name_draft),
             SessionManagerInput::OxideImportPassword => self
                 .oxide_import_dialog
@@ -683,6 +693,7 @@ impl SessionManagerState {
     ) -> bool {
         let value = match input {
             SessionManagerInput::Search => &mut self.search_query,
+            SessionManagerInput::RayOpsPath => &mut self.rayops_path_draft,
             SessionManagerInput::GroupName => {
                 self.group_editor_error = None;
                 &mut self.group_name_draft

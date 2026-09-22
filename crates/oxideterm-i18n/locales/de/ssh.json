@@ -314,7 +314,8 @@
       "sign_in_action": "Jetzt anmelden",
       "expired_badge": "Abgelaufen",
       "expired_hint": "Sitzung abgelaufen, bitte erneut anmelden",
-      "retry_action": "Erneut anmelden"
+      "retry_action": "Erneut anmelden",
+      "files_path_must_be_absolute": "Absoluten Pfad eingeben (beginnend mit /)"
     }
   }
 }

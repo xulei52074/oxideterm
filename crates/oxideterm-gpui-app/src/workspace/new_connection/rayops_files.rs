@@ -293,6 +293,34 @@ impl crate::workspace::WorkspaceApp {
         self.reload_rayops_directory(cx);
     }
 
+    /// Navigates the file view to what the user typed into the path field.
+    ///
+    /// A relative path is refused rather than resolved: it would resolve against this process's
+    /// working directory, not the asset's, and the gateway would then be asked about a directory
+    /// the user never named.
+    pub(in crate::workspace) fn submit_rayops_path(&mut self, cx: &mut Context<Self>) {
+        let typed = self
+            .session_manager
+            .read(cx)
+            .rayops_path_draft
+            .trim()
+            .to_owned();
+        // Focus is released either way: leaving keystrokes bound to the field after the user has
+        // acted on it would swallow the next key they press.
+        self.session_manager.update(cx, |manager, cx| {
+            manager.focused_input = None;
+            cx.notify();
+        });
+        if typed.is_empty() {
+            return;
+        }
+        if !typed.starts_with('/') {
+            self.notify_rayops_error(self.i18n.t("ssh.rayops.files_path_must_be_absolute"), cx);
+            return;
+        }
+        self.navigate_rayops_directory(typed, cx);
+    }
+
     /// Closes the file view.
     pub(in crate::workspace) fn close_rayops_files(&mut self, cx: &mut Context<Self>) {
         self.rayops_files = RayOpsFileState::default();

@@ -314,7 +314,8 @@
       "sign_in_action": "지금 로그인",
       "expired_badge": "만료됨",
       "expired_hint": "세션이 만료되었습니다. 다시 로그인해 주세요",
-      "retry_action": "다시 로그인"
+      "retry_action": "다시 로그인",
+      "files_path_must_be_absolute": "절대 경로(/로 시작)를 입력하세요"
     }
   }
 }
