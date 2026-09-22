@@ -49,10 +49,28 @@ PLATE_TINT = 0.22
 # The lockup carries the product name under the mark, as the family master does. The name is part
 # of the icon here: a bare tile reads as a letter, not as this product.
 WORDMARK = "RayTerm"
-WORDMARK_FONT = "assets/fonts/ibm-plex-sans/IBMPlexSans-Regular.ttf"
-# The bundled family ships Regular only, so weight comes from a stroke. Substituting a system
-# face would put a typeface in the brand that nothing else in the product uses.
+# The family wordmark is drawn in a geometric sans with a single-storey "a", a pointed "M" and a
+# circular "o" — the letterforms Futura shares. The bundled IBM Plex Sans is a neo-grotesque with a
+# double-storey "a" and reads as a different brand beside the logo it sits under, so it is the
+# fallback rather than the first choice.
+WORDMARK_FONT_CANDIDATES = (
+    ("/System/Library/Fonts/Supplemental/Futura.ttc", 2),  # Futura Bold
+)
+WORDMARK_FALLBACK = "assets/fonts/ibm-plex-sans/IBMPlexSans-Regular.ttf"
+# A stroke adds weight only when the face is the Regular fallback; Futura Bold already has it.
 WORDMARK_STROKE = 3
+
+
+def wordmark_font(scale: float):
+    """The heaviest family-matching face available, else the bundled one."""
+    size = int(scale * WORDMARK_SIZE)
+    for path, index in WORDMARK_FONT_CANDIDATES:
+        if Path(path).exists():
+            try:
+                return ImageFont.truetype(path, size, index=index), 0
+            except OSError:
+                continue
+    return ImageFont.truetype(str((ROOT / WORDMARK_FALLBACK).resolve()), size), WORDMARK_STROKE
 # Where the mark sits and how much of the plate the name takes, as fractions of the icon.
 MARK_TOP = 0.13
 MARK_HEIGHT = 0.42
@@ -152,16 +170,14 @@ def compose(size, mark, background, ink, accent, tint=PLATE_TINT):
     canvas.alpha_composite(colored, ((scale - target_w) // 2, int(scale * MARK_TOP)))
 
     draw = ImageDraw.Draw(canvas)
-    font = ImageFont.truetype(
-        str((ROOT / WORDMARK_FONT).resolve()), int(scale * WORDMARK_SIZE)
-    )
-    box = draw.textbbox((0, 0), WORDMARK, font=font, stroke_width=WORDMARK_STROKE)
+    font, stroke = wordmark_font(scale)
+    box = draw.textbbox((0, 0), WORDMARK, font=font, stroke_width=stroke)
     draw.text(
         ((scale - (box[2] - box[0])) // 2 - box[0], int(scale * WORDMARK_TOP) - box[1]),
         WORDMARK,
         font=font,
         fill=(*ink, 255),
-        stroke_width=WORDMARK_STROKE,
+        stroke_width=stroke,
         stroke_fill=(*ink, 255),
     )
     return canvas.resize((size, size), Image.LANCZOS)
