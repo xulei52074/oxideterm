@@ -376,6 +376,19 @@ def target_label(triple: str) -> str:
     return labels.get(triple, triple.replace("-", "_"))
 
 
+def cargo_invocation(target: str) -> list[str]:
+    """The cargo command prefix for a target.
+
+    Windows MSVC targets are built through `cargo-xwin` on a non-Windows host: it fetches the
+    Windows SDK and CRT and points the linker at them, which a plain `cargo build` cannot do
+    (it fails at `can't find crate for core`, or later at link time). Every other target is built
+    by cargo directly.
+    """
+    if "windows" in target and "msvc" in target:
+        return ["cargo", "xwin"]
+    return ["cargo"]
+
+
 def cargo_target_dir() -> Path:
     """Where cargo actually writes build output.
 
@@ -512,7 +525,7 @@ def native_cargo_build_env(target: str) -> dict[str, str]:
 
 
 def build_cli(target: str, target_was_explicit: bool) -> Path:
-    args = ["cargo", "build", "-p", "oxideterm-cli", "--release"]
+    args = [*cargo_invocation(target), "build", "-p", "oxideterm-cli", "--release"]
     if target_was_explicit:
         args.extend(["--target", target])
     run(args, env=native_cargo_build_env(target))
@@ -531,7 +544,7 @@ def build_cli(target: str, target_was_explicit: bool) -> Path:
 
 
 def build_helper(package: str, target: str, target_was_explicit: bool) -> Path:
-    args = ["cargo", "build", "-p", package, "--release"]
+    args = [*cargo_invocation(target), "build", "-p", package, "--release"]
     if target_was_explicit:
         args.extend(["--target", target])
     run(args, env=native_cargo_build_env(target))
@@ -581,7 +594,7 @@ def build_app(target: str, target_was_explicit: bool) -> Path:
     # naming the binary selects only `oxideterm-gpui-app`, whose own feature table has no
     # `gpui_macos`. Selecting the workspace puts that member in scope, so the path resolves.
     args = [
-        "cargo",
+        *cargo_invocation(target),
         "build",
         "--workspace",
         "--release",
