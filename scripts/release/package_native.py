@@ -38,14 +38,26 @@ MACOS_DMG_DETACH_RETRY_DELAY_SECONDS = 2
 MACOS_RESOURCE_BUSY_EXIT_CODE = 16
 DIST_DIR = ROOT_DIR / "dist"
 # The name users see: the macOS bundle name and therefore the menu-bar title, the Windows
-# install directory, the Linux .desktop entry. Kept here rather than derived from the crate
-# name so that renaming the product does not require touching upstream source.
-BASE_APP_NAME = "RayTerm"
-STABLE_APP_IDENTIFIER = "com.rayterm.app"
-# Deliberately unchanged. The executable name doubles as the ACP adapter command that AI
-# presets invoke and is stored in existing settings, so renaming it here would silently break
-# those. On macOS the visible title comes from CFBundleName above, not from this.
-APP_BIN = "oxideterm-native"
+# install directory, the Linux .desktop entry. Read from the branding config rather than stated
+# here, so a rebrand is one file and an upstream merge never has to reconcile a scattered rename.
+#
+# There is deliberately no literal fallback. A fallback would be a second source of truth, and the
+# two would drift the first time only one of them was edited — which is the failure this indirection
+# exists to prevent. A missing or invalid config is reported rather than papered over.
+sys.path.insert(0, str(ROOT_DIR / "custom-branding"))
+from branding import BrandingError, load as load_branding  # noqa: E402
+
+try:
+    BRANDING = load_branding()
+except BrandingError as error:
+    raise SystemExit(f"branding configuration is not usable:\n{error}") from error
+
+BASE_APP_NAME = BRANDING["productName"]
+STABLE_APP_IDENTIFIER = BRANDING["appId"]
+# Not "the executable the product is named after". It doubles as the ACP adapter command that AI
+# presets invoke and that existing settings store, so it is fixed by the config's own rule rather
+# than by this file. On macOS the visible title comes from CFBundleName, not from this.
+APP_BIN = BRANDING["executableName"]
 CLI_BIN = "oxideterm"
 CONNECTION_URI_SCHEMES = ("ssh", "telnet", "mosh", "rdp", "vnc")
 HELPER_BINS = ("oxideterm-rdp-helper", "oxideterm-vnc-helper")
