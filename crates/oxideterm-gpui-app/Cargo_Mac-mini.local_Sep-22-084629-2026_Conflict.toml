@@ -1,0 +1,149 @@
+[package]
+name = "oxideterm-gpui-app"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[features]
+default = ["plugin-wasm-runtime"]
+plugin-wasm-runtime = ["oxideterm-plugin-host-api/wasm-runtime"]
+
+[[bin]]
+name = "oxideterm-native"
+path = "src/main.rs"
+
+[dependencies]
+futures-util.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+base64.workspace = true
+chrono.workspace = true
+fs2.workspace = true
+gpui.workspace = true
+# The RayTerm protocol client and its network wiring. The application layer is where the RayOps
+# flow lives — login, the asset picker, the ticket exchange — so it is one of the two places that
+# legitimately depends on both, the other being `crates/rayterm`. `oxideterm-terminal` depends
+# only on the runtime-free protocol crate, which is what keeps reqwest and tokio-tungstenite out
+# of the terminal model.
+oxideterm-rayops = { path = "../../../crates/oxideterm-rayops" }
+oxideterm-rayops-net = { path = "../../../crates/oxideterm-rayops-net" }
+image.workspace = true
+oxideterm-backend-classification = { path = "../oxideterm-backend-classification" }
+oxideterm-ai = { path = "../oxideterm-ai" }
+oxideterm-ai-tasks = { path = "../oxideterm-ai-tasks" }
+oxideterm-acp-adapter = { path = "../oxideterm-acp-adapter" }
+oxideterm-acp-host-tools = { path = "../oxideterm-acp-host-tools" }
+oxideterm-atomic-file = { path = "../oxideterm-atomic-file" }
+oxideterm-app-lock = { path = "../oxideterm-app-lock" }
+oxideterm-cloud-sync = { path = "../oxideterm-cloud-sync" }
+oxideterm-connection-monitor = { path = "../oxideterm-connection-monitor" }
+oxideterm-connections = { path = "../oxideterm-connections" }
+oxideterm-secret-store = { path = "../oxideterm-secret-store" }
+oxideterm-desktop-presence = { path = "../oxideterm-desktop-presence" }
+oxideterm-editor-core = { path = "../oxideterm-editor-core" }
+oxideterm-forwarding = { path = "../oxideterm-forwarding" }
+oxideterm-gpui-cloud-sync = { path = "../oxideterm-gpui-cloud-sync" }
+oxideterm-gpui-editor = { path = "../oxideterm-gpui-editor" }
+oxideterm-gpui-ide = { path = "../oxideterm-gpui-ide" }
+oxideterm-gpui-markdown = { path = "../oxideterm-gpui-markdown" }
+oxideterm-gpui-platform = { path = "../oxideterm-gpui-platform" }
+oxideterm-gpui-remote-desktop = { path = "../oxideterm-gpui-remote-desktop" }
+oxideterm-gpui-settings-view = { path = "../oxideterm-gpui-settings-view" }
+oxideterm-gpui-terminal = { path = "../oxideterm-gpui-terminal" }
+oxideterm-gpui-ui = { path = "../oxideterm-gpui-ui" }
+oxideterm-editor-syntax = { path = "../oxideterm-editor-syntax" }
+oxideterm-environment = { path = "../oxideterm-environment" }
+oxideterm-i18n = { path = "../oxideterm-i18n" }
+oxideterm-ide-core = { path = "../oxideterm-ide-core" }
+oxideterm-ide-fs = { path = "../oxideterm-ide-fs" }
+oxideterm-local-files = { path = "../oxideterm-local-files" }
+oxideterm-mosh = { path = "../oxideterm-mosh" }
+oxideterm-notification-center = { path = "../oxideterm-notification-center" }
+oxideterm-network-proxy = { path = "../oxideterm-network-proxy" }
+oxideterm-plugin-host-api = { path = "../oxideterm-plugin-host-api" }
+oxideterm-plugin-protocol = { path = "../oxideterm-plugin-protocol" }
+oxideterm-plugin-registry = { path = "../oxideterm-plugin-registry" }
+oxideterm-portable-runtime = { path = "../oxideterm-portable-runtime" }
+oxideterm-preview = { path = "../oxideterm-preview" }
+oxideterm-public-mcp = { path = "../oxideterm-public-mcp" }
+oxideterm-quick-commands = { path = "../oxideterm-quick-commands" }
+oxideterm-remote-desktop = { path = "../oxideterm-remote-desktop" }
+oxideterm-render-policy = { path = "../oxideterm-render-policy" }
+oxideterm-settings = { path = "../oxideterm-settings" }
+oxideterm-settings-model = { path = "../oxideterm-settings-model" }
+oxideterm-skills = { path = "../oxideterm-skills" }
+oxideterm-session-adapter = { path = "../oxideterm-session-adapter" }
+oxideterm-sftp = { path = "../oxideterm-sftp" }
+oxideterm-ssh-launch = { path = "../oxideterm-ssh-launch" }
+oxideterm-ssh = { path = "../oxideterm-ssh" }
+oxideterm-terminal = { path = "../oxideterm-terminal" }
+oxideterm-terminal-semantic = { path = "../oxideterm-terminal-semantic", default-features = false }
+oxideterm-terminal-triggers = { path = "../oxideterm-terminal-triggers" }
+oxideterm-terminal-recording = { path = "../oxideterm-terminal-recording" }
+oxideterm-theme = { path = "../oxideterm-theme" }
+oxideterm-topology = { path = "../oxideterm-topology" }
+oxideterm-update = { path = "../oxideterm-update" }
+oxideterm-workspace = { path = "../oxideterm-workspace" }
+oxideterm-wsl-graphics = { path = "../oxideterm-wsl-graphics" }
+parking_lot.workspace = true
+regex.workspace = true
+redb = "2.1"
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tempfile = "3.23"
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+url.workspace = true
+walkdir = "2"
+whoami.workspace = true
+zeroize.workspace = true
+
+[build-dependencies]
+embed-resource = "3.0.9"
+
+[dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }
+ttf-parser = "0.25"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+raw-window-handle.workspace = true
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_System_LibraryLoader", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell_PropertiesSystem", "Win32_UI_WindowsAndMessaging"] }
+windows-core.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gstreamer = "0.24.5"
+gstreamer-video = "0.24.5"
+raw-window-handle.workspace = true
+x11-dl = "2.21.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.4"
+objc2-app-kit = "0.3.2"
+objc2-av-foundation = "0.3.2"
+objc2-av-kit = "0.3.2"
+objc2-foundation = "0.3.2"
+raw-window-handle.workspace = true
+
+[package.metadata.bundle]
+# Used by `cargo bundle`, which the release script does not go through (it writes its own
+# Info.plist). Kept in step anyway: a developer running `cargo bundle` should get a RayTerm.app,
+# and the identifier must match the one the app registers under at runtime.
+identifier = "com.rayterm.app"
+name = "RayTerm"
+icon = [
+    "resources/icons/32x32.png",
+    "resources/icons/64x64.png",
+    "resources/icons/128x128.png",
+    "resources/icons/128x128@2x.png",
+    "resources/icons/icon.icns",
+    "resources/icons/icon.ico",
+]
+osx_minimum_system_version = "13.0"
+osx_info_plist_exts = ["resources/info/*"]
+osx_entitlements = "resources/OxideTerm.entitlements"
+resources = ["resources/agents", "resources/cli-bin", "resources/icons"]

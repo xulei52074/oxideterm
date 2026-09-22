@@ -42,10 +42,6 @@ CHARCOAL = (32, 38, 46)
 
 MARK_MARGIN = 0.18  # the mark's inset from the plate edge; enough that the bowl clears the rounded corner
 PLATE_RADIUS = 0.22
-# Apple's macOS icon grid puts the rounded body on 824 of the 1024 canvas, so the artwork never
-# reaches the edge. A plate that bleeds to the edge is rendered about a quarter larger than the
-# app beside it in the Dock, because the margin is what macOS sizes the optical body by.
-MACOS_ICON_COVERAGE = 824 / 1024
 # How far the plate leans towards a variant's colour. Low enough that the mark stays dominant,
 # high enough that the twelve variants remain distinguishable from one another.
 PLATE_TINT = 0.22
@@ -148,24 +144,15 @@ def plate_colour(background, accent, tint=PLATE_TINT):
     return tuple(round(base[i] + (accent[i] - base[i]) * tint) for i in range(3))
 
 
-def compose(size, mark, background, ink, accent, tint=PLATE_TINT, coverage=1.0):
-    """Draws one icon: the tinted plate, the mark, and the product name beneath it.
-
-    `coverage` is how much of the canvas the plate fills. macOS sizes the optical body by the
-    transparent margin, so its icons pass `MACOS_ICON_COVERAGE`; a Windows tile is complete at
-    full bleed and keeps the default.
-    """
+def compose(size, mark, background, ink, accent, tint=PLATE_TINT):
+    """Draws one icon: the tinted plate, the mark, and the product name beneath it."""
     scale = size * SUPERSAMPLE
-    body = max(1, int(scale * coverage))
     canvas = Image.new("RGBA", (scale, scale), (0, 0, 0, 0))
-    # Everything is drawn at the body size and centred, so the change of coverage moves the
-    # margin rather than rescaling the lockup inside the plate.
-    layer = Image.new("RGBA", (body, body), (0, 0, 0, 0))
 
     if background is not None:
-        ImageDraw.Draw(layer).rounded_rectangle(
-            [(0, 0), (body - 1, body - 1)],
-            radius=int(body * PLATE_RADIUS),
+        ImageDraw.Draw(canvas).rounded_rectangle(
+            [(0, 0), (scale - 1, scale - 1)],
+            radius=int(scale * PLATE_RADIUS),
             fill=(*plate_colour(background, accent, tint), 255),
         )
 
@@ -175,26 +162,24 @@ def compose(size, mark, background, ink, accent, tint=PLATE_TINT, coverage=1.0):
     # overflow the plate.
     # The mark sits in the upper part and the name below it, so the two never compete for the
     # same space however the plate is tinted.
-    target_h = int(body * MARK_HEIGHT)
+    target_h = int(scale * MARK_HEIGHT)
     target_w = max(1, int(mark.width * target_h / mark.height))
     # Placed as-is: the mark's own colours are the brand, and `recolor` would map them onto
     # ink/accent, flattening the white letterform and the gold sparkle.
     colored = mark.resize((target_w, target_h), Image.LANCZOS)
-    layer.alpha_composite(colored, ((body - target_w) // 2, int(body * MARK_TOP)))
+    canvas.alpha_composite(colored, ((scale - target_w) // 2, int(scale * MARK_TOP)))
 
-    draw = ImageDraw.Draw(layer)
-    font, stroke = wordmark_font(body)
+    draw = ImageDraw.Draw(canvas)
+    font, stroke = wordmark_font(scale)
     box = draw.textbbox((0, 0), WORDMARK, font=font, stroke_width=stroke)
     draw.text(
-        ((body - (box[2] - box[0])) // 2 - box[0], int(body * WORDMARK_TOP) - box[1]),
+        ((scale - (box[2] - box[0])) // 2 - box[0], int(scale * WORDMARK_TOP) - box[1]),
         WORDMARK,
         font=font,
         fill=(*ink, 255),
         stroke_width=stroke,
         stroke_fill=(*ink, 255),
     )
-    offset = (scale - body) // 2
-    canvas.alpha_composite(layer, (offset, offset))
     return canvas.resize((size, size), Image.LANCZOS)
 
 
@@ -217,7 +202,7 @@ VARIANTS = {
 
 
 def verify(path: Path, size: int, expect_plate) -> None:
-    """Asserts the icon contains its tinted plate and the mark, inside the macOS margin.
+    """Asserts the icon contains its tinted plate and the mark.
 
     A mis-sized composite or a fully transparent mask still writes a valid PNG, so this counts
     pixels rather than trusting the file to exist. The plate colour is what distinguishes the
@@ -233,15 +218,6 @@ def verify(path: Path, size: int, expect_plate) -> None:
     )
     left = [p for p in image.crop((0, 0, size // 3, size)).getdata() if p[3] > 200]
     assert left, f"{path} has nothing in the left third, so the mark did not land"
-    # Both edges of the middle row: a plate that reaches either one renders oversized in the Dock.
-    middle = size // 2
-    assert image.getpixel((0, middle))[3] == 0 and image.getpixel((size - 1, middle))[3] == 0, (
-        f"{path} bleeds to the canvas edge, so it has no macOS margin"
-    )
-    plate_width = image.split()[3].getbbox()[2] - image.split()[3].getbbox()[0]
-    assert 0.78 * size < plate_width < 0.83 * size, (
-        f"{path} plate spans {plate_width}/{size}, expected Apple's 824/1024 body"
-    )
 
 
 def write_icns(out, mark, background, ink, accent) -> bool:
@@ -252,7 +228,7 @@ def write_icns(out, mark, background, ink, accent) -> bool:
     iconset.mkdir(parents=True, exist_ok=True)
 
     for size in ICNS_SIZES:
-        image = compose(size, mark, background, ink, accent, coverage=MACOS_ICON_COVERAGE)
+        image = compose(size, mark, background, ink, accent)
         if size <= 512:
             image.save(iconset / f"icon_{size}x{size}.png", "PNG")
         if size >= 32:
@@ -294,20 +270,16 @@ def main() -> int:
     for name, (background, ink, accent) in VARIANTS.items():
         # The default keeps a neutral plate; every other variant carries its colour.
         tint = 0.0 if name == DEFAULT_VARIANT else PLATE_TINT
-        # The PNG is the icon macOS shows, so it carries the platform margin; the ICO beside it
-        # is a Windows file and stays a complete, full-bleed tile.
-        image = compose(ICON_SIZE, mark, background, ink, accent, tint, MACOS_ICON_COVERAGE)
+        image = compose(ICON_SIZE, mark, background, ink, accent, tint)
         png = out / "variants" / f"{name}.png"
         png.parent.mkdir(parents=True, exist_ok=True)
         image.save(png, "PNG", optimize=True)
         verify(png, ICON_SIZE, plate_colour(background, accent, tint))
-        compose(ICON_SIZE, mark, background, ink, accent, tint).save(
-            out / "variants" / f"{name}.ico", "ICO", sizes=[(s, s) for s in ICO_SIZES]
-        )
+        image.save(out / "variants" / f"{name}.ico", "ICO", sizes=[(s, s) for s in ICO_SIZES])
         print(f"  {name}")
 
     background, ink, accent = VARIANTS["default"]
-    icon = compose(ICON_SIZE, mark, background, ink, accent, tint=0.0, coverage=MACOS_ICON_COVERAGE)
+    icon = compose(ICON_SIZE, mark, background, ink, accent, tint=0.0)
     icon.save(out / "icon.png", "PNG", optimize=True)
     verify(out / "icon.png", ICON_SIZE, plate_colour(background, accent, 0.0))
     print("  icon.png")

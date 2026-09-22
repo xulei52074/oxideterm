@@ -1,0 +1,16 @@
+{
+  "productName": "RayTerm",
+  "productShortName": "rayterm",
+  "appId": "com.rayterm.app",
+  "description": "RayOps 原生运维终端",
+  "author": {
+    "name": "Ray",
+    "email": "304374357@qq.com"
+  },
+  "homepage": "",
+  "copyright": "Copyright © 2026 Ray. All rights reserved.",
+  "upstreamRepository": "AnalyseDeCircuit/oxideterm",
+  "distributionRepository": "xulei52074/oxideterm",
+  "executableName": "oxideterm-native",
+  "artifactPrefix": "RayTerm_"
+}
