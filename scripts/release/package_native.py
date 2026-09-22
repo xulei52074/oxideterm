@@ -58,6 +58,11 @@ STABLE_APP_IDENTIFIER = BRANDING["appId"]
 # presets invoke and that existing settings store, so it is fixed by the config's own rule rather
 # than by this file. On macOS the visible title comes from CFBundleName, not from this.
 APP_BIN = BRANDING["executableName"]
+# The GPUI app is built with runtime shader compilation. The default compiles the Metal shaders
+# during the build, which needs the full Xcode toolchain — on a machine with only the command line
+# tools it fails with `xcrun: error: unable to find utility "metal"`. The runtime path renders
+# through the same shaders without that tool, and is what every build in this fork uses.
+APP_FEATURES = ("gpui_macos/runtime_shaders",)
 # The Linux package/install/icon stem. Same value as the short name in practice, kept as its own
 # key because a distribution may need a name the product does not use elsewhere.
 LINUX_NAME = BRANDING["linuxPackageName"]
@@ -371,11 +376,40 @@ def target_label(triple: str) -> str:
     return labels.get(triple, triple.replace("-", "_"))
 
 
+def cargo_target_dir() -> Path:
+    """Where cargo actually writes build output.
+
+    Asked of cargo rather than assumed to be `ROOT_DIR/target`, because the directory is
+    configurable and this repository configures it: `.cargo/config.toml` redirects it out of the
+    Synology Drive folder the checkout lives in, since a Rust target directory runs to tens of
+    gigabytes and would otherwise be synced and conflicted. Assuming the default made packaging
+    fail with "binary not found" while the binaries sat where cargo had actually put them.
+    """
+    try:
+        output = subprocess.check_output(
+            ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+            cwd=ROOT_DIR,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        return Path(json.loads(output)["target_directory"])
+    except (OSError, subprocess.CalledProcessError, KeyError, json.JSONDecodeError) as error:
+        # Reported rather than silently defaulted: falling back would look for the binaries in a
+        # directory cargo never used, and the resulting "binary not found" would point at the
+        # build rather than at this lookup.
+        print(
+            f"warning: cannot ask cargo for its target directory ({error}); "
+            f"assuming {ROOT_DIR / 'target'}",
+            file=sys.stderr,
+        )
+        return ROOT_DIR / "target"
+
+
 def release_binary(target: str, target_was_explicit: bool, name: str) -> Path:
     binary_name = f"{name}.exe" if "windows" in target else name
     if target_was_explicit:
-        return ROOT_DIR / "target" / target / "release" / binary_name
-    return ROOT_DIR / "target" / "release" / binary_name
+        return cargo_target_dir() / target / "release" / binary_name
+    return cargo_target_dir() / "release" / binary_name
 
 
 def make_executable(path: Path) -> None:
@@ -541,14 +575,18 @@ def build_update_helper(target: str, target_was_explicit: bool) -> Path:
 
 
 def build_app(target: str, target_was_explicit: bool) -> Path:
+    # Built from the workspace root rather than from the app crate's own manifest: `runtime_shaders`
+    # is a feature of the `gpui_macos` workspace member. `run` defaults to ROOT_DIR.
+    # `--workspace`, not `--bin`. A `dep/feature` path is resolved from the *selected* package, and
+    # naming the binary selects only `oxideterm-gpui-app`, whose own feature table has no
+    # `gpui_macos`. Selecting the workspace puts that member in scope, so the path resolves.
     args = [
         "cargo",
         "build",
-        "--manifest-path",
-        str(APP_MANIFEST),
-        "--bin",
-        APP_BIN,
+        "--workspace",
         "--release",
+        "--features",
+        ",".join(APP_FEATURES),
     ]
     if target_was_explicit:
         args.extend(["--target", target])
@@ -1728,7 +1766,9 @@ def main() -> None:
     identity = release_identity(raw_version, version)
     label = target_label(target)
 
-    os.environ.setdefault("CLANG_MODULE_CACHE_PATH", str(ROOT_DIR / "target" / "clang-module-cache"))
+    os.environ.setdefault(
+        "CLANG_MODULE_CACHE_PATH", str(cargo_target_dir() / "clang-module-cache")
+    )
     Path(os.environ["CLANG_MODULE_CACHE_PATH"]).mkdir(parents=True, exist_ok=True)
 
     if DIST_DIR.exists():

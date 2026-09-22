@@ -84,6 +84,22 @@ def request(method: str, url: str, token: str, payload: object | None = None) ->
         return None
 
 
+def release_for_tag(base_url: str, repository: str, tag: str, token: str) -> dict | None:
+    """The release already carrying this tag, if any.
+
+    Publishing is per platform but a tag is per version, so a second platform must land on the
+    release the first one created. Creating another release for the same tag would split one
+    version across several downloads pages and leave the tag pointing at whichever came first.
+    """
+    releases = request("GET", f"{base_url}/api/v1/repos/{repository}/releases?limit=50", token)
+    if not isinstance(releases, list):
+        return None
+    for release in releases:
+        if isinstance(release, dict) and release.get("tag_name") == tag:
+            return release
+    return None
+
+
 def upload_asset(base_url: str, repository: str, release_id: int, path: Path, token: str) -> None:
     """Uploads one artifact.
 
@@ -142,26 +158,40 @@ def main(argv: list[str]) -> int:
 
     base = plan["base_url"]
     repository = plan["repository"]
-    release = request(
-        "POST",
-        f"{base}/api/v1/repos/{repository}/releases",
-        token,
-        {
-            "tag_name": plan["tag"],
-            "name": plan["name"],
-            "prerelease": plan["prerelease"],
-            "draft": False,
-        },
-    )
-    if not isinstance(release, dict) or "id" not in release:
-        raise PublishError(f"the release response did not carry an id: {release!r}")
-    print(f"created release {release['id']} for {plan['tag']}")
+    release = release_for_tag(base, repository, plan["tag"], token)
+    if release is None:
+        created = request(
+            "POST",
+            f"{base}/api/v1/repos/{repository}/releases",
+            token,
+            {
+                "tag_name": plan["tag"],
+                "name": plan["name"],
+                "prerelease": plan["prerelease"],
+                "draft": False,
+            },
+        )
+        if not isinstance(created, dict) or "id" not in created:
+            raise PublishError(f"the release response did not carry an id: {created!r}")
+        print(f"created release {created['id']} for {plan['tag']}")
+        release = created
+    else:
+        print(f"adding to release {release.get('id')} for {plan['tag']}")
 
+    # An asset already carrying a name is left alone rather than uploaded again: re-running a
+    # platform's publish is a normal thing to do, and a duplicate would give the download page two
+    # entries for one file.
+    present = {asset.get("name") for asset in release.get("assets", []) if isinstance(asset, dict)}
+    uploaded = 0
     for asset in plan["assets"]:
         path = Path(asset)
+        if path.name in present:
+            print(f"  {path.name} is already published")
+            continue
         upload_asset(base, repository, int(release["id"]), path, token)
+        uploaded += 1
         print(f"  uploaded {path.name}")
-    print(f"\npublished {plan['tag']} with {len(plan['assets'])} assets")
+    print(f"\npublished {uploaded} new asset(s) under {plan['tag']}")
     return 0
 
 
