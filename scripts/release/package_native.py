@@ -61,6 +61,9 @@ APP_BIN = BRANDING["executableName"]
 # The Linux package/install/icon stem. Same value as the short name in practice, kept as its own
 # key because a distribution may need a name the product does not use elsewhere.
 LINUX_NAME = BRANDING["linuxPackageName"]
+# The published artifact filename prefix. Separate from the product name so a distribution can
+# prefix releases differently from the name users see.
+ARTIFACT_PREFIX = BRANDING["artifactPrefix"]
 # Preview channels are separate applications with their own bundle identifiers, so they cannot be
 # derived from the stable one without guessing at the identifier's shape. They are stated instead.
 CHANNELS = BRANDING["channels"]
@@ -995,7 +998,7 @@ def create_portable_package(
     version: str,
     label: str,
 ) -> None:
-    package_root = DIST_DIR / f"RayTerm_{version}_{label}_portable"
+    package_root = DIST_DIR / f"{ARTIFACT_PREFIX}_{version}_{label}_portable"
     if package_root.exists():
         shutil.rmtree(package_root)
     (package_root / "resources").mkdir(parents=True)
@@ -1025,10 +1028,10 @@ def create_portable_package(
     if "windows" in target:
         archive_windows_portable(
             package_root,
-            DIST_DIR / f"RayTerm_{version}_{label}_portable.zip",
+            DIST_DIR / f"{ARTIFACT_PREFIX}_{version}_{label}_portable.zip",
         )
     else:
-        archive_path = DIST_DIR / f"RayTerm_{version}_{label}_portable.tar.gz"
+        archive_path = DIST_DIR / f"{ARTIFACT_PREFIX}_{version}_{label}_portable.tar.gz"
         with tarfile.open(archive_path, "w:gz") as archive:
             archive.add(package_root, arcname=package_root.name)
     shutil.rmtree(package_root)
@@ -1064,8 +1067,8 @@ def create_windows_installer(
         raise RuntimeError("makensis not found; install NSIS before packaging Windows installers")
 
     installer_root = stage_windows_installer_root(binary, target, version, label, update_helper)
-    installer_path = DIST_DIR / f"RayTerm_{version}_{label}-setup.exe"
-    script_path = DIST_DIR / f"RayTerm_{version}_{label}.nsi"
+    installer_path = DIST_DIR / f"{ARTIFACT_PREFIX}_{version}_{label}-setup.exe"
+    script_path = DIST_DIR / f"{ARTIFACT_PREFIX}_{version}_{label}.nsi"
     icon_path = RESOURCE_DIR / "icons" / "icon.ico"
 
     script = windows_installer_script(
@@ -1296,7 +1299,7 @@ def create_macos_app(
         plistlib.dump(plist, file)
 
     sign_macos_path(app_dir)
-    app_zip = DIST_DIR / f"RayTerm_{version}_{label}.app.zip"
+    app_zip = DIST_DIR / f"{ARTIFACT_PREFIX}_{version}_{label}.app.zip"
     zip_macos_app_bundle(app_dir, app_zip)
     if notarize_macos_artifact(app_zip, staple=False):
         # The ZIP is only the submission container. Staple the accepted ticket
@@ -1309,7 +1312,7 @@ def create_macos_app(
         # bridge asset beside the native ZIP until the 1.x population retires.
         archive_macos_tauri_bundle(
             app_dir,
-            DIST_DIR / f"RayTerm_{version}_{label}.app.tar.gz",
+            DIST_DIR / f"{ARTIFACT_PREFIX}_{version}_{label}.app.tar.gz",
         )
 
     if shutil.which("hdiutil"):
@@ -1320,7 +1323,7 @@ def create_macos_app(
         shutil.copytree(app_dir, dmg_root / f"{identity.app_name}.app")
         (dmg_root / "Applications").symlink_to("/Applications")
         copy_macos_unsigned_install_notice(dmg_root, identity)
-        dmg_path = DIST_DIR / f"RayTerm_{version}_{label}.dmg"
+        dmg_path = DIST_DIR / f"{ARTIFACT_PREFIX}_{version}_{label}.dmg"
         create_macos_dmg(dmg_root, dmg_path, identity)
         notarize_macos_artifact(dmg_path, staple=True)
         shutil.rmtree(dmg_root)
@@ -1570,7 +1573,7 @@ def create_linux_appimage(
     )
     make_executable(apprun)
 
-    output = DIST_DIR / f"RayTerm_{version}_{label}.AppImage"
+    output = DIST_DIR / f"{ARTIFACT_PREFIX}_{version}_{label}.AppImage"
     env = os.environ.copy()
     env["ARCH"] = linux_appimage_arch(target)
     env.setdefault("APPIMAGE_EXTRACT_AND_RUN", "1")
@@ -1628,7 +1631,7 @@ Description: RayTerm native SSH workspace
 """
     (control_dir / "control").write_text(control, encoding="utf-8")
 
-    output = DIST_DIR / f"RayTerm_{version}_{label}.deb"
+    output = DIST_DIR / f"{ARTIFACT_PREFIX}_{version}_{label}.deb"
     run(["dpkg-deb", "--build", "--root-owner-group", str(deb_root), str(output)])
     shutil.rmtree(deb_root)
 
@@ -1712,7 +1715,7 @@ cp -a \"{payload_path}/.\" %{{buildroot}}/
     built = list((top_dir / "RPMS" / linux_rpm_arch(target)).glob("*.rpm"))
     if len(built) != 1:
         raise RuntimeError(f"expected one RPM artifact, found {len(built)}")
-    shutil.copy2(built[0], DIST_DIR / f"RayTerm_{version}_{label}.rpm")
+    shutil.copy2(built[0], DIST_DIR / f"{ARTIFACT_PREFIX}_{version}_{label}.rpm")
     shutil.rmtree(rpm_root)
 
 
