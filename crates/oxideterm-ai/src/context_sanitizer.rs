@@ -46,7 +46,9 @@ static AUTH_HEADER: LazyLock<Regex> = LazyLock::new(|| {
 static AWS_KEY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bAKIA[0-9A-Z]{16}\b").unwrap());
 static VENDOR_TOKEN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
-        r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-proj-[A-Za-z0-9]{20,}|sk-ant-[A-Za-z0-9]{20,}|sk_(?:live|test)_[A-Za-z0-9]{10,}|pk_(?:live|test)_[A-Za-z0-9]{10,}|rk_(?:live|test)_[A-Za-z0-9]{10,}|xox[bpoas]-[A-Za-z0-9\-]{10,})\b",
+        // `sk-<secret>` is the plain OpenAI-style and DeepSeek-style key form; a provider
+        // echoing a rejected key back in an error body must not reach the user through it.
+        r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-proj-[A-Za-z0-9]{20,}|sk-ant-[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|sk_(?:live|test)_[A-Za-z0-9]{10,}|pk_(?:live|test)_[A-Za-z0-9]{10,}|rk_(?:live|test)_[A-Za-z0-9]{10,}|xox[bpoas]-[A-Za-z0-9\-]{10,})\b",
     )
     .unwrap()
 });
@@ -568,10 +570,25 @@ pub fn sanitize_api_messages_for_provider(messages: Vec<AiChatMessage>) -> Vec<A
 #[cfg(test)]
 mod tests {
     use super::{
-        preference_is_safe_to_persist, sanitize_for_persistence, sanitize_json_for_persistence,
-        sanitize_tool_arguments_json_for_persistence, sanitize_tool_protocol_json_for_persistence,
-        sanitize_tool_result_json_for_persistence,
+        preference_is_safe_to_persist, sanitize_for_ai, sanitize_for_persistence,
+        sanitize_json_for_persistence, sanitize_tool_arguments_json_for_persistence,
+        sanitize_tool_protocol_json_for_persistence, sanitize_tool_result_json_for_persistence,
     };
+
+    #[test]
+    fn plain_vendor_keys_are_redacted_before_any_surface_sees_them() {
+        // DeepSeek and plain OpenAI keys are `sk-` plus a 32-character secret, which the
+        // prefixed vendor patterns never matched.
+        let key = "sk-0f1e2d3c4b5a69788796a5b4c3d2e1f0";
+        let text = sanitize_for_ai(&format!(
+            "Authentication Fails, Your api key: {key} is invalid"
+        ));
+
+        assert!(!text.contains(key));
+        assert!(text.contains("[REDACTED]"));
+        // A short `sk-` prefix is ordinary prose, not a credential.
+        assert_eq!(sanitize_for_ai("sk-abc"), "sk-abc");
+    }
 
     #[test]
     fn persistence_sanitizer_removes_runtime_handle_tokens() {

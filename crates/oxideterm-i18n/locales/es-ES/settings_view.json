@@ -1017,6 +1017,7 @@
       "add_model": "Añadir modelo",
       "refresh_models": "Actualizar lista de modelos",
       "refresh_failed": "Error al actualizar modelos: {{error}}",
+      "request_failed": "Solicitud fallida: {{error}}",
       "show_all_models": "Mostrar los {{count}}",
       "show_fewer_models": "Mostrar menos",
       "system_prompt_title": "Prompt del sistema",

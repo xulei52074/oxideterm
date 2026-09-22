@@ -143,7 +143,9 @@ pub(in crate::workspace) enum AiModelRefreshIntent {
     MissingApiKey {
         provider_id: String,
     },
-    Failed,
+    Failed {
+        reason: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -187,7 +189,9 @@ enum AiProviderKeyOperation {
 
 enum AiModelRefreshFailure {
     MissingApiKey,
-    Failed,
+    /// The reason is the provider's discovery error text, or empty when the failure came from
+    /// local keychain access, whose errors can name local accounts.
+    Failed { reason: String },
 }
 
 struct AiModelRefreshWorkerDelivery {
@@ -2040,7 +2044,9 @@ impl AiWorkspaceEntity {
                                 index,
                                 provider_id,
                                 generation,
-                                result: Err(AiModelRefreshFailure::Failed),
+                                result: Err(AiModelRefreshFailure::Failed {
+                                    reason: String::new(),
+                                }),
                             });
                             return;
                         }
@@ -2049,7 +2055,9 @@ impl AiWorkspaceEntity {
             };
             let result = oxideterm_ai::fetch_provider_models(provider, api_key)
                 .await
-                .map_err(|_| AiModelRefreshFailure::Failed);
+                .map_err(|error| AiModelRefreshFailure::Failed {
+                    reason: error.to_string(),
+                });
             let _ = worker_tx.send(AiModelRefreshWorkerDelivery {
                 index,
                 provider_id,
@@ -4134,7 +4142,9 @@ impl AiWorkspaceEntity {
                 Err(AiModelRefreshFailure::MissingApiKey) => AiModelRefreshIntent::MissingApiKey {
                     provider_id: delivery.provider_id,
                 },
-                Err(AiModelRefreshFailure::Failed) => AiModelRefreshIntent::Failed,
+                Err(AiModelRefreshFailure::Failed { reason }) => {
+                    AiModelRefreshIntent::Failed { reason }
+                }
             };
             self.model_refresh_intents.push_back(intent);
         }

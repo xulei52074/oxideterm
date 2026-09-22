@@ -1017,6 +1017,7 @@
       "add_model": "新增模型",
       "refresh_models": "重新整理模型列表",
       "refresh_failed": "重新整理模型失敗：{{error}}",
+      "request_failed": "請求失敗：{{error}}",
       "show_all_models": "顯示全部 {{count}} 個",
       "show_fewer_models": "收合模型",
       "system_prompt_title": "系統提示詞",

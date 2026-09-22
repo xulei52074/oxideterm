@@ -165,3 +165,64 @@ pub fn stream_error_label(error: &str) -> Option<&'static str> {
         _ => None,
     }
 }
+
+/// Provider text longer than this is a response body, not a reason a user can act on.
+const MAX_STREAM_ERROR_DETAIL_CHARS: usize = 200;
+
+/// What one stream failure is allowed to show the user.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AiStreamErrorKind {
+    /// A transport category with a localized label.
+    Label(&'static str),
+    /// The provider's own reason, already redacted and bounded.
+    Detail(String),
+    /// Nothing safe or meaningful to show; callers keep their generic message.
+    Unknown,
+}
+
+/// Provider failures arrive as free text, while internal failures use stable codes, and a
+/// provider body may echo credentials or request metadata. Classify once here so the
+/// delivery and display layers cannot disagree about what may reach the user.
+pub fn stream_error_kind(error: &str) -> AiStreamErrorKind {
+    if let Some(label) = stream_error_label(error) {
+        return AiStreamErrorKind::Label(label);
+    }
+    let redacted = crate::sanitize_for_ai(error);
+    let trimmed = redacted.trim();
+    // A bare snake_case token is one of our own codes, not a reason to show a user.
+    if trimmed.is_empty() || trimmed.chars().all(|ch| ch.is_ascii_lowercase() || ch == '_') {
+        return AiStreamErrorKind::Unknown;
+    }
+    AiStreamErrorKind::Detail(trimmed.chars().take(MAX_STREAM_ERROR_DETAIL_CHARS).collect())
+}
+
+#[cfg(test)]
+mod stream_error_kind_tests {
+    use super::*;
+
+    #[test]
+    fn provider_reasons_survive_redaction_while_codes_and_secrets_do_not() {
+        assert_eq!(
+            stream_error_kind("ai_output_incomplete"),
+            AiStreamErrorKind::Label("settings_view.ai.output_incomplete")
+        );
+        assert_eq!(stream_error_kind("stream_failed"), AiStreamErrorKind::Unknown);
+        assert_eq!(stream_error_kind("   "), AiStreamErrorKind::Unknown);
+
+        let detail = match stream_error_kind(
+            "Authentication Fails, Your api key: sk-0f1e2d3c4b5a69788796a5b4c3d2e1f0 is invalid",
+        ) {
+            AiStreamErrorKind::Detail(detail) => detail,
+            other => panic!("expected provider detail, got {other:?}"),
+        };
+        assert!(detail.contains("Authentication Fails"));
+        assert!(detail.contains("[REDACTED]"));
+        assert!(!detail.contains("sk-0f1e2d3c4b5a69788796a5b4c3d2e1f0"));
+
+        let bounded = match stream_error_kind(&"API error 500: ".repeat(40)) {
+            AiStreamErrorKind::Detail(detail) => detail,
+            other => panic!("expected provider detail, got {other:?}"),
+        };
+        assert_eq!(bounded.chars().count(), MAX_STREAM_ERROR_DETAIL_CHARS);
+    }
+}

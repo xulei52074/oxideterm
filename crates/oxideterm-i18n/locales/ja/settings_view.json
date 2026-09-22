@@ -1017,6 +1017,7 @@
       "add_model": "モデルを追加",
       "refresh_models": "モデルリストを更新",
       "refresh_failed": "モデルの更新に失敗しました：{{error}}",
+      "request_failed": "リクエストに失敗しました：{{error}}",
       "show_all_models": "全 {{count}} 件を表示",
       "show_fewer_models": "少なく表示",
       "system_prompt_title": "システムプロンプト",

@@ -228,16 +228,19 @@ pub(in crate::workspace) fn send_ai_stream_delivery(
     event: AiStreamDeliveryEvent,
 ) -> Result<(), std::sync::mpsc::SendError<AiStreamDelivery>> {
     let event = match event {
-        // Provider and protocol errors may contain response bodies, process
-        // paths, or request metadata. The UI maps this stable category to a
-        // localized message.
-        AiStreamDeliveryEvent::Stream(AiStreamEvent::Error(ref error))
-            if oxideterm_ai::stream_error_label(error).is_some() =>
-        {
-            event
-        }
-        AiStreamDeliveryEvent::Stream(AiStreamEvent::Error(_)) => {
-            AiStreamDeliveryEvent::Stream(AiStreamEvent::Error("stream_failed".to_string()))
+        // A provider body may echo credentials or request metadata, so only the classified
+        // form crosses to the UI: a stable category, or the provider's reason already
+        // redacted and bounded. A failure the user cannot read is one they cannot fix.
+        AiStreamDeliveryEvent::Stream(AiStreamEvent::Error(ref error)) => {
+            match oxideterm_ai::stream_error_kind(error) {
+                oxideterm_ai::AiStreamErrorKind::Label(_) => event,
+                oxideterm_ai::AiStreamErrorKind::Detail(detail) => {
+                    AiStreamDeliveryEvent::Stream(AiStreamEvent::Error(detail))
+                }
+                oxideterm_ai::AiStreamErrorKind::Unknown => AiStreamDeliveryEvent::Stream(
+                    AiStreamEvent::Error("stream_failed".to_string()),
+                ),
+            }
         }
         other => other,
     };

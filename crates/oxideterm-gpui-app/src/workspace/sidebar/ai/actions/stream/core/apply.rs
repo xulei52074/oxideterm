@@ -444,10 +444,15 @@ impl WorkspaceApp {
         cx: &mut Context<Self>,
     ) {
         let safe_error = match &event {
-            AiStreamEvent::Error(error) => Some(
-                self.i18n.t(oxideterm_ai::stream_error_label(error)
-                    .unwrap_or("settings_view.ai.acp_agent_error_unknown")),
-            ),
+            AiStreamEvent::Error(error) => Some(match oxideterm_ai::stream_error_kind(error) {
+                oxideterm_ai::AiStreamErrorKind::Label(key) => self.i18n.t(key),
+                oxideterm_ai::AiStreamErrorKind::Detail(detail) => {
+                    self.ai_i18n_error("settings_view.ai.request_failed", &detail)
+                }
+                oxideterm_ai::AiStreamErrorKind::Unknown => {
+                    self.i18n.t("settings_view.ai.acp_agent_error_unknown")
+                }
+            }),
             _ => None,
         };
         let child_message = self.ai_entity.read(cx).is_agent_message(message_id);

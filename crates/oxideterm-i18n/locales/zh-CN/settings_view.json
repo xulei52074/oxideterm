@@ -1017,6 +1017,7 @@
       "add_model": "添加模型",
       "refresh_models": "刷新模型列表",
       "refresh_failed": "刷新模型失败：{{error}}",
+      "request_failed": "请求失败：{{error}}",
       "show_all_models": "显示全部 {{count}} 个",
       "show_fewer_models": "收起模型",
       "system_prompt_title": "系统提示词",

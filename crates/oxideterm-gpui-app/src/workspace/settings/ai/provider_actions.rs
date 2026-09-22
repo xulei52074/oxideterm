@@ -198,11 +198,15 @@ impl WorkspaceApp {
                                 cx,
                             );
                         }
-                        ai_state::AiModelRefreshIntent::Failed => {
-                            let safe_error =
-                                self.i18n.t("settings_view.ai.acp_agent_error_unknown");
+                        ai_state::AiModelRefreshIntent::Failed { reason } => {
+                            // The provider's discovery error explains the failure; a local
+                            // keychain failure carries no reason and keeps the generic text.
+                            let detail = match oxideterm_ai::stream_error_kind(&reason) {
+                                oxideterm_ai::AiStreamErrorKind::Detail(detail) => detail,
+                                _ => self.i18n.t("settings_view.ai.acp_agent_error_unknown"),
+                            };
                             self.push_ai_settings_toast(
-                                self.ai_i18n_error("settings_view.ai.refresh_failed", &safe_error),
+                                self.ai_i18n_error("settings_view.ai.refresh_failed", &detail),
                                 TerminalNoticeVariant::Error,
                                 cx,
                             );

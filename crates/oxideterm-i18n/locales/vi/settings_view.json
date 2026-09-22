@@ -1017,6 +1017,7 @@
       "add_model": "Thêm mô hình",
       "refresh_models": "Làm mới danh sách mô hình",
       "refresh_failed": "Làm mới mô hình thất bại: {{error}}",
+      "request_failed": "Yêu cầu thất bại: {{error}}",
       "show_all_models": "Hiện tất cả {{count}}",
       "show_fewer_models": "Hiện ít hơn",
       "system_prompt_title": "Prompt hệ thống",

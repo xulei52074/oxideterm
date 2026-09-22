@@ -215,8 +215,47 @@ mod ai_turn_order_tests {
         )
         .expect("provider error");
         let delivery = rx.recv().expect("error delivery");
+        let AiStreamDeliveryEvent::Stream(AiStreamEvent::Error(error)) = delivery.event else {
+            panic!("expected provider error");
+        };
+        assert!(!error.contains("provider-secret-value"));
+        assert!(error.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn ai_delivery_keeps_provider_reasons_and_collapses_internal_codes() {
+        let (tx, rx) = crate::workspace::delivery::ActiveDeliverySender::channel();
+
+        // A provider reason is what lets the user act on the failure.
+        send_ai_stream_delivery(
+            &tx,
+            1,
+            "conversation-1",
+            "assistant-1",
+            AiStreamDeliveryEvent::Stream(AiStreamEvent::Error(
+                "Authentication Fails, Your api key is invalid".to_string(),
+            )),
+        )
+        .expect("provider reason");
         assert!(matches!(
-            delivery.event,
+            rx.recv().expect("reason delivery").event,
+            AiStreamDeliveryEvent::Stream(AiStreamEvent::Error(ref error))
+                if error == "Authentication Fails, Your api key is invalid"
+        ));
+
+        // A bare internal code has its own localized category, so it never reaches the UI.
+        send_ai_stream_delivery(
+            &tx,
+            1,
+            "conversation-1",
+            "assistant-1",
+            AiStreamDeliveryEvent::Stream(AiStreamEvent::Error(
+                "agent_execution_failed".to_string(),
+            )),
+        )
+        .expect("internal code");
+        assert!(matches!(
+            rx.recv().expect("code delivery").event,
             AiStreamDeliveryEvent::Stream(AiStreamEvent::Error(ref error))
                 if error == "stream_failed"
         ));
