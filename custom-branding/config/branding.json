@@ -12,5 +12,18 @@
   "upstreamRepository": "AnalyseDeCircuit/oxideterm",
   "distributionRepository": "xulei52074/oxideterm",
   "executableName": "oxideterm-native",
-  "artifactPrefix": "RayTerm_"
+  "artifactPrefix": "RayTerm_",
+  "linuxPackageName": "rayterm",
+  "channels": {
+    "gpuiPreview": {
+      "appIdentifier": "com.rayterm.gpuiPreview",
+      "nameSuffix": "GPUI Preview",
+      "slug": "gpui-preview"
+    },
+    "preview": {
+      "appIdentifier": "com.rayterm.preview",
+      "nameSuffix": "Preview",
+      "slug": "preview"
+    }
+  }
 }

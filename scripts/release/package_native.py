@@ -58,6 +58,12 @@ STABLE_APP_IDENTIFIER = BRANDING["appId"]
 # presets invoke and that existing settings store, so it is fixed by the config's own rule rather
 # than by this file. On macOS the visible title comes from CFBundleName, not from this.
 APP_BIN = BRANDING["executableName"]
+# The Linux package/install/icon stem. Same value as the short name in practice, kept as its own
+# key because a distribution may need a name the product does not use elsewhere.
+LINUX_NAME = BRANDING["linuxPackageName"]
+# Preview channels are separate applications with their own bundle identifiers, so they cannot be
+# derived from the stable one without guessing at the identifier's shape. They are stated instead.
+CHANNELS = BRANDING["channels"]
 CLI_BIN = "oxideterm"
 CONNECTION_URI_SCHEMES = ("ssh", "telnet", "mosh", "rdp", "vnc")
 HELPER_BINS = ("oxideterm-rdp-helper", "oxideterm-vnc-helper")
@@ -312,40 +318,41 @@ def release_identity(raw: str, version: str) -> ReleaseIdentity:
             windows_install_dir=rf"$LOCALAPPDATA\Programs\{BASE_APP_NAME}",
             windows_registry_key=BASE_APP_NAME,
             windows_uninstall_key=BASE_APP_NAME,
-            linux_package_name="rayterm",
-            linux_install_dir="rayterm",
+            linux_package_name=LINUX_NAME,
+            linux_install_dir=LINUX_NAME,
             linux_desktop_id=STABLE_APP_IDENTIFIER,
-            linux_icon_name="rayterm",
+            linux_icon_name=LINUX_NAME,
         )
 
     if channel == "gpui-preview":
-        suffix = "GPUI Preview"
-        app_name = f"{BASE_APP_NAME} {suffix}"
+        gpui = CHANNELS["gpuiPreview"]
+        app_name = f"{BASE_APP_NAME} {gpui['nameSuffix']}"
         return ReleaseIdentity(
             channel=channel,
             app_name=app_name,
-            app_identifier="com.rayterm.gpuiPreview",
+            app_identifier=gpui["appIdentifier"],
             windows_install_dir=rf"$LOCALAPPDATA\Programs\{app_name}",
             windows_registry_key=app_name,
             windows_uninstall_key=app_name,
-            linux_package_name="rayterm-gpui-preview",
-            linux_install_dir="rayterm-gpui-preview",
-            linux_desktop_id="com.rayterm.gpuiPreview",
-            linux_icon_name="rayterm-gpui-preview",
+            linux_package_name=f"{LINUX_NAME}-{gpui['slug']}",
+            linux_install_dir=f"{LINUX_NAME}-{gpui['slug']}",
+            linux_desktop_id=gpui["appIdentifier"],
+            linux_icon_name=f"{LINUX_NAME}-{gpui['slug']}",
         )
 
-    app_name = f"{BASE_APP_NAME} Preview"
+    preview = CHANNELS["preview"]
+    app_name = f"{BASE_APP_NAME} {preview['nameSuffix']}"
     return ReleaseIdentity(
         channel=channel,
         app_name=app_name,
-        app_identifier="com.rayterm.preview",
+        app_identifier=preview["appIdentifier"],
         windows_install_dir=rf"$LOCALAPPDATA\Programs\{app_name}",
         windows_registry_key=app_name,
         windows_uninstall_key=app_name,
-        linux_package_name="rayterm-preview",
-        linux_install_dir="rayterm-preview",
-        linux_desktop_id="com.rayterm.preview",
-        linux_icon_name="rayterm-preview",
+        linux_package_name=f"{LINUX_NAME}-{preview['slug']}",
+        linux_install_dir=f"{LINUX_NAME}-{preview['slug']}",
+        linux_desktop_id=preview["appIdentifier"],
+        linux_icon_name=f"{LINUX_NAME}-{preview['slug']}",
     )
 
 
