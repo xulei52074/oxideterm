@@ -25,6 +25,10 @@ VALID = {
     "homepage": "https://example.test",
     "copyright": "Copyright © 2026 Example",
     "executableName": "oxideterm-native",
+    "distribution": {
+        "giteaUrl": "http://gitea.internal:3000",
+        "repository": "root/example",
+    },
 }
 
 
@@ -90,6 +94,28 @@ class BrandingTests(unittest.TestCase):
         # A deployment that has no homepage is a real case; an empty string says so, and the
         # reader must not treat it as a malformed URL.
         validate(with_change(homepage=""))
+
+    def test_a_distribution_url_may_be_plain_http(self):
+        # A distribution server inside the deployment's own network is a real case; requiring
+        # https there would only push the value out of this file and back into a script.
+        validate(with_change(distribution={"giteaUrl": "http://gitea.internal:3000", "repository": "root/x"}))
+
+    def test_a_distribution_url_still_may_not_carry_credentials(self):
+        with self.assertRaises(BrandingError) as caught:
+            validate(
+                with_change(
+                    distribution={
+                        "giteaUrl": "http://user:token@gitea.internal:3000",
+                        "repository": "root/x",
+                    }
+                )
+            )
+        self.assertIn("credentials", str(caught.exception))
+
+    def test_a_missing_distribution_repository_is_reported(self):
+        with self.assertRaises(BrandingError) as caught:
+            validate(with_change(distribution={"giteaUrl": "http://gitea.internal:3000"}))
+        self.assertIn("distribution.repository", str(caught.exception))
 
     def test_a_missing_file_names_the_path(self):
         with self.assertRaises(BrandingError) as caught:

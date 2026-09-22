@@ -35,6 +35,22 @@ class BrandingError(ValueError):
     """The configuration is not usable as written."""
 
 
+def _check_distribution_url(field: str, value: str) -> None:
+    """Same rules as a public URL, except that plain http is allowed.
+
+    A distribution server inside the deployment's own network is a real case, and requiring https
+    there would only push the value out of this file and back into a script. The rules that exist
+    for a shipped value still apply: no credentials, no query, no fragment.
+    """
+    if not value:
+        return
+    remainder = value.split("://", 1)[-1]
+    if "@" in remainder.split("/")[0]:
+        raise BrandingError(f"{field} must not carry credentials: {value!r}")
+    if "?" in value or "#" in value:
+        raise BrandingError(f"{field} must not carry a query or fragment: {value!r}")
+
+
 def _check_url(field: str, value: str) -> None:
     """Rejects a URL that must not be shipped inside an application.
 
@@ -98,6 +114,22 @@ def validate(config: object, *, source: str = "branding.json") -> dict:
                 _check_url(field, value)
             except BrandingError as error:
                 problems.append(str(error))
+
+    distribution = config.get("distribution")
+    if not isinstance(distribution, dict):
+        problems.append("distribution is required and must be an object")
+    else:
+        for field in ("giteaUrl", "repository"):
+            value = distribution.get(field)
+            if not isinstance(value, str) or not value.strip():
+                problems.append(f"distribution.{field} is required")
+        for field in ("giteaUrl",):
+            value = distribution.get(field)
+            if isinstance(value, str):
+                try:
+                    _check_distribution_url(f"distribution.{field}", value)
+                except BrandingError as error:
+                    problems.append(str(error))
 
     if problems:
         raise BrandingError(f"{source} is not usable:\n  - " + "\n  - ".join(problems))

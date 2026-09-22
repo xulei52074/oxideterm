@@ -25,5 +25,9 @@
       "nameSuffix": "Preview",
       "slug": "preview"
     }
+  },
+  "distribution": {
+    "giteaUrl": "http://10.10.10.132:3000",
+    "repository": "root/oxideterm"
   }
 }
