@@ -72,10 +72,10 @@ def wordmark_font(scale: float):
                 continue
     return ImageFont.truetype(str((ROOT / WORDMARK_FALLBACK).resolve()), size), WORDMARK_STROKE
 # Where the mark sits and how much of the plate the name takes, as fractions of the icon.
-MARK_TOP = 0.13
-MARK_HEIGHT = 0.42
-WORDMARK_TOP = 0.62
-WORDMARK_SIZE = 0.115
+MARK_TOP = 0.08
+MARK_HEIGHT = 0.46
+WORDMARK_TOP = 0.58
+WORDMARK_SIZE = 0.20
 # The default icon is the family one: a neutral plate. Tinting it towards an accent would make
 # the product's own icon the odd one out among its own colourways.
 DEFAULT_VARIANT = "default"
