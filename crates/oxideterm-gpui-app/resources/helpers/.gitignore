@@ -1,0 +1,5 @@
+# Same rule as ../cli-bin: the per-target helper binaries are build outputs of
+# scripts/release/package_native.py (build_remote_desktop_helpers), so they must never be
+# tracked. Tracking them made every packaging run leave a ~23MB binary diff behind.
+*
+!.gitignore
