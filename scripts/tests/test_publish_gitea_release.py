@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import urllib.error
 import sys
 import contextlib
 import io
@@ -234,7 +235,7 @@ class ProvenanceGateTests(unittest.TestCase):
             publish,
             release_plan=lambda: plan_for(root, name),
             verification_problems=lambda plan: [],
-            provenance_problems=lambda plan: [],
+            provenance_problems=lambda plan, stamp: [],
             uncommitted_paths=lambda: [" M scripts/release/package_native.py"],
         ), mock.patch.dict(os.environ, {"GITEA_TOKEN": "token"}):
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
@@ -251,7 +252,7 @@ class ProvenanceGateTests(unittest.TestCase):
             publish,
             release_plan=lambda: plan_for(root, name),
             verification_problems=lambda plan: ["macos_x64 artifacts failed verification: boom"],
-            provenance_problems=lambda plan: [],
+            provenance_problems=lambda plan, stamp: [],
             uncommitted_paths=lambda: [" M scripts/release/package_native.py"],
         ):
             with contextlib.redirect_stdout(stdout):
@@ -269,7 +270,7 @@ class ProvenanceGateTests(unittest.TestCase):
         uploaded: list[str] = []
         payloads: list[tuple[str, object]] = []
 
-        def record(method, url, token, payload=None):
+        def record(method, url, token, payload=None, **kwargs):
             payloads.append((method, payload))
             return {"id": 7, "assets": []}
 
@@ -277,7 +278,7 @@ class ProvenanceGateTests(unittest.TestCase):
             publish,
             release_plan=lambda: plan_for(root, name),
             verification_problems=lambda plan: [],
-            provenance_problems=lambda plan: [],
+            provenance_problems=lambda plan, stamp: [],
             uncommitted_paths=lambda: [],
             release_for_tag=lambda *args: None,
             commit_is_published=lambda *args: True,
@@ -358,10 +359,10 @@ class ProvenanceGateTests(unittest.TestCase):
         with mock.patch.multiple(
             publish,
             uncommitted_paths=lambda: paths,
-            provenance_problems=lambda plan: [],
+            provenance_problems=lambda plan, stamp: [],
             verification_problems=lambda plan: [],
         ):
-            problems = publish.publishability_problems({})
+            problems = publish.publishability_problems({}, None)
         self.assertEqual(len(problems), 1, problems)
         self.assertIn("(+2 more)", problems[0])
         self.assertNotIn("gate6.py", problems[0])
@@ -373,14 +374,14 @@ class BuildProvenanceTests(unittest.TestCase):
     def problems_for(self, root: Path, name: str, **stamp_overrides) -> list[str]:
         stamp_dist(root, **stamp_overrides)
         with mock.patch.object(publish, "DIST", root):
-            return publish.provenance_problems(plan_for(root, name))
+            return publish.provenance_problems(plan_for(root, name), publish.artifact_stamp())
 
     def test_artifacts_without_a_stamp_are_refused(self):
         # Without the stamp nothing links the bytes to a commit, which is the whole point.
         name = f"RayTerm_{current_version()}_macos_x64.dmg"
         directory, root = with_artifacts(name)
         with directory, mock.patch.object(publish, "DIST", root):
-            problems = publish.provenance_problems(plan_for(root, name))
+            problems = publish.provenance_problems(plan_for(root, name), None)
         self.assertEqual(len(problems), 1, problems)
         self.assertIn(provenance.STAMP_NAME, problems[0])
 
@@ -419,13 +420,113 @@ class BuildProvenanceTests(unittest.TestCase):
         self.assertIn("0.0.1", problems[0])
 
     def test_an_unreadable_stamp_refuses_cleanly(self):
+        # The stamp is read before the gate runs, so an unreadable one has to refuse there.
         name = f"RayTerm_{current_version()}_macos_x64.dmg"
         directory, root = with_artifacts(name)
         (root / provenance.STAMP_NAME).write_text("{not json", encoding="utf-8")
         with directory, mock.patch.object(publish, "DIST", root):
             with self.assertRaises(publish.PublishError) as caught:
-                publish.provenance_problems(plan_for(root, name))
+                publish.artifact_stamp()
         self.assertIn(provenance.STAMP_NAME, str(caught.exception))
+
+    def test_a_stamp_that_is_not_even_utf8_refuses_cleanly(self):
+        # A truncated write or a stray binary of the same name must not end in a traceback.
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        (root / provenance.STAMP_NAME).write_bytes(b"\xff\xfe\x00 not utf-8")
+        with directory, mock.patch.object(publish, "DIST", root):
+            with self.assertRaises(publish.PublishError) as caught:
+                publish.artifact_stamp()
+        self.assertIn(provenance.STAMP_NAME, str(caught.exception))
+
+    def test_a_dirty_stamp_refuses_through_main_not_only_when_asked_directly(self):
+        # A gate main() does not consult protects nothing: the other two are mocked clean here, so
+        # only the provenance gate can produce the refusal.
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        stamp_dist(root, dirty=True)
+        stderr = io.StringIO()
+        with directory, mock.patch.object(publish, "DIST", root), mock.patch.multiple(
+            publish,
+            release_plan=lambda: plan_for(root, name),
+            verification_problems=lambda plan: [],
+            uncommitted_paths=lambda: [],
+            publish_release=lambda *args: None,
+        ), mock.patch.dict(os.environ, {"GITEA_TOKEN": "token"}):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                self.assertEqual(publish.main(["publish", "--publish"]), 1)
+        self.assertIn("built over uncommitted changes", stderr.getvalue())
+
+    def test_a_failure_while_publishing_is_reported_rather_than_tracebacked(self):
+        # Everything after the gates talks to the server. A refused upload has to say so.
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        stamp_dist(root)
+        stderr = io.StringIO()
+        with directory, mock.patch.object(publish, "DIST", root), mock.patch.multiple(
+            publish,
+            release_plan=lambda: plan_for(root, name),
+            verification_problems=lambda plan: [],
+            uncommitted_paths=lambda: [],
+            commit_is_published=lambda *args: True,
+            tag_commit=lambda *args: None,
+            release_for_tag=lambda *args: {"id": 3, "assets": []},
+            upload_asset=mock.Mock(side_effect=publish.PublishError("uploading x failed: HTTP 500")),
+        ), mock.patch.dict(os.environ, {"GITEA_TOKEN": "token"}):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                self.assertEqual(publish.main(["publish", "--publish"]), 1)
+        self.assertIn("uploading x failed", stderr.getvalue())
+
+    def test_creating_a_release_over_an_existing_tag_says_where_that_tag_points(self):
+        # A tag can already exist without a release (pushed by hand, or the release was deleted),
+        # and this API cannot move it: the create path has to warn just like the append path.
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        stamp_dist(root)
+        stderr = io.StringIO()
+        created: list[object] = []
+
+        def record(method, url, token, payload=None, **kwargs):
+            created.append(payload)
+            return {"id": 5, "assets": []}
+
+        with directory, mock.patch.object(publish, "DIST", root), mock.patch.multiple(
+            publish,
+            release_plan=lambda: plan_for(root, name),
+            verification_problems=lambda plan: [],
+            uncommitted_paths=lambda: [],
+            commit_is_published=lambda *args: True,
+            tag_commit=lambda *args: "3" * 40,
+            release_for_tag=lambda *args: None,
+            request=record,
+            upload_asset=lambda *args: None,
+        ), mock.patch.dict(os.environ, {"GITEA_TOKEN": "token"}):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                self.assertEqual(publish.main(["publish", "--publish"]), 0)
+        self.assertEqual(created[0]["target_commitish"], BUILD_COMMIT)
+        self.assertIn("already points at", stderr.getvalue())
+        self.assertIn("3" * 9, stderr.getvalue())
+
+    def test_a_tag_that_cannot_be_read_warns_but_does_not_block(self):
+        # Nothing depends on this read except a warning, so it must not fail a verified publish —
+        # but it must not vanish either, which is how a misplaced tag goes unnoticed.
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        stamp_dist(root)
+        stderr = io.StringIO()
+        with directory, mock.patch.object(publish, "DIST", root), mock.patch.multiple(
+            publish,
+            release_plan=lambda: plan_for(root, name),
+            verification_problems=lambda plan: [],
+            uncommitted_paths=lambda: [],
+            commit_is_published=lambda *args: True,
+            tag_commit=mock.Mock(side_effect=publish.PublishError("GET tags/... failed: HTTP 500")),
+            release_for_tag=lambda *args: {"id": 3, "assets": []},
+            upload_asset=lambda *args: None,
+        ), mock.patch.dict(os.environ, {"GITEA_TOKEN": "token"}):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                self.assertEqual(publish.main(["publish", "--publish"]), 0)
+        self.assertIn("could not read tag", stderr.getvalue())
 
     def test_a_commit_the_server_does_not_have_is_refused(self):
         # Tagging a commit the server lacks is how the tag ends up on the default branch instead.
@@ -447,10 +548,8 @@ class BuildProvenanceTests(unittest.TestCase):
     def test_a_build_commit_that_is_not_head_is_a_warning_not_a_refusal(self):
         # The tag is bound to the stamp's commit, so an older build is publishable; the operator
         # still deserves to be told that is what happened.
-        with mock.patch.object(publish, "artifact_stamp", lambda: {"commit": "1" * 40}), mock.patch.object(
-            provenance, "head_commit", lambda root: "2" * 40
-        ):
-            warnings = publish.provenance_warnings()
+        with mock.patch.object(provenance, "head_commit", lambda root: "2" * 40):
+            warnings = publish.provenance_warnings({"commit": "1" * 40})
         self.assertEqual(len(warnings), 1, warnings)
         self.assertIn("1" * 9, warnings[0])
         self.assertIn("2" * 9, warnings[0])
@@ -475,6 +574,54 @@ class BuildProvenanceTests(unittest.TestCase):
                 self.assertEqual(publish.main(["publish", "--publish"]), 0)
         self.assertIn("already points at", stderr.getvalue())
         self.assertIn("3" * 9, stderr.getvalue())
+
+
+    def test_the_commit_check_asks_a_route_this_gitea_serves(self):
+        # The route is part of the contract with the server: the deployed Gitea has no
+        # /commits/{sha}, and the 404 it answered for every commit would have refused every
+        # publish. A mocked status cannot catch that, so the requested URL is asserted.
+        asked: list[str] = []
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return b""
+        def fake_urlopen(request, timeout=None):
+            asked.append(request.full_url)
+            return Response()
+
+        commit = "a" * 40
+        with mock.patch.object(publish.urllib.request, "urlopen", fake_urlopen):
+            self.assertTrue(
+                publish.commit_is_published("http://gitea.test", "root/oxideterm", commit, "token")
+            )
+        self.assertEqual(
+            asked,
+            [f"http://gitea.test/api/v1/repos/root/oxideterm/git/commits/{commit}"],
+        )
+
+    def test_a_commit_the_server_lacks_is_not_found_rather_than_an_error(self):
+        missing = urllib.error.HTTPError("http://gitea.test", 404, "Not Found", {}, io.BytesIO(b""))
+        with mock.patch.object(publish.urllib.request, "urlopen", side_effect=missing):
+            self.assertFalse(
+                publish.commit_is_published("http://gitea.test", "root/oxideterm", "a" * 40, "token")
+            )
+
+    def test_a_broken_answer_while_checking_the_commit_is_a_publish_error(self):
+        # Anything other than 404 means the question could not be answered, and an unanswered
+        # question must not read as "the commit is there".
+        broken = urllib.error.HTTPError(
+            "http://gitea.test", 500, "Server Error", {}, io.BytesIO(b"boom")
+        )
+        with mock.patch.object(publish.urllib.request, "urlopen", side_effect=broken):
+            with self.assertRaises(publish.PublishError) as caught:
+                publish.commit_is_published("http://gitea.test", "root/oxideterm", "a" * 40, "token")
+        self.assertIn("HTTP 500", str(caught.exception))
 
 
 if __name__ == "__main__":

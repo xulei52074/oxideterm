@@ -112,13 +112,12 @@ def verification_problems(plan: dict) -> list[str]:
     return problems
 
 
-def provenance_problems(plan: dict) -> list[str]:
+def provenance_problems(plan: dict, stamp: dict | None) -> list[str]:
     """What the build provenance stamp says about the artifacts, as refusal reasons.
 
     The clean-tree check below only knows the tree as it is right now; the stamp records the tree
     the artifacts were actually built on, which is what a release has to be reproducible from.
     """
-    stamp = artifact_stamp()
     if stamp is None:
         return [
             f"{DIST} holds no {provenance.STAMP_NAME}: these artifacts did not come from the "
@@ -142,9 +141,9 @@ def provenance_problems(plan: dict) -> list[str]:
     return problems
 
 
-def provenance_warnings() -> list[str]:
+def provenance_warnings(stamp: dict | None) -> list[str]:
     """What is worth saying out loud about the provenance without blocking the publish."""
-    commit = (artifact_stamp() or {}).get("commit")
+    commit = (stamp or {}).get("commit")
     head = provenance.head_commit(packaging.ROOT_DIR)
     if commit and head and commit != head:
         return [
@@ -154,20 +153,30 @@ def provenance_warnings() -> list[str]:
     return []
 
 
-def publishability_problems(plan: dict) -> list[str]:
-    """Every reason publishing right now would be a mistake, as readable one-liners."""
+def publishability_problems(plan: dict, stamp: dict | None) -> list[str]:
+    """Every reason publishing right now would be a mistake, as readable one-liners.
+
+    `stamp` is the one the caller read, so a publish tags the commit that was actually checked.
+    """
     problems: list[str] = []
     dirty = uncommitted_paths()
     if dirty:
         shown = ", ".join(dirty[:5])
         hidden = "" if len(dirty) <= 5 else f" (+{len(dirty) - 5} more)"
         problems.append(f"the working tree has uncommitted changes: {shown}{hidden}")
-    problems.extend(provenance_problems(plan))
+    problems.extend(provenance_problems(plan, stamp))
     problems.extend(verification_problems(plan))
     return problems
 
 
-def request(method: str, url: str, token: str, payload: object | None = None) -> object:
+def request(
+    method: str,
+    url: str,
+    token: str,
+    payload: object | None = None,
+    *,
+    missing_ok: bool = False,
+) -> object:
     data = None
     headers = {"Authorization": f"token {token}", "Accept": "application/json"}
     if payload is not None:
@@ -178,6 +187,9 @@ def request(method: str, url: str, token: str, payload: object | None = None) ->
         with urllib.request.urlopen(req, timeout=60) as response:
             body = response.read()
     except urllib.error.HTTPError as error:
+        if missing_ok and error.code == 404:
+            # "There is no such thing" is an answer some callers ask for, not a failure.
+            return None
         detail = error.read().decode("utf-8", "replace")[:400]
         raise PublishError(f"{method} {url} failed: HTTP {error.code} {detail}") from error
     except urllib.error.URLError as error:
@@ -196,7 +208,10 @@ def commit_is_published(base: str, repository: str, commit: str, token: str) -> 
     A 404 is an answer rather than an error: publishing before pushing would tag whatever the
     server's default branch happens to hold, which is the mistake this check exists for.
     """
-    url = f"{base}/api/v1/repos/{repository}/commits/{commit}"
+    # Gitea 1.24 (the deployed version) serves a commit at /git/commits/{sha}; it has no
+    # /commits/{sha} route, and asking for that one answered 404 for every commit — which would
+    # have refused every publish with "push it first".
+    url = f"{base}/api/v1/repos/{repository}/git/commits/{commit}"
     req = urllib.request.Request(
         url,
         headers={"Authorization": f"token {token}", "Accept": "application/json"},
@@ -216,15 +231,13 @@ def commit_is_published(base: str, repository: str, commit: str, token: str) -> 
 
 
 def tag_commit(base: str, repository: str, tag: str, token: str) -> str | None:
-    """The commit an existing tag points at, or None when that cannot be read.
+    """The commit an existing tag points at, or None when there is no such tag.
 
-    None only means the append-warning stays quiet: the tag was fixed by an earlier publish and
-    nothing here can move it, so a failed read must not fail a publish that already verified.
+    Only "there is no such tag" answers None; any other failure is raised. This read feeds a
+    warning, and a warning that quietly disappears is how a tag pointing at another commit goes
+    unnoticed — the caller decides whether to say so or to stop.
     """
-    try:
-        payload = request("GET", f"{base}/api/v1/repos/{repository}/tags/{tag}", token)
-    except PublishError:
-        return None
+    payload = request("GET", f"{base}/api/v1/repos/{repository}/tags/{tag}", token, missing_ok=True)
     if isinstance(payload, dict):
         commit = payload.get("commit")
         if isinstance(commit, dict) and isinstance(commit.get("sha"), str):
@@ -270,6 +283,80 @@ def upload_asset(base_url: str, repository: str, release_id: int, path: Path, to
         raise PublishError(f"uploading {path.name} failed: HTTP {error.code} {detail}") from error
 
 
+def publish_release(plan: dict, stamp: dict | None, token: str) -> None:
+    """Create or extend the release and upload the artifacts, or explain why not.
+
+    Split out of main() so every server-side failure leaves through one place. `stamp` is the one
+    the gate checked, so the commit tagged here is the commit that was verified.
+    """
+    base = plan["base_url"]
+    repository = plan["repository"]
+    commit = (stamp or {}).get("commit")
+    if not commit:
+        # The gate refuses a stamp without a commit, so reaching this means the caller skipped it.
+        raise PublishError("the artifacts carry no build commit to bind the tag to")
+    if not commit_is_published(base, repository, commit, token):
+        raise PublishError(
+            f"{commit[:9]} is not on {repository} yet. Push it first: a tag can only point at a "
+            "commit the server has, and without it the tag lands on the default branch"
+        )
+
+    # Read before the release is created or extended: this API cannot move a tag, so a mismatch
+    # has to be said out loud on both paths. A missing tag answers None and stays quiet.
+    tag_points_at = None
+    try:
+        tag_points_at = tag_commit(base, repository, plan["tag"], token)
+    except PublishError as error:
+        # Only the warning below hangs on this read. Failing a verified publish over it would be
+        # worse than the noise, but staying silent is how a misplaced tag goes unnoticed.
+        print(f"warning: could not read tag {plan['tag']}: {error}", file=sys.stderr)
+
+    release = release_for_tag(base, repository, plan["tag"], token)
+    if release is None:
+        created = request(
+            "POST",
+            f"{base}/api/v1/repos/{repository}/releases",
+            token,
+            {
+                "tag_name": plan["tag"],
+                "name": plan["name"],
+                "prerelease": plan["prerelease"],
+                "draft": False,
+                # Without this the server tags whatever its default branch points at when the
+                # release is created — the way v2.0.29 ended up tagged at an unrelated commit.
+                "target_commitish": commit,
+            },
+        )
+        if not isinstance(created, dict) or "id" not in created:
+            raise PublishError(f"the release response did not carry an id: {created!r}")
+        print(f"created release {created['id']} for {plan['tag']}")
+        release = created
+    else:
+        print(f"adding to release {release.get('id')} for {plan['tag']}")
+
+    if tag_points_at and tag_points_at != commit:
+        print(
+            f"warning: tag {plan['tag']} already points at {tag_points_at[:9]}, while these "
+            f"artifacts were built from {commit[:9]}; this API cannot move a tag",
+            file=sys.stderr,
+        )
+
+    # An asset already carrying a name is left alone rather than uploaded again: re-running a
+    # platform's publish is a normal thing to do, and a duplicate would give the download page two
+    # entries for one file.
+    present = {asset.get("name") for asset in release.get("assets", []) if isinstance(asset, dict)}
+    uploaded = 0
+    for asset in plan["assets"]:
+        path = Path(asset)
+        if path.name in present:
+            print(f"  {path.name} is already published")
+            continue
+        upload_asset(base, repository, int(release["id"]), path, token)
+        uploaded += 1
+        print(f"  uploaded {path.name}")
+    print(f"\npublished {uploaded} new asset(s) under {plan['tag']}")
+
+
 def main(argv: list[str]) -> int:
     publish = "--publish" in argv[1:]
     try:
@@ -291,8 +378,10 @@ def main(argv: list[str]) -> int:
         print(f"             {Path(asset).name}")
 
     try:
-        problems = publishability_problems(plan)
-        warnings = provenance_warnings()
+        # Read once here: the stamp that gets checked has to be the stamp whose commit is tagged.
+        stamp = artifact_stamp()
+        problems = publishability_problems(plan, stamp)
+        warnings = provenance_warnings(stamp)
     except PublishError as error:
         # The gates answer questions about the working tree, so they can fail on their own
         # (no git, no repository). Refusing is right; a traceback would not say why.
@@ -324,67 +413,13 @@ def main(argv: list[str]) -> int:
     for warning in warnings:
         print(f"warning: {warning}")
 
-    base = plan["base_url"]
-    repository = plan["repository"]
-    commit = (artifact_stamp() or {}).get("commit")
-    if not commit:
-        # The gates refused a stamp without a commit, so this is the stamp changing between two
-        # reads. Refusing beats tagging a branch tip on the strength of a file that moved.
-        print("error: the artifacts carry no build commit to bind the tag to", file=sys.stderr)
+    try:
+        publish_release(plan, stamp, token)
+    except PublishError as error:
+        # Everything past here talks to the server, where any answer can be an error. Printing the
+        # reason beats a traceback that hides which step failed.
+        print(f"error: {error}", file=sys.stderr)
         return 1
-    if not commit_is_published(base, repository, commit, token):
-        print(
-            f"error: {commit[:9]} is not on {repository} yet. Push it first: a tag can only point "
-            "at a commit the server has, and without it the tag lands on the default branch",
-            file=sys.stderr,
-        )
-        return 1
-    release = release_for_tag(base, repository, plan["tag"], token)
-    if release is None:
-        created = request(
-            "POST",
-            f"{base}/api/v1/repos/{repository}/releases",
-            token,
-            {
-                "tag_name": plan["tag"],
-                "name": plan["name"],
-                "prerelease": plan["prerelease"],
-                "draft": False,
-                # Without this the server tags whatever its default branch points at when the
-                # release is created — the way v2.0.29 ended up tagged at an unrelated commit.
-                "target_commitish": commit,
-            },
-        )
-        if not isinstance(created, dict) or "id" not in created:
-            raise PublishError(f"the release response did not carry an id: {created!r}")
-        print(f"created release {created['id']} for {plan['tag']}")
-        release = created
-    else:
-        print(f"adding to release {release.get('id')} for {plan['tag']}")
-        # This API cannot move a tag. Saying so beats letting two platforms' commits quietly share
-        # one version on the download page.
-        published = tag_commit(base, repository, plan["tag"], token)
-        if published and published != commit:
-            print(
-                f"warning: tag {plan['tag']} already points at {published[:9]}, while these "
-                f"artifacts were built from {commit[:9]}",
-                file=sys.stderr,
-            )
-
-    # An asset already carrying a name is left alone rather than uploaded again: re-running a
-    # platform's publish is a normal thing to do, and a duplicate would give the download page two
-    # entries for one file.
-    present = {asset.get("name") for asset in release.get("assets", []) if isinstance(asset, dict)}
-    uploaded = 0
-    for asset in plan["assets"]:
-        path = Path(asset)
-        if path.name in present:
-            print(f"  {path.name} is already published")
-            continue
-        upload_asset(base, repository, int(release["id"]), path, token)
-        uploaded += 1
-        print(f"  uploaded {path.name}")
-    print(f"\npublished {uploaded} new asset(s) under {plan['tag']}")
     return 0
 
 

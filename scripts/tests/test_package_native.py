@@ -797,5 +797,21 @@ class BuildProvenanceStampTests(unittest.TestCase):
         self.assertIsNone(payload["dirty"])
 
 
+    def test_a_missing_git_binary_records_nulls_instead_of_failing(self) -> None:
+        # A build machine without git must still finish the build and leave a stamp; the publisher
+        # is where a stamp of nulls becomes a refusal. Raising here would take that away from it.
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        with patch.object(build_provenance.subprocess, "run", side_effect=FileNotFoundError("git")):
+            stamp = build_provenance.write_stamp(
+                root, version="1.2.3", target="x86_64-apple-darwin", root=root
+            )
+        payload = json.loads(stamp.read_text(encoding="utf-8"))
+        self.assertIsNone(payload["commit"])
+        self.assertIsNone(payload["branch"])
+        self.assertIsNone(payload["dirty"])
+
+
 if __name__ == "__main__":
     unittest.main()

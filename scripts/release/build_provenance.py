@@ -80,16 +80,21 @@ def write_stamp(
     succeeds (building locally all day is normal), and the publisher is where that becomes a
     refusal. A tree that cannot be inspected records nulls, which the publisher also refuses.
     """
+    # Every question is answered defensively: a machine without git, or a directory that is not a
+    # repository, still has to produce a stamp — with nulls, which the publisher refuses. Failing
+    # the build here would take that decision away from the side that owns it.
     try:
         dirty: bool | None = bool(uncommitted_paths(root))
+        commit: str | None = head_commit(root)
+        branch: str | None = current_branch(root)
     except ProvenanceError:
-        dirty = None
+        dirty, commit, branch = None, None, None
     stamp = {
         "format": STAMP_FORMAT,
         "version": version,
         "target": target,
-        "commit": head_commit(root),
-        "branch": current_branch(root),
+        "commit": commit,
+        "branch": branch,
         "dirty": dirty,
         "built_at": built_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
@@ -105,7 +110,7 @@ def read_stamp(dist: Path) -> dict | None:
         return None
     try:
         stamp = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ProvenanceError(f"{path} could not be read: {error}") from error
     if not isinstance(stamp, dict):
         raise ProvenanceError(f"{path} does not hold an object")
