@@ -135,13 +135,17 @@ def run_git(repo: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
 
 
+def current_version() -> str:
+    """The version this repository is on, so no test has to be edited by a version bump."""
+    return packaging.normalized_version(packaging.raw_release_version())
+
+
 def plan_for(root: Path, *names: str) -> dict:
     """A plan carrying real files, so the gates see the names they would see in a publish."""
-    version = packaging.normalized_version(packaging.raw_release_version())
     return {
         "base_url": "http://example.test",
         "repository": "root/oxideterm",
-        "tag": f"v{version}",
+        "tag": f"v{current_version()}",
         "name": "RayTerm test",
         "channel": "stable",
         "prerelease": False,
@@ -165,8 +169,9 @@ class ProvenanceGateTests(unittest.TestCase):
         self.assertIn(f"no release target claims {name}", problems[0])
 
     def test_incomplete_artifacts_for_a_target_fail_verification(self):
-        # One macOS artifact and nothing else must not pass as a published macOS build.
-        name = "RayTerm_2.0.29_macos_x64_portable.tar.gz"
+        # One macOS artifact and nothing else must not pass as a published macOS build. The version
+        # is read from the repository so a bump cannot turn this into a differently-failing test.
+        name = f"RayTerm_{current_version()}_macos_x64_portable.tar.gz"
         directory, root = with_artifacts(name)
         with directory, mock.patch.object(publish, "DIST", root):
             problems = publish.verification_problems(plan_for(root, name))
@@ -187,8 +192,18 @@ class ProvenanceGateTests(unittest.TestCase):
 
         with directory, mock.patch.object(packaging, "ROOT_DIR", repo):
             self.assertEqual(publish.uncommitted_paths(), [])
+
             (repo / "stray.txt").write_text("not build output")
-            self.assertEqual(publish.uncommitted_paths(), ["?? stray.txt"])
+            # The path is compared by name: git prints a two-character status code in front of it.
+            tracked = publish.uncommitted_paths()
+            self.assertEqual(len(tracked), 1)
+            self.assertIn("stray.txt", tracked[0])
+
+            # A machine-local setting must not be able to hide a file from this check.
+            run_git(repo, "config", "status.showUntrackedFiles", "no")
+            hidden = publish.uncommitted_paths()
+            self.assertEqual(len(hidden), 1)
+            self.assertIn("stray.txt", hidden[0])
 
     def test_publishing_over_an_uncommitted_tree_is_refused(self):
         name = "RayTerm_2.0.29_macos_x64.dmg"
@@ -266,6 +281,50 @@ class ProvenanceGateTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
                 self.assertEqual(publish.main(["publish", "--publish"]), 1)
         self.assertIn("error: git could not be run", stderr.getvalue())
+
+
+    def test_every_target_present_in_dist_is_verified(self):
+        # The loop exists so a dist/ holding two platforms (a CI download beside a local build)
+        # gets all of them checked; stopping after the first target would pass this silently.
+        version = current_version()
+        names = [
+            f"RayTerm_{version}_macos_x64_portable.tar.gz",
+            f"RayTerm_{version}_macos_arm64_portable.tar.gz",
+        ]
+        directory, root = with_artifacts(*names)
+        with directory, mock.patch.object(publish, "DIST", root):
+            problems = publish.verification_problems(plan_for(root, *names))
+        self.assertEqual(len(problems), 2, problems)
+        self.assertIn("macos_x64 artifacts failed verification", problems[0])
+        self.assertIn("macos_arm64 artifacts failed verification", problems[1])
+
+    def test_the_packaging_output_directories_are_ignored_here(self):
+        # The clean-tree gate only stays usable while packaging output is ignored, and packaging
+        # rewrites all three of these on every run. Losing an ignore rule would turn every publish
+        # into a refusal; this is the assertion that notices, rather than a report weeks later.
+        paths = (
+            "dist/",
+            "target/",
+            "crates/oxideterm-gpui-app/resources/helpers/x86_64-apple-darwin/oxideterm-rdp-helper",
+        )
+        for path in paths:
+            with self.subTest(path=path):
+                result = subprocess.run(
+                    ["git", "check-ignore", "-q", path],
+                    cwd=packaging.ROOT_DIR,
+                    capture_output=True,
+                )
+                self.assertEqual(result.returncode, 0, f"{path} is not ignored")
+
+    def test_many_dirty_paths_are_summarised_rather_than_dumped(self):
+        paths = [f" M scripts/release/gate{i}.py" for i in range(7)]
+        with mock.patch.object(publish, "uncommitted_paths", lambda: paths), mock.patch.object(
+            publish, "verification_problems", lambda plan: []
+        ):
+            problems = publish.publishability_problems({})
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("(+2 more)", problems[0])
+        self.assertNotIn("gate6.py", problems[0])
 
 
 if __name__ == "__main__":

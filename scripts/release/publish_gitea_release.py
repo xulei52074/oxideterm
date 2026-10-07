@@ -73,7 +73,9 @@ def uncommitted_paths() -> list[str]:
     """
     try:
         result = subprocess.run(
-            ["git", "status", "--porcelain"],
+            # --untracked-files=all pins the query: a machine-local status.showUntrackedFiles=no
+            # would otherwise hide new files from a check whose whole job is to notice them.
+            ["git", "status", "--porcelain", "--untracked-files=all"],
             cwd=packaging.ROOT_DIR,
             capture_output=True,
             text=True,
@@ -88,9 +90,10 @@ def uncommitted_paths() -> list[str]:
 def verification_problems(plan: dict) -> list[str]:
     """What the release verifier reports about the artifacts this plan would publish.
 
-    The verifier works per target, and one dist/ can hold several of them (macOS x64 and arm64
-    share a tag), so every target the artifacts claim gets its own run. An artifact no target
-    claims is a problem too: nothing would have checked it.
+    The verifier works per target, so every target present in dist/ gets its own run. Packaging
+    clears dist/ at the start of each run, so several targets appear here only when artifacts are
+    staged together (a CI download beside a local build). An artifact no target claims is a problem
+    too: nothing would have checked it.
     """
     version = verifying.normalized_version(plan["tag"])
     names = {Path(asset).name for asset in plan["assets"]}
