@@ -17,6 +17,8 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
+import build_provenance
+
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 APP_MANIFEST = ROOT_DIR / "crates" / "oxideterm-gpui-app" / "Cargo.toml"
@@ -1816,6 +1818,11 @@ def main() -> None:
     for path in sorted(DIST_DIR.iterdir()):
         if path.is_file():
             print(path)
+
+    # Written after the listing so the stamp is not reported as one of the artifacts. It is a
+    # dot-file on purpose: the publisher skips those, so it never reaches a release page.
+    stamp = build_provenance.write_stamp(DIST_DIR, version=version, target=target, root=ROOT_DIR)
+    print(f"==> Provenance stamp {stamp}", flush=True)
 
 
 if __name__ == "__main__":

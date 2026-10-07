@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -26,6 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "custom-branding"))
 
+import build_provenance as provenance  # noqa: E402
 import package_native as packaging  # noqa: E402
 import verify_native_package as verifying  # noqa: E402
 from branding import load as load_branding  # noqa: E402
@@ -68,23 +68,21 @@ def uncommitted_paths() -> list[str]:
 
     Packaging copies resources straight out of the working tree, so artifacts built over
     uncommitted changes cannot be rebuilt from the repository afterwards — that is how the
-    v2.0.29 release ended up with no commit behind it. Ignored build output (dist/, target/,
-    resources/helpers/) stays out of this list on purpose: it is not source.
+    v2.0.29 release ended up with no commit behind it. The shared module owns the git question so
+    that the stamp the packaging step writes and this check answer it the same way.
     """
     try:
-        result = subprocess.run(
-            # --untracked-files=all pins the query: a machine-local status.showUntrackedFiles=no
-            # would otherwise hide new files from a check whose whole job is to notice them.
-            ["git", "status", "--porcelain", "--untracked-files=all"],
-            cwd=packaging.ROOT_DIR,
-            capture_output=True,
-            text=True,
-        )
-    except OSError as error:
-        raise PublishError(f"git could not be run in {packaging.ROOT_DIR}: {error}") from error
-    if result.returncode != 0:
-        raise PublishError(f"git status failed in {packaging.ROOT_DIR}: {result.stderr.strip()}")
-    return [line for line in result.stdout.splitlines() if line.strip()]
+        return provenance.uncommitted_paths(packaging.ROOT_DIR)
+    except provenance.ProvenanceError as error:
+        raise PublishError(str(error)) from error
+
+
+def artifact_stamp() -> dict | None:
+    """The stamp the packaging step left in dist/, or None when it left none."""
+    try:
+        return provenance.read_stamp(DIST)
+    except provenance.ProvenanceError as error:
+        raise PublishError(str(error)) from error
 
 
 def verification_problems(plan: dict) -> list[str]:
@@ -114,6 +112,48 @@ def verification_problems(plan: dict) -> list[str]:
     return problems
 
 
+def provenance_problems(plan: dict) -> list[str]:
+    """What the build provenance stamp says about the artifacts, as refusal reasons.
+
+    The clean-tree check below only knows the tree as it is right now; the stamp records the tree
+    the artifacts were actually built on, which is what a release has to be reproducible from.
+    """
+    stamp = artifact_stamp()
+    if stamp is None:
+        return [
+            f"{DIST} holds no {provenance.STAMP_NAME}: these artifacts did not come from the "
+            "packaging step of this checkout, or they predate provenance stamps"
+        ]
+    problems: list[str] = []
+    if stamp.get("format") != provenance.STAMP_FORMAT:
+        problems.append(
+            f"the provenance stamp is format {stamp.get('format')!r}, expected {provenance.STAMP_FORMAT}"
+        )
+    if stamp.get("dirty") is not False:
+        # None means the build could not tell, which is not the same as clean.
+        problems.append("the artifacts were built over uncommitted changes, so no commit can rebuild them")
+    if not stamp.get("commit"):
+        problems.append("the provenance stamp records no commit")
+    version = verifying.normalized_version(plan["tag"])
+    if stamp.get("version") != version:
+        problems.append(
+            f"the stamp was written for version {stamp.get('version')!r}, but this release is {version!r}"
+        )
+    return problems
+
+
+def provenance_warnings() -> list[str]:
+    """What is worth saying out loud about the provenance without blocking the publish."""
+    commit = (artifact_stamp() or {}).get("commit")
+    head = provenance.head_commit(packaging.ROOT_DIR)
+    if commit and head and commit != head:
+        return [
+            f"the artifacts were built from {commit[:9]}, not the current HEAD {head[:9]}: "
+            "the tag will point at the build commit"
+        ]
+    return []
+
+
 def publishability_problems(plan: dict) -> list[str]:
     """Every reason publishing right now would be a mistake, as readable one-liners."""
     problems: list[str] = []
@@ -122,6 +162,7 @@ def publishability_problems(plan: dict) -> list[str]:
         shown = ", ".join(dirty[:5])
         hidden = "" if len(dirty) <= 5 else f" (+{len(dirty) - 5} more)"
         problems.append(f"the working tree has uncommitted changes: {shown}{hidden}")
+    problems.extend(provenance_problems(plan))
     problems.extend(verification_problems(plan))
     return problems
 
@@ -147,6 +188,48 @@ def request(method: str, url: str, token: str, payload: object | None = None) ->
         return json.loads(body)
     except json.JSONDecodeError:
         return None
+
+
+def commit_is_published(base: str, repository: str, commit: str, token: str) -> bool:
+    """Whether the server knows this commit, since a tag can only point at a commit it has.
+
+    A 404 is an answer rather than an error: publishing before pushing would tag whatever the
+    server's default branch happens to hold, which is the mistake this check exists for.
+    """
+    url = f"{base}/api/v1/repos/{repository}/commits/{commit}"
+    req = urllib.request.Request(
+        url,
+        headers={"Authorization": f"token {token}", "Accept": "application/json"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as response:
+            response.read()
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return False
+        detail = error.read().decode("utf-8", "replace")[:400]
+        raise PublishError(f"checking {commit[:9]} failed: HTTP {error.code} {detail}") from error
+    except urllib.error.URLError as error:
+        raise PublishError(f"checking {commit[:9]} failed: {error.reason}") from error
+    return True
+
+
+def tag_commit(base: str, repository: str, tag: str, token: str) -> str | None:
+    """The commit an existing tag points at, or None when that cannot be read.
+
+    None only means the append-warning stays quiet: the tag was fixed by an earlier publish and
+    nothing here can move it, so a failed read must not fail a publish that already verified.
+    """
+    try:
+        payload = request("GET", f"{base}/api/v1/repos/{repository}/tags/{tag}", token)
+    except PublishError:
+        return None
+    if isinstance(payload, dict):
+        commit = payload.get("commit")
+        if isinstance(commit, dict) and isinstance(commit.get("sha"), str):
+            return commit["sha"]
+    return None
 
 
 def release_for_tag(base_url: str, repository: str, tag: str, token: str) -> dict | None:
@@ -209,12 +292,15 @@ def main(argv: list[str]) -> int:
 
     try:
         problems = publishability_problems(plan)
+        warnings = provenance_warnings()
     except PublishError as error:
         # The gates answer questions about the working tree, so they can fail on their own
         # (no git, no repository). Refusing is right; a traceback would not say why.
         print(f"error: {error}", file=sys.stderr)
         return 1
     if not publish:
+        for warning in warnings:
+            print(f"warning: {warning}")
         for problem in problems:
             print(f"warning: {problem}")
         print("\ndry run: pass --publish to create the release")
@@ -235,8 +321,24 @@ def main(argv: list[str]) -> int:
             print(f"error: {problem}", file=sys.stderr)
         return 1
 
+    for warning in warnings:
+        print(f"warning: {warning}")
+
     base = plan["base_url"]
     repository = plan["repository"]
+    commit = (artifact_stamp() or {}).get("commit")
+    if not commit:
+        # The gates refused a stamp without a commit, so this is the stamp changing between two
+        # reads. Refusing beats tagging a branch tip on the strength of a file that moved.
+        print("error: the artifacts carry no build commit to bind the tag to", file=sys.stderr)
+        return 1
+    if not commit_is_published(base, repository, commit, token):
+        print(
+            f"error: {commit[:9]} is not on {repository} yet. Push it first: a tag can only point "
+            "at a commit the server has, and without it the tag lands on the default branch",
+            file=sys.stderr,
+        )
+        return 1
     release = release_for_tag(base, repository, plan["tag"], token)
     if release is None:
         created = request(
@@ -248,6 +350,9 @@ def main(argv: list[str]) -> int:
                 "name": plan["name"],
                 "prerelease": plan["prerelease"],
                 "draft": False,
+                # Without this the server tags whatever its default branch points at when the
+                # release is created — the way v2.0.29 ended up tagged at an unrelated commit.
+                "target_commitish": commit,
             },
         )
         if not isinstance(created, dict) or "id" not in created:
@@ -256,6 +361,15 @@ def main(argv: list[str]) -> int:
         release = created
     else:
         print(f"adding to release {release.get('id')} for {plan['tag']}")
+        # This API cannot move a tag. Saying so beats letting two platforms' commits quietly share
+        # one version on the download page.
+        published = tag_commit(base, repository, plan["tag"], token)
+        if published and published != commit:
+            print(
+                f"warning: tag {plan['tag']} already points at {published[:9]}, while these "
+                f"artifacts were built from {commit[:9]}",
+                file=sys.stderr,
+            )
 
     # An asset already carrying a name is left alone rather than uploaded again: re-running a
     # platform's publish is a normal thing to do, and a duplicate would give the download page two

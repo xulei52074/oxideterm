@@ -2,6 +2,7 @@
 """Tests for native release packaging helpers."""
 
 from pathlib import Path
+import json
 import plistlib
 import shutil
 import subprocess
@@ -13,7 +14,13 @@ from unittest.mock import call, patch
 # Import the release helpers from their responsibility-specific directory.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "release"))
 
+import build_provenance
 import package_native
+
+
+def run_git(repo: Path, *args: str) -> subprocess.CompletedProcess:
+    """Run git in the throwaway repository the provenance tests build."""
+    return subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=True)
 
 
 class WindowsInstallerScriptTests(unittest.TestCase):
@@ -740,6 +747,54 @@ class LinuxPackagingTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "shlibs:Depends"):
             package_native.parse_dpkg_shlibdeps_output("shlibs:Recommends=libx11-6")
+
+
+class BuildProvenanceStampTests(unittest.TestCase):
+    """The stamp is what the publisher reads, so it has to describe the tree it was built in."""
+
+    def init_repo(self) -> Path:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        repo = Path(directory.name)
+        run_git(repo, "init", "-q", "-b", "main")
+        (repo / "tracked.txt").write_text("first\n", encoding="utf-8")
+        run_git(repo, "add", "tracked.txt")
+        run_git(repo, "-c", "user.email=t@example.test", "-c", "user.name=t", "commit", "-qm", "first")
+        return repo
+
+    def test_the_stamp_names_the_commit_the_branch_and_a_clean_tree(self) -> None:
+        repo = self.init_repo()
+        stamp = build_provenance.write_stamp(
+            repo, version="1.2.3", target="x86_64-apple-darwin", root=repo
+        )
+        payload = json.loads(stamp.read_text(encoding="utf-8"))
+        self.assertEqual(payload["commit"], run_git(repo, "rev-parse", "HEAD").stdout.strip())
+        self.assertEqual(payload["branch"], "main")
+        self.assertIs(payload["dirty"], False)
+        self.assertEqual(payload["version"], "1.2.3")
+        self.assertEqual(payload["format"], build_provenance.STAMP_FORMAT)
+
+    def test_the_stamp_reports_a_dirty_tree(self) -> None:
+        # This is the field that catches the v2.0.29 case, so a hardcoded False must not pass.
+        repo = self.init_repo()
+        (repo / "tracked.txt").write_text("changed\n", encoding="utf-8")
+        stamp = build_provenance.write_stamp(
+            repo, version="1.2.3", target="x86_64-apple-darwin", root=repo
+        )
+        self.assertIs(json.loads(stamp.read_text(encoding="utf-8"))["dirty"], True)
+
+    def test_a_tree_that_cannot_be_inspected_records_nulls_instead_of_failing(self) -> None:
+        # Packaging outside a repository still has to finish; the publisher is where the nulls
+        # become a refusal, and that is the side that owns the decision.
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        stamp = build_provenance.write_stamp(
+            root, version="1.2.3", target="x86_64-apple-darwin", root=root
+        )
+        payload = json.loads(stamp.read_text(encoding="utf-8"))
+        self.assertIsNone(payload["commit"])
+        self.assertIsNone(payload["dirty"])
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ Run from `oxideterm/`:
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -23,8 +24,12 @@ from unittest import mock
 RELEASE_DIR = Path(__file__).resolve().parents[1] / "release"
 sys.path.insert(0, str(RELEASE_DIR))
 
+import build_provenance as provenance  # noqa: E402
 import package_native as packaging  # noqa: E402
 import publish_gitea_release as publish  # noqa: E402
+
+# Stands in for a commit the repository actually has: these tests never need a real one.
+BUILD_COMMIT = "1" * 40
 
 
 def with_artifacts(*names: str):
@@ -34,6 +39,22 @@ def with_artifacts(*names: str):
     for name in names:
         (root / name).write_bytes(b"artifact")
     return directory, root
+
+
+def stamp_dist(root: Path, **overrides) -> dict:
+    """Write the provenance stamp the packaging step leaves beside the artifacts."""
+    stamp = {
+        "format": provenance.STAMP_FORMAT,
+        "version": current_version(),
+        "target": "x86_64-apple-darwin",
+        "commit": BUILD_COMMIT,
+        "branch": "rayterm",
+        "dirty": False,
+        "built_at": "2026-10-07T00:00:00Z",
+    }
+    stamp.update(overrides)
+    (root / provenance.STAMP_NAME).write_text(json.dumps(stamp), encoding="utf-8")
+    return stamp
 
 
 class PlanTests(unittest.TestCase):
@@ -213,6 +234,7 @@ class ProvenanceGateTests(unittest.TestCase):
             publish,
             release_plan=lambda: plan_for(root, name),
             verification_problems=lambda plan: [],
+            provenance_problems=lambda plan: [],
             uncommitted_paths=lambda: [" M scripts/release/package_native.py"],
         ), mock.patch.dict(os.environ, {"GITEA_TOKEN": "token"}):
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
@@ -229,6 +251,7 @@ class ProvenanceGateTests(unittest.TestCase):
             publish,
             release_plan=lambda: plan_for(root, name),
             verification_problems=lambda plan: ["macos_x64 artifacts failed verification: boom"],
+            provenance_problems=lambda plan: [],
             uncommitted_paths=lambda: [" M scripts/release/package_native.py"],
         ):
             with contextlib.redirect_stdout(stdout):
@@ -236,19 +259,30 @@ class ProvenanceGateTests(unittest.TestCase):
         self.assertIn("warning: the working tree has uncommitted changes", stdout.getvalue())
         self.assertIn("warning: macos_x64 artifacts failed verification: boom", stdout.getvalue())
 
-    def test_a_clean_verified_tree_still_publishes(self):
-        # The gates are not a wall: clean tree plus verified artifacts has to reach the uploads.
-        name = "RayTerm_2.0.29_macos_x64.dmg"
+    def test_a_clean_verified_tree_publishes_and_binds_the_tag_to_the_build_commit(self):
+        # The gates are not a wall: a clean tree, verified artifacts and a stamp have to reach the
+        # uploads, and the release request has to name the commit the artifacts came from — the
+        # server tags its default branch head when that field is missing.
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
         directory, root = with_artifacts(name)
+        stamp_dist(root)
         uploaded: list[str] = []
+        payloads: list[tuple[str, object]] = []
+
+        def record(method, url, token, payload=None):
+            payloads.append((method, payload))
+            return {"id": 7, "assets": []}
+
         with directory, mock.patch.multiple(
             publish,
             release_plan=lambda: plan_for(root, name),
             verification_problems=lambda plan: [],
+            provenance_problems=lambda plan: [],
             uncommitted_paths=lambda: [],
             release_for_tag=lambda *args: None,
-            request=lambda *args, **kwargs: {"id": 7, "assets": []},
-        ), mock.patch.object(
+            commit_is_published=lambda *args: True,
+            request=record,
+        ), mock.patch.object(publish, "DIST", root), mock.patch.object(
             publish,
             "upload_asset",
             lambda base, repo, release_id, path, token: uploaded.append(path.name),
@@ -256,12 +290,15 @@ class ProvenanceGateTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(publish.main(["publish", "--publish"]), 0)
         self.assertEqual(uploaded, [name])
+        created = [payload for method, payload in payloads if method == "POST"]
+        self.assertEqual(len(created), 1, payloads)
+        self.assertEqual(created[0]["target_commitish"], BUILD_COMMIT)
 
 
     def test_a_missing_git_is_reported_as_a_publish_error(self):
         # Nothing to inspect the tree with is a refusal, not a crash: the alternative was
         # publishing artifacts whose provenance could not be checked at all.
-        with mock.patch.object(publish.subprocess, "run", side_effect=FileNotFoundError("git")):
+        with mock.patch.object(provenance.subprocess, "run", side_effect=FileNotFoundError("git")):
             with self.assertRaises(publish.PublishError) as caught:
                 publish.uncommitted_paths()
         self.assertIn("git could not be run", str(caught.exception))
@@ -318,13 +355,126 @@ class ProvenanceGateTests(unittest.TestCase):
 
     def test_many_dirty_paths_are_summarised_rather_than_dumped(self):
         paths = [f" M scripts/release/gate{i}.py" for i in range(7)]
-        with mock.patch.object(publish, "uncommitted_paths", lambda: paths), mock.patch.object(
-            publish, "verification_problems", lambda plan: []
+        with mock.patch.multiple(
+            publish,
+            uncommitted_paths=lambda: paths,
+            provenance_problems=lambda plan: [],
+            verification_problems=lambda plan: [],
         ):
             problems = publish.publishability_problems({})
         self.assertEqual(len(problems), 1, problems)
         self.assertIn("(+2 more)", problems[0])
         self.assertNotIn("gate6.py", problems[0])
+
+
+class BuildProvenanceTests(unittest.TestCase):
+    """What the stamp says decides whether a publish is allowed, so every field is checked."""
+
+    def problems_for(self, root: Path, name: str, **stamp_overrides) -> list[str]:
+        stamp_dist(root, **stamp_overrides)
+        with mock.patch.object(publish, "DIST", root):
+            return publish.provenance_problems(plan_for(root, name))
+
+    def test_artifacts_without_a_stamp_are_refused(self):
+        # Without the stamp nothing links the bytes to a commit, which is the whole point.
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        with directory, mock.patch.object(publish, "DIST", root):
+            problems = publish.provenance_problems(plan_for(root, name))
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn(provenance.STAMP_NAME, problems[0])
+
+    def test_artifacts_built_over_a_dirty_tree_are_refused(self):
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        with directory:
+            problems = self.problems_for(root, name, dirty=True)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("uncommitted changes", problems[0])
+
+    def test_a_stamp_that_could_not_tell_whether_the_tree_was_dirty_is_refused(self):
+        # None is "the build could not tell", which is not the same as clean.
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        with directory:
+            problems = self.problems_for(root, name, dirty=None)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("uncommitted changes", problems[0])
+
+    def test_a_stamp_without_a_commit_is_refused(self):
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        with directory:
+            problems = self.problems_for(root, name, commit=None)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("records no commit", problems[0])
+
+    def test_a_stamp_written_for_another_version_is_refused(self):
+        # A stale stamp would bind a new version's tag to an old build's commit.
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        with directory:
+            problems = self.problems_for(root, name, version="0.0.1")
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("0.0.1", problems[0])
+
+    def test_an_unreadable_stamp_refuses_cleanly(self):
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        (root / provenance.STAMP_NAME).write_text("{not json", encoding="utf-8")
+        with directory, mock.patch.object(publish, "DIST", root):
+            with self.assertRaises(publish.PublishError) as caught:
+                publish.provenance_problems(plan_for(root, name))
+        self.assertIn(provenance.STAMP_NAME, str(caught.exception))
+
+    def test_a_commit_the_server_does_not_have_is_refused(self):
+        # Tagging a commit the server lacks is how the tag ends up on the default branch instead.
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        stamp_dist(root)
+        stderr = io.StringIO()
+        with directory, mock.patch.object(publish, "DIST", root), mock.patch.multiple(
+            publish,
+            release_plan=lambda: plan_for(root, name),
+            verification_problems=lambda plan: [],
+            uncommitted_paths=lambda: [],
+            commit_is_published=lambda *args: False,
+        ), mock.patch.dict(os.environ, {"GITEA_TOKEN": "token"}):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                self.assertEqual(publish.main(["publish", "--publish"]), 1)
+        self.assertIn("not on root/oxideterm yet", stderr.getvalue())
+
+    def test_a_build_commit_that_is_not_head_is_a_warning_not_a_refusal(self):
+        # The tag is bound to the stamp's commit, so an older build is publishable; the operator
+        # still deserves to be told that is what happened.
+        with mock.patch.object(publish, "artifact_stamp", lambda: {"commit": "1" * 40}), mock.patch.object(
+            provenance, "head_commit", lambda root: "2" * 40
+        ):
+            warnings = publish.provenance_warnings()
+        self.assertEqual(len(warnings), 1, warnings)
+        self.assertIn("1" * 9, warnings[0])
+        self.assertIn("2" * 9, warnings[0])
+
+    def test_appending_to_a_tag_that_points_elsewhere_says_so(self):
+        # This API cannot move a tag, so the only honest thing left is to record the mismatch.
+        name = f"RayTerm_{current_version()}_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        stamp_dist(root)
+        stderr = io.StringIO()
+        with directory, mock.patch.object(publish, "DIST", root), mock.patch.multiple(
+            publish,
+            release_plan=lambda: plan_for(root, name),
+            verification_problems=lambda plan: [],
+            uncommitted_paths=lambda: [],
+            commit_is_published=lambda *args: True,
+            release_for_tag=lambda *args: {"id": 9, "assets": []},
+            tag_commit=lambda *args: "3" * 40,
+            upload_asset=lambda *args: None,
+        ), mock.patch.dict(os.environ, {"GITEA_TOKEN": "token"}):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                self.assertEqual(publish.main(["publish", "--publish"]), 0)
+        self.assertIn("already points at", stderr.getvalue())
+        self.assertIn("3" * 9, stderr.getvalue())
 
 
 if __name__ == "__main__":
