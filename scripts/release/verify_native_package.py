@@ -40,18 +40,22 @@ def normalized_version(raw: str) -> str:
     return raw
 
 
+# Release targets mapped to the label their artifact names carry. The publisher reads this too:
+# it has to know which target a dist/ directory holds before it can ask the verifier about it.
+TARGET_LABELS = {
+    "x86_64-apple-darwin": "macos_x64",
+    "aarch64-apple-darwin": "macos_arm64",
+    "x86_64-pc-windows-msvc": "windows_x64",
+    "aarch64-pc-windows-msvc": "windows_arm64",
+    "x86_64-unknown-linux-gnu": "linux_x64",
+    "aarch64-unknown-linux-gnu": "linux_arm64",
+}
+
+
 def target_label(target: str) -> str:
-    labels = {
-        "x86_64-apple-darwin": "macos_x64",
-        "aarch64-apple-darwin": "macos_arm64",
-        "x86_64-pc-windows-msvc": "windows_x64",
-        "aarch64-pc-windows-msvc": "windows_arm64",
-        "x86_64-unknown-linux-gnu": "linux_x64",
-        "aarch64-unknown-linux-gnu": "linux_arm64",
-    }
-    if target not in labels:
+    if target not in TARGET_LABELS:
         raise ValueError(f"unsupported release target: {target}")
-    return labels[target]
+    return TARGET_LABELS[target]
 
 
 def expected_artifact_names(target: str, version: str) -> set[str]:

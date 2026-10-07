@@ -11,6 +11,7 @@ Run from `oxideterm/`:
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import contextlib
 import io
@@ -128,6 +129,118 @@ class GateTests(unittest.TestCase):
         ):
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(publish.main(["publish"]), 1)
+
+
+def run_git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+
+
+def plan_for(root: Path, *names: str) -> dict:
+    """A plan carrying real files, so the gates see the names they would see in a publish."""
+    version = packaging.normalized_version(packaging.raw_release_version())
+    return {
+        "base_url": "http://example.test",
+        "repository": "root/oxideterm",
+        "tag": f"v{version}",
+        "name": "RayTerm test",
+        "channel": "stable",
+        "prerelease": False,
+        "assets": [str(root / name) for name in names],
+    }
+
+
+class ProvenanceGateTests(unittest.TestCase):
+    """Publishing must be reproducible from a commit and pass the release verifier.
+
+    Both gates answer questions whose wrong answer is silent: a release built over uncommitted
+    changes looks fine from the download page, and so does an artifact nothing ever checked.
+    """
+
+    def test_an_artifact_no_target_claims_is_reported(self):
+        name = "RayTerm_2.0.29_mystery_label.zip"
+        directory, root = with_artifacts(name)
+        with directory, mock.patch.object(publish, "DIST", root):
+            problems = publish.verification_problems(plan_for(root, name))
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn(f"no release target claims {name}", problems[0])
+
+    def test_incomplete_artifacts_for_a_target_fail_verification(self):
+        # One macOS artifact and nothing else must not pass as a published macOS build.
+        name = "RayTerm_2.0.29_macos_x64_portable.tar.gz"
+        directory, root = with_artifacts(name)
+        with directory, mock.patch.object(publish, "DIST", root):
+            problems = publish.verification_problems(plan_for(root, name))
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("macos_x64 artifacts failed verification", problems[0])
+
+    def test_ignored_build_output_is_not_an_uncommitted_change(self):
+        # Packaging rewrites dist/ and resources/helpers/ on every run. A gate that fires on those
+        # would be worked around instead of satisfied, so it has to leave ignored paths alone.
+        directory = tempfile.TemporaryDirectory()
+        repo = Path(directory.name)
+        run_git(repo, "init", "-q")
+        (repo / ".gitignore").write_text("dist/\n")
+        run_git(repo, "add", ".gitignore")
+        run_git(repo, "-c", "user.email=t@example.test", "-c", "user.name=t", "commit", "-qm", "init")
+        (repo / "dist").mkdir()
+        (repo / "dist" / "artifact.zip").write_bytes(b"artifact")
+
+        with directory, mock.patch.object(packaging, "ROOT_DIR", repo):
+            self.assertEqual(publish.uncommitted_paths(), [])
+            (repo / "stray.txt").write_text("not build output")
+            self.assertEqual(publish.uncommitted_paths(), ["?? stray.txt"])
+
+    def test_publishing_over_an_uncommitted_tree_is_refused(self):
+        name = "RayTerm_2.0.29_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        stderr = io.StringIO()
+        with directory, mock.patch.multiple(
+            publish,
+            release_plan=lambda: plan_for(root, name),
+            verification_problems=lambda plan: [],
+            uncommitted_paths=lambda: [" M scripts/release/package_native.py"],
+        ), mock.patch.dict(os.environ, {"GITEA_TOKEN": "token"}):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                self.assertEqual(publish.main(["publish", "--publish"]), 1)
+        self.assertIn("uncommitted changes", stderr.getvalue())
+        self.assertIn("package_native.py", stderr.getvalue())
+
+    def test_a_dry_run_reports_the_same_problems_but_still_succeeds(self):
+        # The dry run exists to show what publishing would do, so it must not hide the refusal.
+        name = "RayTerm_2.0.29_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        stdout = io.StringIO()
+        with directory, mock.patch.multiple(
+            publish,
+            release_plan=lambda: plan_for(root, name),
+            verification_problems=lambda plan: ["macos_x64 artifacts failed verification: boom"],
+            uncommitted_paths=lambda: [" M scripts/release/package_native.py"],
+        ):
+            with contextlib.redirect_stdout(stdout):
+                self.assertEqual(publish.main(["publish"]), 0)
+        self.assertIn("warning: the working tree has uncommitted changes", stdout.getvalue())
+        self.assertIn("warning: macos_x64 artifacts failed verification: boom", stdout.getvalue())
+
+    def test_a_clean_verified_tree_still_publishes(self):
+        # The gates are not a wall: clean tree plus verified artifacts has to reach the uploads.
+        name = "RayTerm_2.0.29_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        uploaded: list[str] = []
+        with directory, mock.patch.multiple(
+            publish,
+            release_plan=lambda: plan_for(root, name),
+            verification_problems=lambda plan: [],
+            uncommitted_paths=lambda: [],
+            release_for_tag=lambda *args: None,
+            request=lambda *args, **kwargs: {"id": 7, "assets": []},
+        ), mock.patch.object(
+            publish,
+            "upload_asset",
+            lambda base, repo, release_id, path, token: uploaded.append(path.name),
+        ), mock.patch.dict(os.environ, {"GITEA_TOKEN": "token"}):
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(publish.main(["publish", "--publish"]), 0)
+        self.assertEqual(uploaded, [name])
 
 
 if __name__ == "__main__":

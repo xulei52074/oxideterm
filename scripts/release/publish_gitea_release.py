@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -26,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "custom-branding"))
 
 import package_native as packaging  # noqa: E402
+import verify_native_package as verifying  # noqa: E402
 from branding import load as load_branding  # noqa: E402
 
 DIST = packaging.DIST_DIR
@@ -59,6 +61,63 @@ def release_plan() -> dict:
         "prerelease": identity.channel != "stable",
         "assets": [str(path) for path in assets],
     }
+
+
+def uncommitted_paths() -> list[str]:
+    """Working tree entries that no commit holds yet.
+
+    Packaging copies resources straight out of the working tree, so artifacts built over
+    uncommitted changes cannot be rebuilt from the repository afterwards — that is how the
+    v2.0.29 release ended up with no commit behind it. Ignored build output (dist/, target/,
+    resources/helpers/) stays out of this list on purpose: it is not source.
+    """
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=packaging.ROOT_DIR,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise PublishError(f"git status failed in {packaging.ROOT_DIR}: {result.stderr.strip()}")
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def verification_problems(plan: dict) -> list[str]:
+    """What the release verifier reports about the artifacts this plan would publish.
+
+    The verifier works per target, and one dist/ can hold several of them (macOS x64 and arm64
+    share a tag), so every target the artifacts claim gets its own run. An artifact no target
+    claims is a problem too: nothing would have checked it.
+    """
+    version = verifying.normalized_version(plan["tag"])
+    names = {Path(asset).name for asset in plan["assets"]}
+    claimed: set[str] = set()
+    problems: list[str] = []
+    for target in verifying.TARGET_LABELS:
+        expected = verifying.expected_artifact_names(target, version)
+        if not names & expected:
+            continue
+        claimed |= names & expected
+        try:
+            verifying.verify_release(DIST, target, version)
+        except Exception as error:  # the verifier reports failures through several exception types
+            problems.append(f"{verifying.target_label(target)} artifacts failed verification: {error}")
+    unclaimed = sorted(names - claimed)
+    if unclaimed:
+        problems.append(f"no release target claims {', '.join(unclaimed)}")
+    return problems
+
+
+def publishability_problems(plan: dict) -> list[str]:
+    """Every reason publishing right now would be a mistake, as readable one-liners."""
+    problems: list[str] = []
+    dirty = uncommitted_paths()
+    if dirty:
+        shown = ", ".join(dirty[:5])
+        hidden = "" if len(dirty) <= 5 else f" (+{len(dirty) - 5} more)"
+        problems.append(f"the working tree has uncommitted changes: {shown}{hidden}")
+    problems.extend(verification_problems(plan))
+    return problems
 
 
 def request(method: str, url: str, token: str, payload: object | None = None) -> object:
@@ -142,7 +201,10 @@ def main(argv: list[str]) -> int:
     for asset in plan["assets"]:
         print(f"             {Path(asset).name}")
 
+    problems = publishability_problems(plan)
     if not publish:
+        for problem in problems:
+            print(f"warning: {problem}")
         print("\ndry run: pass --publish to create the release")
         return 0
 
@@ -154,6 +216,11 @@ def main(argv: list[str]) -> int:
             "land in the repository.",
             file=sys.stderr,
         )
+        return 1
+
+    if problems:
+        for problem in problems:
+            print(f"error: {problem}", file=sys.stderr)
         return 1
 
     base = plan["base_url"]
