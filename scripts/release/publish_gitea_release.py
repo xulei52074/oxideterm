@@ -71,12 +71,15 @@ def uncommitted_paths() -> list[str]:
     v2.0.29 release ended up with no commit behind it. Ignored build output (dist/, target/,
     resources/helpers/) stays out of this list on purpose: it is not source.
     """
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=packaging.ROOT_DIR,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=packaging.ROOT_DIR,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as error:
+        raise PublishError(f"git could not be run in {packaging.ROOT_DIR}: {error}") from error
     if result.returncode != 0:
         raise PublishError(f"git status failed in {packaging.ROOT_DIR}: {result.stderr.strip()}")
     return [line for line in result.stdout.splitlines() if line.strip()]
@@ -201,7 +204,13 @@ def main(argv: list[str]) -> int:
     for asset in plan["assets"]:
         print(f"             {Path(asset).name}")
 
-    problems = publishability_problems(plan)
+    try:
+        problems = publishability_problems(plan)
+    except PublishError as error:
+        # The gates answer questions about the working tree, so they can fail on their own
+        # (no git, no repository). Refusing is right; a traceback would not say why.
+        print(f"error: {error}", file=sys.stderr)
+        return 1
     if not publish:
         for problem in problems:
             print(f"warning: {problem}")

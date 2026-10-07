@@ -243,5 +243,30 @@ class ProvenanceGateTests(unittest.TestCase):
         self.assertEqual(uploaded, [name])
 
 
+    def test_a_missing_git_is_reported_as_a_publish_error(self):
+        # Nothing to inspect the tree with is a refusal, not a crash: the alternative was
+        # publishing artifacts whose provenance could not be checked at all.
+        with mock.patch.object(publish.subprocess, "run", side_effect=FileNotFoundError("git")):
+            with self.assertRaises(publish.PublishError) as caught:
+                publish.uncommitted_paths()
+        self.assertIn("git could not be run", str(caught.exception))
+
+    def test_a_gate_that_cannot_run_refuses_cleanly(self):
+        # main() has to turn a gate failure into a refusal with a reason. A traceback would hide
+        # that publishing was never attempted.
+        name = "RayTerm_2.0.29_macos_x64.dmg"
+        directory, root = with_artifacts(name)
+        stderr = io.StringIO()
+        unreachable = mock.Mock(side_effect=publish.PublishError("git could not be run in /x: boom"))
+        with directory, mock.patch.multiple(
+            publish,
+            release_plan=lambda: plan_for(root, name),
+            uncommitted_paths=unreachable,
+        ), mock.patch.dict(os.environ, {"GITEA_TOKEN": "token"}):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                self.assertEqual(publish.main(["publish", "--publish"]), 1)
+        self.assertIn("error: git could not be run", stderr.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
